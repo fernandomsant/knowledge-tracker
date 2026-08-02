@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="KnowledgeTracker.Application/KnowledgeTracker.Application.csproj" />
+  <Project Path="KnowledgeTracker.Authentication.Tests/KnowledgeTracker.Authentication.Tests.csproj" />
+  <Project Path="KnowledgeTracker.Data/KnowledgeTracker.Data.csproj" />
+  <Project Path="KnowledgeTracker.Domain/KnowledgeTracker.Domain.csproj" />
+  <Project Path="KnowledgeTracker.Infrastructure/KnowledgeTracker.Infrastructure.csproj" />
+  <Project Path="KnowledgeTracker.Web/KnowledgeTracker.Web.csproj" />
+</Solution>

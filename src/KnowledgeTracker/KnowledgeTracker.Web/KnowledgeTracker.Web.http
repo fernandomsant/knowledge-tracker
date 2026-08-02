@@ -1,0 +1,6 @@
+@KnowledgeTracker.Web_HostAddress = http://localhost:5015
+
+GET {{KnowledgeTracker.Web_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

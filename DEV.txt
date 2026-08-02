@@ -1,0 +1,23 @@
+Knowledge Tracker é uma ferramenta que acompanha seus estudos com o propósito de
+registrar seu progresso e auxiliar a fixação do conhecimento.
+
+Quais matérias precisam de revisão?
+O quanto você estudou cada assunto?
+Quais notas você escreveu ao longo do seu progresso?
+Você está se dedicando o quanto deveria?
+
+Ao estruturar os seus estudos, a aplicação é capaz de te fornecer insights e te desafiar, por meio de
+perguntas direcionadas geradas com inteligência artificial.
+A base do conhecimento é formada não somente pela repetição, mas pela revisão e principalmente pelo feedback de erro:
+Errar e entender onde errou é como recalibrar seu modelo mental da realidade. Você se torna melhor a cada recalibragem,
+por isso não tenha medo de errar.
+
+O Knowledge Tracker tem como princípios ser visual, interativo e compartilhável.
+Os assuntos e matérias são dispostos em um canva navegável, e aqueles que estão
+relacionados são vinculados visualmente mais ou menos fortemente de acordo com sua associação, permitindo que o usuário
+conheça e absorvar melhor as relações entre as áreas de forma intuitiva.
+O sistema permite que você informe seus estudos de forma detalhada e como achar melhor, e, com base no que é imputado, devolve
+informações de relevantes para métricas e diagnósticos relativos à performance e melhor desenvolvimento do aluno.
+A fim de proporcionar um ambiente de ajuda mútua e também de competição, visando estimular o aprendiz a superar seus limites,
+acreditando que ele pode ser muito maior do que imagina, a ferramenta viabiliza essa troca entre usuários e em comunidades,
+abertas ou fechadas. O usuário torna público apenas aquilo que quiser, para quem quiser.

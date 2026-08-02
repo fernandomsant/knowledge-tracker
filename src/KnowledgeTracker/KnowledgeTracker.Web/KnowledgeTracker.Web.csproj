@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\KnowledgeTracker.Application\KnowledgeTracker.Application.csproj" />
+    <ProjectReference Include="..\KnowledgeTracker.Data\KnowledgeTracker.Data.csproj" />
+    <ProjectReference Include="..\KnowledgeTracker.Infrastructure\KnowledgeTracker.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+</Project>

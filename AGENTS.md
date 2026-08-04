@@ -1,24 +1,25 @@
-<!-- gitnexus:start -->
-# GitNexus — Code Intelligence
+﻿<!-- gitnexus:start -->
+# GitNexus â€” Code Intelligence
 
 This project is indexed by GitNexus as **knowledge-tracker** (19 symbols, 17 relationships, 0 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
-> Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
+> Index stale? Run `node .gitnexus/run.cjs analyze` from the project root â€” it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash â†’ `npm i -g gitnexus`; #1939).
 
 ## Always Do
 
+- **MUST run gitnexus analyze when needed.** Run it whenever the index is absent, stale, or after major structural code changes before relying on GitNexus results.
 - **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
 - **MUST run `detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows. For regression review, compare against the default branch: `detect_changes({scope: "compare", base_ref: "main"})`.
 - **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
 - When exploring unfamiliar code, use `query({search_query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
-- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `context({name: "symbolName"})`.
-- For security review, `explain({target: "fileOrSymbol"})` lists taint findings (source→sink flows; needs `analyze --pdg`).
+- When you need full context on a specific symbol â€” callers, callees, which execution flows it participates in â€” use `context({name: "symbolName"})`.
+- For security review, `explain({target: "fileOrSymbol"})` lists taint findings (sourceâ†’sink flows; needs `analyze --pdg`).
 
 ## Never Do
 
 - NEVER edit a function, class, or method without first running `impact` on it.
 - NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
-- NEVER rename symbols with find-and-replace — use `rename` which understands the call graph.
+- NEVER rename symbols with find-and-replace â€” use `rename` which understands the call graph.
 - NEVER commit changes without running `detect_changes()` to check affected scope.
 
 ## Resources
@@ -47,146 +48,135 @@ This project is indexed by GitNexus as **knowledge-tracker** (19 symbols, 17 rel
 
 Knowledge Tracker is a study management platform that helps users organize knowledge, record learning progress, identify review needs, and reinforce understanding through notes, performance insights, and AI-generated questions. Its experience is centered on an interactive visual map of related subjects, with optional social and community features for sharing progress and learning collaboratively.
 
-## Module Planning and Implementation Tracking
+### Direct File Editing
 
-Project features are specified, planned, and tracked through a three-stage
-documentation workflow:
+Edit project files directly. Do not generate or present patches, diffs, or patch instructions unless explicitly requested. Apply all required changes to the actual files in the repository.
 
-1. `docs/modules/<module>/` contains the module specification and all information
-   required to describe what must be implemented. The agent must create or
-   modify module documentation only when explicitly instructed by the user and
-   must follow the user's directions for its content.
-2. After the module documentation exists, `docs/workplan/<module>/` contains one
-   or more work-plan files. Each file represents one incremental, executable
-   stage of the module's implementation plan and must give another agent enough
-   context and precise instructions to complete that stage while following the
-   project's architecture and conventions. A module may use a single work-plan
-   file when one stage is sufficient, or multiple ordered files when the work
-   must be implemented incrementally.
-3. While executing the work plan, `docs/progress/<module>/` contains one or more
-   progress files organized in the same way. Each progress file corresponds to
-   one work-plan stage and must state what was implemented for that stage, what
-   was verified, any relevant decisions or deviations, and what remains to be
-   done. A module with multiple executed work-plan stages must therefore have
-   multiple corresponding progress files.
+### Project Structure
 
-The required lifecycle is:
+Organize the codebase into the following projects:
+
+#### Database Migrations
+
+Store all database migrations inside the Data project under the `migrations/` directory.
+
+Whenever development introduces a persisted entity, relationship, constraint, index, or structural database change, define it through explicit SQL migration files. Do not create or modify the database schema exclusively through application code.
+
+Use one migration file per coherent schema change and name files with a sequential prefix and a descriptive name, for example:
 
 ```text
-Explicit user command and instructions
-    → docs/modules/<module>/
-        → docs/workplan/<module>/
-            → implementation
-                → docs/progress/<module>/
+Data/
+  migrations/
+    001-create-users.sql
+    002-create-auth-accounts.sql
+    003-create-user-auth-account-relationship.sql
 ```
 
-Before planning or implementing a module, read its complete documentation under
-`docs/modules/<module>/`. Before implementing a stage, read its specific
-work-plan file under `docs/workplan/<module>/`, all prerequisite work-plan
-stages, and the existing records under `docs/progress/<module>/` so work resumes
-from the actual recorded state rather than being repeated or assumed.
+Migration files must:
 
-Work-plan and progress documentation must remain aligned: every executed
-work-plan stage must have a distinct corresponding progress file. Use matching
-stage identifiers or filenames so the relationship is unambiguous. Progress
-must not claim completion without implementation and verification evidence.
+* Contain deterministic SQL.
+* Create all required tables, columns, keys, constraints, relationships, and indexes.
+* Use explicit data types and nullability.
+* Define foreign-key behavior intentionally.
+* Be ordered so that dependencies are created before objects that reference them.
+* Remain immutable after they have been applied; subsequent changes must be introduced through new migration files.
 
-## Layer Architecture Documentation
+Every persisted Domain entity and every relationship introduced during development must have a corresponding SQL definition in `Data/migrations/`.
 
-KnowledgeTracker is implemented using a layered architecture.
 
-Before creating, modifying, moving, or reviewing code in a layer, read the corresponding architecture document:
+#### Domain
 
-| Layer                     | Required documentation                       |
-| ------------------------- | -------------------------------------------- |
-| `KnowledgeTracker.Domain`         | `docs/architecture/layers/domain.md`         |
-| `KnowledgeTracker.Application`    | `docs/architecture/layers/application.md`    |
-| `KnowledgeTracker.Data`           | `docs/architecture/layers/data.md`           |
-| `KnowledgeTracker.Infrastructure` | `docs/architecture/layers/infrastructure.md` |
-| `KnowledgeTracker.Web`            | `docs/architecture/layers/web.md`            |
+Contains the core business model and business rules.
 
-When a task affects multiple layers, read every applicable layer document before making changes.
+* Entities
+* Value objects
+* Domain services
+* Domain exceptions
+* Domain enums
 
-### Required Workflow
+The Domain project must not depend on Application, Infrastructure, Data, or Web.
 
-1. Identify every layer affected by the requested behavior.
-2. Read the architecture document for each affected layer.
-3. Read the business specification for the affected module or use case.
-4. Inspect the existing relational schema under `KnowledgeTracker.Data/database/schemas` when creating or changing persisted Domain entities.
-5. Use GitNexus to locate structurally similar implementations and related symbols.
-6. Use GitNexus impact analysis before changing existing public contracts or shared symbols.
-7. Implement the smallest complete behavior that satisfies the specification.
-8. Verify that dependencies continue to follow the permitted direction.
-9. Review the final changes against every applicable layer document.
-10. Use GitNexus change detection before declaring the task complete.
+#### Application
 
-### Mandatory Layer Direction
+Contains application behavior and abstractions.
 
-The intended dependency direction is:
+* Use case interfaces and implementations
+* Repository interfaces
+* Application service interfaces
+* Request and response contracts
+* Application-level validation
+
+Group use cases, repository interfaces, and contracts by functional scope or module.
+
+The Application project may depend on Domain, but must not depend on Infrastructure, Data, or Web.
+
+#### Infrastructure
+
+Contains implementations for external systems and technical services that are not part of the database layer.
+
+Examples include:
+
+* Authentication and token services
+* Email services
+* File storage
+* External API clients
+* System clock and environment services
+
+Infrastructure may implement interfaces defined by Application.
+
+#### Data
+
+Contains the SQL-based database implementation.
+
+* SQL scripts and schemas
+* Database connection management
+* Repository implementations
+* Query and command execution
+* Row mapping
+* Transaction management
+
+Repository implementations must implement interfaces defined in Application. Keep SQL queries explicit and grouped by their functional scope.
+
+#### Web
+
+Contains the controller-based HTTP API.
+
+* Controllers
+* HTTP request and response models
+* Middleware
+* Filters
+* Authentication and authorization configuration
+* Dependency injection and application startup
+
+Controllers must remain thin. They should validate HTTP-level input, call Application use cases, and translate results into HTTP responses. Business logic and direct SQL access must not be implemented in controllers.
+
+### Folder Organization
+
+Within each project, separate classes by responsibility and functional scope. Use folders such as `Entities`, `Repositories`, `UseCases`, `Contracts`, `Services`, `Controllers`, and `Database` where applicable.
+Try to maintain UseCase classes comprehensive, do not create an unique big fat file.
+
+Prefer scope-first organization when a module contains several related classes. For example:
 
 ```text
-KnowledgeTracker.Web
-    → KnowledgeTracker.Application
-        → KnowledgeTracker.Domain
+Application/
+  Users/
+    UseCases/
+    Repositories/
+    Contracts/
 
-KnowledgeTracker.Data
-    → KnowledgeTracker.Application
-    → KnowledgeTracker.Domain
+Data/
+  Users/
+    Repositories/
+    Queries/
 
-KnowledgeTracker.Infrastructure
-    → KnowledgeTracker.Application
-    → KnowledgeTracker.Domain
+Web/
+  Users/
+    Controllers/
+    Models/
 ```
 
-`KnowledgeTracker.Domain` must not depend on any other KnowledgeTracker project.
+Do not place unrelated classes in generic folders or combine multiple architectural responsibilities in the same class.
 
-`KnowledgeTracker.Application` must not depend on Data, Infrastructure, or Web.
-
-Controllers must call use-case interfaces and must not access repositories directly.
-
-Repository interfaces and use-case interfaces must be defined before their respective implementations.
-
-Repository implementations must execute versioned stored procedures rather than embedding SQL directly in C#.
-
-Do not assume that a familiar architectural pattern is implemented generically. Follow the precise conventions defined in the layer documentation and the existing KnowledgeTracker codebase.
-
-## Migration Specification Workflow
-
-Database changes use a two-stage workflow.
-
-### Analysis stage
-
-The analysis agent must convert the user's request into a Migration
-Specification based on:
-
-- the business request;
-- the current relational schema;
-- the related Domain structures;
-- the Data-layer architecture documentation;
-- related code discovered through GitNexus.
-
-The analysis agent must not create migration SQL.
-
-Read `docs/architecture/database/migration.md` before writing the specification.
-
-The generated specification must be stored under:
-
-`docs/changes/migrations/<migration-id>-<name>.md`
-
-### Implementation stage
-
-Before creating or modifying a migration, the implementation agent must read:
-
-1. The applicable Migration Specification.
-2. `docs/architecture/layers/data.md`.
-3. The referenced existing migrations and procedures.
-4. The related Domain structures.
-
-The Migration Specification is authoritative for the requested change.
-
-The implementation agent may report contradictions or missing decisions, but
-must not silently alter cardinality, nullability, ownership, uniqueness,
-deletion behavior, or compatibility requirements.
 
 ### Direct File Editing
 
@@ -195,3 +185,24 @@ Edit project files directly. Do not generate or present patches, diffs, or patch
 ### Project Folder Organization
 
 Organize classes into folders according to their responsibility, such as `Repositories`, `UseCases`, `Services`, `Entities`, `Interfaces`, and `Contracts`. Within these folders, group classes by their functional scope or module. Do not place unrelated classes in the same folder or keep multiple responsibilities in generic folders.
+
+### Project File Access
+
+Do not request user approval to read or edit files inside this project workspace. The agent already has that permission and must proceed directly; ask only for actions outside the workspace or for external, destructive, or otherwise separately authorized operations.
+
+### Code Comments
+
+Add comments only when they provide context that the code cannot express clearly by itself.
+
+Comments should explain:
+
+* Non-obvious business rules.
+* Important architectural decisions.
+* Complex algorithms or control flow.
+* Security-sensitive behavior.
+* Workarounds and their underlying reasons.
+* Assumptions that future changes could invalidate.
+
+Do not comment obvious statements, repeat method or property names, or describe each line of code. Prefer clear naming, small methods, and well-structured classes over explanatory comments.
+
+Keep comments concise and update or remove them whenever the related implementation changes.

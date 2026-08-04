@@ -1,5 +1,4 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-
   <ItemGroup>
     <ProjectReference Include="..\KnowledgeTracker.Domain\KnowledgeTracker.Domain.csproj" />
     <ProjectReference Include="..\KnowledgeTracker.Application\KnowledgeTracker.Application.csproj" />
@@ -12,5 +11,4 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
-
 </Project>

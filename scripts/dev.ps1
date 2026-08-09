@@ -7,8 +7,13 @@ if (Test-Path -LiteralPath $processFile) {
     $processes = Get-Content -Raw -LiteralPath $processFile | ConvertFrom-Json
     $running = @($processes | Where-Object { Get-Process -Id $_.Id -ErrorAction SilentlyContinue })
     if ($running.Count -gt 0) {
-        throw 'The development services are already running. Use npm run dev:stop before starting them again.'
+        Write-Output 'Restarting the existing development services...'
+        foreach ($process in $running) {
+            & taskkill.exe /PID $process.Id /T /F 2>$null | Out-Null
+        }
     }
+
+    Remove-Item -LiteralPath $processFile -Force
 }
 
 New-Item -ItemType Directory -Force -Path $runtimeDirectory | Out-Null
@@ -26,7 +31,7 @@ $backend = Start-Process -FilePath 'dotnet' `
     -PassThru
 
 $frontend = Start-Process -FilePath 'npm.cmd' `
-    -ArgumentList @('run', 'dev', '--', '--host', '127.0.0.1', '--strictPort') `
+    -ArgumentList @('run', 'dev', '--', '--host', 'localhost', '--strictPort') `
     -WorkingDirectory (Join-Path $workspaceRoot 'src/frontend') `
     -NoNewWindow `
     -PassThru
@@ -37,7 +42,7 @@ $frontend = Start-Process -FilePath 'npm.cmd' `
 ) | ConvertTo-Json | Set-Content -LiteralPath $processFile -Encoding utf8
 
 Write-Output 'Backend:  http://localhost:5015'
-Write-Output 'Frontend: http://127.0.0.1:5173'
+Write-Output 'Frontend: http://localhost:5173'
 Write-Output 'Press Ctrl+C to stop both services.'
 
 try {

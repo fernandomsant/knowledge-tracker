@@ -2,9 +2,9 @@
 
 public sealed class AuthenticationSession
 {
-    public Guid Id { get; } = Guid.NewGuid();
+    public Guid Id { get; init; } = Guid.NewGuid();
     public Guid UserId { get; init; }
-    public Guid Nonce { get; } = Guid.NewGuid();
+    public Guid Nonce { get; init; } = Guid.NewGuid();
     public DateTimeOffset AuthenticatedAtUtc { get; init; } = DateTimeOffset.UtcNow;
     public DateTimeOffset ExpiresAtUtc { get; init; } = DateTimeOffset.UtcNow.AddHours(24);
     public string UserAgent { get; init; } = "unknown";

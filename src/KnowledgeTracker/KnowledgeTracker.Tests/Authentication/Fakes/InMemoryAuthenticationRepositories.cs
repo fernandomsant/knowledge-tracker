@@ -2,7 +2,7 @@
 using KnowledgeTracker.Application.Authentication;
 using KnowledgeTracker.Domain.Authentication;
 
-namespace KnowledgeTracker.Authentication.Tests.Authentication.Fakes;
+namespace KnowledgeTracker.Tests.Authentication.Fakes;
 
 public sealed class InMemoryUserRepository : IUserRepository
 {
@@ -28,19 +28,37 @@ public sealed class InMemorySessionRepository : ISessionRepository
     private readonly Dictionary<string, StoredRefreshToken> activeTokens = new();
     private readonly Dictionary<string, Guid> consumedTokens = new();
 
-    public Task CreateAsync(
+    public Task CreateWithSessionLimitAsync(
         AuthenticationSession session,
-        RefreshToken refreshToken,
         RefreshTokenHash refreshTokenHash,
         RefreshTokenMetadata refreshTokenMetadata,
+        int maximumActiveSessions,
         CancellationToken ct
     )
     {
         if (refreshTokenMetadata.SessionId != session.Id)
             throw new ArgumentException("Refresh-token metadata does not belong to the session.");
+        if (maximumActiveSessions < 1)
+            throw new ArgumentOutOfRangeException(nameof(maximumActiveSessions));
 
         lock (gate)
         {
+            var now = DateTimeOffset.UtcNow;
+            var activeSessions = sessions.Values
+                .Where(candidate =>
+                    candidate.UserId == session.UserId
+                    && !candidate.Revoked
+                    && candidate.ExpiresAtUtc > now
+                )
+                .OrderBy(candidate => candidate.AuthenticatedAtUtc)
+                .ToList();
+
+            while (activeSessions.Count >= maximumActiveSessions)
+            {
+                activeSessions[0].Revoke();
+                activeSessions.RemoveAt(0);
+            }
+
             sessions[session.Id] = session;
             activeTokens[Key(refreshTokenHash)] = new(refreshTokenMetadata);
         }
@@ -49,7 +67,6 @@ public sealed class InMemorySessionRepository : ISessionRepository
 
     public Task<RefreshRotationResult> RotateAsync(
         RefreshTokenHash currentRefreshTokenHash,
-        RefreshToken nextRefreshToken,
         RefreshTokenHash nextRefreshTokenHash,
         TimeSpan refreshTokenLifetime,
         CancellationToken ct

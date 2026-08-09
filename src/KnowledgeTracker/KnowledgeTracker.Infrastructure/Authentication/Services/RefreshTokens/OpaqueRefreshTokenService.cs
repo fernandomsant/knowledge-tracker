@@ -13,4 +13,16 @@ public sealed class OpaqueRefreshTokenService(byte[] pepper) : IRefreshTokenServ
         var raw = Convert.FromBase64String(token.Value);
         return new RefreshTokenHash(HMACSHA512.HashData(pepper, raw));
     }
+
+    public RefreshTokenHash? TryHash(RefreshToken token)
+    {
+        try
+        {
+            return Hash(token);
+        }
+        catch (FormatException)
+        {
+            return null;
+        }
+    }
 }

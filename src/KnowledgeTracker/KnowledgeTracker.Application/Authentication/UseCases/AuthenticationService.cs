@@ -48,11 +48,11 @@ public sealed class AuthenticationService(
         };
         var refreshToken = refreshTokens.Create();
         var refreshClaims = CreateClaims(session, Min(session.ExpiresAtUtc, now.Add(options.RefreshLifetime)));
-        await sessions.CreateAsync(
+        await sessions.CreateWithSessionLimitAsync(
             session,
-            refreshToken,
             refreshTokens.Hash(refreshToken),
             RefreshTokenMetadata.For(session, refreshClaims),
+            options.MaximumSessions,
             ct
         );
 
@@ -61,11 +61,14 @@ public sealed class AuthenticationService(
 
     public async Task<TokenPair?> RefreshAsync(RefreshToken refreshToken, CancellationToken ct)
     {
+        var currentRefreshTokenHash = refreshTokens.TryHash(refreshToken);
+        if (currentRefreshTokenHash is null)
+            return null;
+
         var now = DateTimeOffset.UtcNow;
         var nextRefreshToken = refreshTokens.Create();
         var result = await sessions.RotateAsync(
-            refreshTokens.Hash(refreshToken),
-            nextRefreshToken,
+            currentRefreshTokenHash,
             refreshTokens.Hash(nextRefreshToken),
             options.RefreshLifetime,
             ct

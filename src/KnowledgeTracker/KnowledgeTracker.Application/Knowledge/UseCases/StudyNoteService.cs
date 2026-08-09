@@ -1,0 +1,62 @@
+using KnowledgeTracker.Domain.Knowledge;
+
+namespace KnowledgeTracker.Application.Knowledge;
+
+public sealed class StudyNoteService(ISubjectRepository subjects, IStudyNoteRepository studyNotes)
+    : IStudyNoteService
+{
+    public async Task<IReadOnlyCollection<StudyNoteDetails>> ListBySubjectAsync(
+        Guid subjectId,
+        CancellationToken ct
+    ) =>
+        (await studyNotes.ListBySubjectAsync(subjectId, ct))
+            .Select(KnowledgeContractMapper.ToDetails)
+            .ToArray();
+
+    public async Task<StudyNoteDetails?> CreateAsync(
+        Guid subjectId,
+        CreateStudyNoteRequest request,
+        CancellationToken ct
+    )
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var subject = await subjects.FindAsync(subjectId, ct);
+        if (subject is null)
+            return null;
+
+        var studyNote = subject.AddStudyNote(
+            request.Title,
+            request.Content,
+            request.StudyDuration,
+            request.StudyStartedAtUtc
+        );
+        await studyNotes.AddAsync(studyNote, ct);
+        return KnowledgeContractMapper.ToDetails(studyNote);
+    }
+
+    public async Task<StudyNoteDetails?> UpdateAsync(
+        Guid id,
+        UpdateStudyNoteRequest request,
+        CancellationToken ct
+    )
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var studyNote = await studyNotes.FindAsync(id, ct);
+        if (studyNote is null)
+            return null;
+
+        studyNote.Update(request.Title, request.Content, request.StudyDuration);
+        await studyNotes.UpdateAsync(studyNote, ct);
+        return KnowledgeContractMapper.ToDetails(studyNote);
+    }
+
+    public async Task<bool> DeleteAsync(Guid id, CancellationToken ct)
+    {
+        if (await studyNotes.FindAsync(id, ct) is null)
+            return false;
+
+        await studyNotes.DeleteAsync(id, ct);
+        return true;
+    }
+
+}

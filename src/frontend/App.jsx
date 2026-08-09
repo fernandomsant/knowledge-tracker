@@ -269,7 +269,7 @@ export default function App() {
                 onRemoveSubject={removeSubject}
                 onRemoveConnection={removeConnection}
               />
-            ) : <NotesList notes={filteredNotes} subjectsById={subjectsById}/>} 
+            ) : <NotesList notes={filteredNotes} subjectsById={subjectsById}/>}
           </section>
           <section className="bottom-grid">
             <article className="activity-card">

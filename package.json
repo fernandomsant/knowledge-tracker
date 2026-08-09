@@ -1,0 +1,8 @@
+{
+  "name": "knowledge-tracker-workspace",
+  "private": true,
+  "scripts": {
+    "dev": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/dev.ps1",
+    "dev:stop": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/stop-dev.ps1"
+  }
+}

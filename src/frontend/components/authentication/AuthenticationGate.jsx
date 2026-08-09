@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Brain } from '../../icons';
+import { AuthenticationContext } from '../../authentication/context/AuthenticationContext';
 import { useAuthentication } from '../../authentication/hooks/useAuthentication';
 
 function AuthenticationForm({ onSubmit, pending, error }) {
@@ -59,6 +60,6 @@ export function AuthenticationGate({ children }) {
   }
 
   return status === 'authenticated'
-    ? children
+    ? <AuthenticationContext.Provider value={{ accessToken }}>{children}</AuthenticationContext.Provider>
     : <AuthenticationForm onSubmit={submit} pending={pending} error={error}/>;
 }

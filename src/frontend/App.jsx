@@ -5,6 +5,7 @@ import {
   Maximize2, MoreHorizontal, Network, Plus, Search, Settings, Share2, Sparkles, Tag, X, Zap,
 } from './icons';
 import { NOTE_STATUSES } from './data/seed';
+import { useAuthenticationSession } from './authentication/context/AuthenticationContext';
 import { useKnowledgeStore } from './hooks/useKnowledgeStore';
 import { IconButton } from './components/IconButton';
 import { KnowledgeGraph } from './components/KnowledgeGraph';
@@ -31,7 +32,7 @@ const Sidebar = memo(function Sidebar({
         <nav className="primary-nav" aria-label="Primary navigation">
           {NAV_ITEMS.map(({ label, Icon }) => (
             <button key={label} className={activeNav === label ? 'active' : ''} onClick={() => onNavigate(label)}>
-              <Icon size={18}/><span>{label}</span>{label === 'My notes' ? <em>24</em> : null}
+              <Icon size={18}/><span>{label}</span>{label === 'My notes' ? <em>{noteCount}</em> : null}
             </button>
           ))}
         </nav>
@@ -140,10 +141,11 @@ const CanvasOverlay = memo(function CanvasOverlay({ open, onClose, graphProps })
   );
 });
 export default function App() {
+  const { accessToken } = useAuthenticationSession();
   const {
-    subjects, notes, connections, subjectsById, notesBySubject,
+    subjects, notes, connections, subjectsById, notesBySubject, status: knowledgeStatus, error: knowledgeError,
     addSubject, removeSubject, moveSubject, addNote, updateNote, connectSubjects, removeConnection,
-  } = useKnowledgeStore();
+  } = useKnowledgeStore(accessToken);
   const [activeNav, setActiveNav] = useState('Overview');
   const [activeSubject, setActiveSubject] = useState('all');
   const [activeFilter, setActiveFilter] = useState('All notes');
@@ -205,11 +207,11 @@ export default function App() {
     copiedTimerRef.current = setTimeout(() => setCopied(false), 1800);
   }, []);
 
-  const handleCreateSubject = useCallback(event => {
+  const handleCreateSubject = useCallback(async event => {
     event.preventDefault();
     const name = newSubjectName.trim();
     if (!name) return;
-    addSubject(name);
+    if (!await addSubject(name)) return;
     setActiveSubject('all');
     closeModal();
   }, [addSubject, closeModal, newSubjectName]);
@@ -236,10 +238,10 @@ export default function App() {
             <button className={`share-button ${copied ? 'success' : ''}`} onClick={handleShare}>{copied ? <Check size={17}/> : <Share2 size={17}/>} {copied ? 'Link copied' : 'Share space'}</button>
           </section>
           <section className="stats-grid">
-            <StatCard Icon={FileText} color="teal" label="Total notes" value={notes.length + 19} detail="+3 this week"/>
-            <StatCard Icon={GitBranch} color="blue" label="Connections" value="68" detail="+12 this week"/>
+            <StatCard Icon={FileText} color="teal" label="Total notes" value={notes.length} detail="Saved to your space"/>
+            <StatCard Icon={GitBranch} color="blue" label="Connections" value={connections.length} detail="Saved to your space"/>
             <StatCard Icon={Clock3} color="amber" label="Study streak" value="7 days" detail="Best: 14 days"/>
-            <StatCard Icon={Hash} color="purple" label="Topics covered" value="12" detail="3 active now"/>
+            <StatCard Icon={Hash} color="purple" label="Topics covered" value={subjects.length} detail="In your knowledge space"/>
           </section>
           <section className="workspace-panel">
             <header className="panel-head">
@@ -252,9 +254,11 @@ export default function App() {
               </div>
             </header>
             <div className="filter-row">
-              <div>{['All notes', ...NOTE_STATUSES].map(filter => <button key={filter} className={activeFilter === filter ? 'active' : ''} onClick={() => setActiveFilter(filter)}>{filter}{filter === 'All notes' ? <small>24</small> : null}</button>)}</div>
+              <div>{['All notes', ...NOTE_STATUSES].map(filter => <button key={filter} className={activeFilter === filter ? 'active' : ''} onClick={() => setActiveFilter(filter)}>{filter}{filter === 'All notes' ? <small>{notes.length}</small> : null}</button>)}</div>
               <button className="filter-button"><Tag size={15}/>Filter<ChevronDown size={14}/></button>
             </div>
+            {knowledgeStatus === 'loading' ? <p role="status">Loading your knowledge space…</p> : null}
+            {knowledgeError ? <p role="alert">{knowledgeError}</p> : null}
             {view === 'canvas' ? (
               <KnowledgeGraph
                 subjects={subjects}

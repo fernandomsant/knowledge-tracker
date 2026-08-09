@@ -1,6 +1,7 @@
 $workspaceRoot = Split-Path -Parent $PSScriptRoot
 $runtimeDirectory = Join-Path $workspaceRoot '.dev'
 $processFile = Join-Path $runtimeDirectory 'processes.json'
+. (Join-Path $PSScriptRoot 'DevelopmentProcess.ps1')
 
 if (Test-Path -LiteralPath $processFile) {
     $processes = Get-Content -Raw -LiteralPath $processFile | ConvertFrom-Json
@@ -12,6 +13,7 @@ if (Test-Path -LiteralPath $processFile) {
 
 New-Item -ItemType Directory -Force -Path $runtimeDirectory | Out-Null
 
+Stop-KnowledgeTrackerBackend
 & dotnet build 'src/KnowledgeTracker/KnowledgeTracker.slnx' --no-restore -m:1 --verbosity minimal
 if ($LASTEXITCODE -ne 0) {
     throw 'The backend build failed. Development services were not started.'

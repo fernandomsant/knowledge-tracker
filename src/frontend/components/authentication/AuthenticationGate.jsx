@@ -26,9 +26,9 @@ function AuthenticationForm({ onSubmit, pending, error }) {
             <button type="button" className={!isRegistration ? 'active' : ''} onClick={() => setMode('login')}>Sign in</button>
             <button type="button" className={isRegistration ? 'active' : ''} onClick={() => setMode('register')}>Create account</button>
           </div>
-          <div className="authentication-copy"><span>{isRegistration ? 'START YOUR SPACE' : 'WELCOME BACK'}</span><h2>{isRegistration ? 'Begin with one subject.' : 'Return to your map.'}</h2><p>{isRegistration ? 'Use a login and a password with at least 15 characters.' : 'Sign in to continue organising what you are learning.'}</p></div>
+          <div className="authentication-copy"><span>{isRegistration ? 'START YOUR SPACE' : 'WELCOME BACK'}</span><h2>{isRegistration ? 'Begin with one subject.' : 'Return to your map.'}</h2><p>{isRegistration ? 'Choose a login and password to create your personal study space.' : 'Sign in to continue organising what you are learning.'}</p></div>
           <label>Login<input autoComplete="username" value={login} onChange={event => setLogin(event.target.value)} required maxLength="256" /></label>
-          <label>Password<input type="password" autoComplete={isRegistration ? 'new-password' : 'current-password'} value={password} onChange={event => setPassword(event.target.value)} required minLength={isRegistration ? 15 : 1} maxLength="1024" /></label>
+          <label>Password<input type="password" autoComplete={isRegistration ? 'new-password' : 'current-password'} value={password} onChange={event => setPassword(event.target.value)} required minLength="1" maxLength="1024" /></label>
           {error ? <p className="authentication-error" role="alert">{error}</p> : null}
           <button className="authentication-submit" disabled={pending}>{pending ? 'Working…' : isRegistration ? 'Create account' : 'Sign in'}</button>
         </form>

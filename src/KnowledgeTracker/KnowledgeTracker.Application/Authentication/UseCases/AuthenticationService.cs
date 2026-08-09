@@ -15,8 +15,8 @@ public sealed class AuthenticationService(
     {
         if (string.IsNullOrWhiteSpace(login))
             throw new ArgumentException("Login is required.", nameof(login));
-        if (string.IsNullOrWhiteSpace(password) || password.Length < 15)
-            throw new ArgumentException("Password must contain at least 15 characters.", nameof(password));
+        if (string.IsNullOrWhiteSpace(password))
+            throw new ArgumentException("Password is required.", nameof(password));
 
         var user = new User { Login = login.Trim(), PasswordHash = passwords.Hash(password) };
         if (await users.FindAsync(user.NormalizedLogin, ct) is not null)

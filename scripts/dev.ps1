@@ -22,17 +22,13 @@ if ($LASTEXITCODE -ne 0) {
 $backend = Start-Process -FilePath 'dotnet' `
     -ArgumentList @('run', '--no-build', '--project', 'src/KnowledgeTracker/KnowledgeTracker.Web', '--launch-profile', 'http') `
     -WorkingDirectory $workspaceRoot `
-    -RedirectStandardOutput (Join-Path $runtimeDirectory 'backend.log') `
-    -RedirectStandardError (Join-Path $runtimeDirectory 'backend.error.log') `
-    -WindowStyle Hidden `
+    -NoNewWindow `
     -PassThru
 
 $frontend = Start-Process -FilePath 'npm.cmd' `
     -ArgumentList @('run', 'dev', '--', '--host', '127.0.0.1', '--strictPort') `
     -WorkingDirectory (Join-Path $workspaceRoot 'src/frontend') `
-    -RedirectStandardOutput (Join-Path $runtimeDirectory 'frontend.log') `
-    -RedirectStandardError (Join-Path $runtimeDirectory 'frontend.error.log') `
-    -WindowStyle Hidden `
+    -NoNewWindow `
     -PassThru
 
 @(
@@ -42,4 +38,15 @@ $frontend = Start-Process -FilePath 'npm.cmd' `
 
 Write-Output 'Backend:  http://localhost:5015'
 Write-Output 'Frontend: http://127.0.0.1:5173'
-Write-Output 'Logs:     .dev/'
+Write-Output 'Press Ctrl+C to stop both services.'
+
+try {
+    Wait-Process -Id $backend.Id, $frontend.Id
+}
+finally {
+    foreach ($process in @($backend, $frontend)) {
+        & taskkill.exe /PID $process.Id /T /F 2>$null | Out-Null
+    }
+
+    Remove-Item -LiteralPath $processFile -Force -ErrorAction SilentlyContinue
+}

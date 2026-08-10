@@ -39,7 +39,7 @@ function AuthenticationForm({ onSubmit, pending, error }) {
 }
 
 export function AuthenticationGate({ children }) {
-  const { status, login, register } = useAuthentication();
+  const { status, accessToken, login, register } = useAuthentication();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
 

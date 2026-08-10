@@ -71,7 +71,7 @@ const SubjectNode = memo(function SubjectNode({
   );
 });
 
-function SubjectDrawer({ subject, notes, onClose, onAddNote, onUpdateNote, onUpdateSubject, onRemoveSubject }) {
+function SubjectDrawer({ subject, notes, metricDefinitions, onClose, onAddNote, onUpdateNote, onCreateMetricDefinition, onUpdateSubject, onRemoveSubject }) {
   const [editingId, setEditingId] = useState(null);
   const [title, setTitle] = useState('');
   const [excerpt, setExcerpt] = useState('');
@@ -99,7 +99,7 @@ function SubjectDrawer({ subject, notes, onClose, onAddNote, onUpdateNote, onUpd
     setEditingId(note?.id ?? 'new');
     setTitle(note?.title ?? '');
     setExcerpt(note?.excerpt ?? '');
-    setMetrics(note?.metrics?.map(metric => ({ name: metric.name, value: String(metric.value) })) ?? []);
+    setMetrics(note?.metrics?.map(metric => ({ definitionId: metric.definition.id, value: String(metric.value) })) ?? []);
   };
 
   const handleSave = async event => {
@@ -107,9 +107,9 @@ function SubjectDrawer({ subject, notes, onClose, onAddNote, onUpdateNote, onUpd
     const nextTitle = title.trim();
     if (!nextTitle) return;
     const nextMetrics = metrics
-      .filter(metric => metric.name.trim() || metric.value.trim())
-      .map(metric => ({ name: metric.name.trim(), value: Number(metric.value) }));
-    if (nextMetrics.some(metric => !metric.name || !Number.isFinite(metric.value) || metric.value < 0)) return;
+      .filter(metric => metric.definitionId || metric.value.trim())
+      .map(metric => ({ definitionId: metric.definitionId, value: Number(metric.value) }));
+    if (nextMetrics.some(metric => !metric.definitionId || !Number.isFinite(metric.value) || metric.value < 0)) return;
     const note = editingId === 'new'
       ? await onAddNote(subject.id, nextTitle, excerpt.trim(), nextMetrics)
       : await onUpdateNote(editingId, nextTitle, excerpt.trim(), nextMetrics);
@@ -153,15 +153,16 @@ function SubjectDrawer({ subject, notes, onClose, onAddNote, onUpdateNote, onUpd
           <label>Note title<input ref={titleRef} value={title} onChange={event => setTitle(event.target.value)} placeholder="Name this idea"/></label>
           <label>Excerpt<textarea value={excerpt} onChange={event => setExcerpt(event.target.value)} placeholder="Add the key thought..." rows="4"/></label>
           <section className="note-metrics" aria-label="Study metrics">
-            <div className="note-metrics-head"><span>Study metrics</span><button type="button" className="text-button" onClick={() => setMetrics(current => [...current, { name: '', value: '' }])}><Plus size={14}/> Add metric</button></div>
+            <div className="note-metrics-head"><span>Study metrics</span><button type="button" className="text-button" onClick={() => setMetrics(current => [...current, { definitionId: '', value: '' }])}><Plus size={14}/> Add metric</button></div>
             {metrics.map((metric, index) => (
               <div className="metric-row" key={`${editingId}-metric-${index}`}>
-                <input aria-label="Metric name" value={metric.name} onChange={event => setMetrics(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item))} placeholder="Pages read" maxLength="256"/>
+                <select aria-label="Metric" value={metric.definitionId} onChange={event => setMetrics(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, definitionId: event.target.value } : item))}><option value="">Choose a metric</option>{metricDefinitions.map(definition => <option key={definition.id} value={definition.id}>{definition.name} ({definition.numberKind === 1 ? 'natural' : 'rational'})</option>)}</select>
                 <input aria-label="Metric value" type="number" min="0" step="0.01" value={metric.value} onChange={event => setMetrics(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, value: event.target.value } : item))} placeholder="0"/>
-                <IconButton label={`Remove ${metric.name || 'metric'}`} onClick={() => setMetrics(current => current.filter((_, itemIndex) => itemIndex !== index))}><X size={15}/></IconButton>
+                <IconButton label="Remove metric" onClick={() => setMetrics(current => current.filter((_, itemIndex) => itemIndex !== index))}><X size={15}/></IconButton>
               </div>
             ))}
-            {metrics.length === 0 ? <small>Examples: pages read, exercises done, videos watched.</small> : null}
+            {metrics.length === 0 ? <small>Study date and duration are always recorded. Pages read and exercises done are ready to use.</small> : null}
+            <button type="button" className="text-button" onClick={async () => { const name = window.prompt('Metric name'); if (!name?.trim()) return; const type = window.confirm('Use a natural number? Choose Cancel for a rational number.') ? 1 : 2; const definition = await onCreateMetricDefinition(name.trim(), type); if (definition) setMetrics(current => [...current, { definitionId: definition.id, value: '' }]); }}><Plus size={14}/> Create reusable metric</button>
           </section>
           <div><button type="button" className="ghost-button" onClick={() => setEditingId(null)}>Cancel</button><button className="primary-button">Save note</button></div>
         </form>
@@ -190,6 +191,8 @@ export function KnowledgeGraph({
   onMoveSubject,
   onConnect,
   onAddNote,
+  metricDefinitions,
+  onCreateMetricDefinition,
   onUpdateNote,
   onUpdateSubject,
   onCreateSubject,
@@ -341,9 +344,11 @@ export function KnowledgeGraph({
           <SubjectDrawer
             subject={openSubject}
             notes={notesBySubject.get(openSubject.id) ?? []}
+            metricDefinitions={metricDefinitions}
             onClose={() => setOpenSubjectId(null)}
             onAddNote={onAddNote}
             onUpdateNote={onUpdateNote}
+            onCreateMetricDefinition={onCreateMetricDefinition}
             onUpdateSubject={onUpdateSubject}
             onRemoveSubject={removeOpenSubject}
           />

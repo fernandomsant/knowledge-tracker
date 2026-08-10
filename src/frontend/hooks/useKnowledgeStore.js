@@ -26,7 +26,7 @@ function knowledgeReducer(state, action) {
   }
 }
 
-const initialState = { subjects: [], notes: [], connections: [], status: 'loading', error: null };
+const initialState = { subjects: [], notes: [], connections: [], metricDefinitions: [], status: 'loading', error: null };
 const noteDateFormatter = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' });
 const errorMessage = reason => reason instanceof Error ? reason.message : 'Your knowledge space could not be updated. Try again.';
 
@@ -43,6 +43,7 @@ const toConnection = connection => ({ id: connection.id, source: connection.subj
 function toKnowledgeState(knowledge) {
   return {
     subjects: knowledge.subjects.map(toSubject),
+    metricDefinitions: knowledge.metricDefinitions,
     notes: knowledge.subjects.flatMap(subject => subject.studyNotes.map(toNote)),
     connections: knowledge.connections.map(toConnection),
   };
@@ -129,6 +130,18 @@ export function useKnowledgeStore(accessToken) {
     }
   }, [accessToken]);
 
+  const createMetricDefinition = useCallback(async (name, numberKind) => {
+    try {
+      const definition = await knowledgeClient.createMetricDefinition(accessToken, name, numberKind);
+      dispatch({ type: 'knowledge/loaded', knowledge: { metricDefinitions: [...state.metricDefinitions, definition] } });
+      dispatch({ type: 'request/clear' });
+      return definition;
+    } catch (reason) {
+      dispatch({ type: 'request/failed', error: errorMessage(reason) });
+      return null;
+    }
+  }, [accessToken, state.metricDefinitions]);
+
   const connectSubjects = useCallback(async (source, target) => {
     try {
       const connection = await knowledgeClient.createConnection(accessToken, source, target);
@@ -153,5 +166,5 @@ export function useKnowledgeStore(accessToken) {
     }
   }, [accessToken]);
 
-  return { ...state, subjectsById, notesBySubject, addSubject, updateSubject, removeSubject, moveSubject, addNote, updateNote, connectSubjects, removeConnection };
+  return { ...state, subjectsById, notesBySubject, addSubject, updateSubject, removeSubject, moveSubject, addNote, updateNote, createMetricDefinition, connectSubjects, removeConnection };
 }

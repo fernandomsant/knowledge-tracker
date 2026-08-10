@@ -143,8 +143,8 @@ const CanvasOverlay = memo(function CanvasOverlay({ open, onClose, graphProps })
 export default function App() {
   const { accessToken } = useAuthenticationSession();
   const {
-    subjects, notes, connections, subjectsById, notesBySubject, status: knowledgeStatus, error: knowledgeError,
-    addSubject, updateSubject, removeSubject, moveSubject, addNote, updateNote, connectSubjects, removeConnection,
+    subjects, notes, connections, metricDefinitions, subjectsById, notesBySubject, status: knowledgeStatus, error: knowledgeError,
+    addSubject, updateSubject, removeSubject, moveSubject, addNote, updateNote, createMetricDefinition, connectSubjects, removeConnection,
   } = useKnowledgeStore(accessToken);
   const [activeNav, setActiveNav] = useState('Overview');
   const [activeSubject, setActiveSubject] = useState('all');
@@ -269,6 +269,8 @@ export default function App() {
                 onConnect={connectSubjects}
                 onAddNote={addNote}
                 onUpdateNote={updateNote}
+                metricDefinitions={metricDefinitions}
+                onCreateMetricDefinition={createMetricDefinition}
                 onUpdateSubject={updateSubject}
                 onCreateSubject={openModal}
                 onRemoveSubject={removeSubject}
@@ -297,6 +299,8 @@ export default function App() {
           onConnect: connectSubjects,
           onAddNote: addNote,
           onUpdateNote: updateNote,
+          metricDefinitions,
+          onCreateMetricDefinition: createMetricDefinition,
           onUpdateSubject: updateSubject,
           onCreateSubject: openModal,
           onRemoveSubject: removeSubject,

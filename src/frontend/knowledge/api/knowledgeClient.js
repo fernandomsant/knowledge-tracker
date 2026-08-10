@@ -25,11 +25,12 @@ async function request(accessToken, path, { method = 'GET', body } = {}) {
 export const knowledgeClient = {
   async load(accessToken) {
     const summaries = await request(accessToken, '/api/subjects');
-    const [subjects, connectionGroups] = await Promise.all([
+    const [subjects, connectionGroups, metricDefinitions] = await Promise.all([
       Promise.all(summaries.map(subject => request(accessToken, `/api/subjects/${subject.id}`))),
       Promise.all(summaries.map(subject => request(accessToken, `/api/subjects/${subject.id}/connections`))),
+      request(accessToken, '/api/study-metric-definitions'),
     ]);
-    return { subjects, connections: [...new Map(connectionGroups.flat().map(item => [item.id, item])).values()] };
+    return { subjects, metricDefinitions, connections: [...new Map(connectionGroups.flat().map(item => [item.id, item])).values()] };
   },
   createSubject: (accessToken, name) => request(accessToken, '/api/subjects', { method: 'POST', body: { name } }),
   updateSubject: (accessToken, id, name, description) => request(accessToken, `/api/subjects/${id}`, {
@@ -41,6 +42,9 @@ export const knowledgeClient = {
   }),
   updateStudyNote: (accessToken, id, title, content, metrics) => request(accessToken, `/api/study-notes/${id}`, {
     method: 'PUT', body: { title, content, metrics, studyDuration: '00:00:00' },
+  }),
+  createMetricDefinition: (accessToken, name, numberKind) => request(accessToken, '/api/study-metric-definitions', {
+    method: 'POST', body: { name, numberKind },
   }),
   createConnection: (accessToken, source, target) => request(accessToken, '/api/subject-connections', {
     method: 'POST', body: { subjectId: source, connectedSubjectId: target },

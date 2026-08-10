@@ -9,6 +9,7 @@ import { useAuthenticationSession } from './authentication/context/Authenticatio
 import { useKnowledgeStore } from './hooks/useKnowledgeStore';
 import { IconButton } from './components/IconButton';
 import { KnowledgeGraph } from './components/KnowledgeGraph';
+import { getSubjectParentOptions } from './knowledge/utils/subjectHierarchy';
 
 const NAV_ITEMS = [
   { label: 'Overview', Icon: LayoutDashboard },
@@ -33,6 +34,7 @@ const initialCanvasContext = {
     editingSubject: false,
     subjectName: '',
     subjectDescription: '',
+    parentSubjectId: '',
   },
 };
 
@@ -111,7 +113,7 @@ const NotesList = memo(function NotesList({ notes, subjectsById }) {
   );
 });
 
-function SubjectModal({ open, name, parentSubjectId, subjects, onNameChange, onParentChange, onClose, onCreate }) {
+function SubjectModal({ open, name, parentSubjectId, parentOptions, onNameChange, onParentChange, onClose, onCreate }) {
   const inputRef = useRef(null);
   useEffect(() => {
     if (!open) return undefined;
@@ -123,9 +125,9 @@ function SubjectModal({ open, name, parentSubjectId, subjects, onNameChange, onP
     <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
       <form className="modal" onSubmit={onCreate}>
         <div className="modal-head"><div><span>NEW SUBJECT</span><h2>Create a subject</h2></div><IconButton type="button" label="Close modal" onClick={onClose}><X size={19}/></IconButton></div>
-        <p>Group related ideas into a subject. It will appear as a new node on your map.</p>
+        <p>Group related ideas into a subject. Choose a parent to build a knowledge path of up to four levels.</p>
         <label>Subject name<input ref={inputRef} value={name} onChange={event => onNameChange(event.target.value)} placeholder="e.g. Behavioral economics"/></label>
-        <label>Parent subject<select value={parentSubjectId} onChange={event => onParentChange(event.target.value)}><option value="">Top-level subject</option>{subjects.map(subject => <option key={subject.id} value={subject.id}>{subject.name}</option>)}</select></label>
+        <label>Parent subject<select value={parentSubjectId} onChange={event => onParentChange(event.target.value)}><option value="">Top-level subject</option>{parentOptions.map(subject => <option key={subject.id} value={subject.id}>{subject.label}</option>)}</select><small className="hierarchy-hint">For example: Physics / Mechanics / Kinematics</small></label>
         <div className="modal-actions"><button type="button" className="ghost-button" onClick={onClose}>Cancel</button><button className="primary-button" disabled={!name.trim()}>Create subject</button></div>
       </form>
     </div>
@@ -203,6 +205,7 @@ export default function App() {
   }, [notes, activeSubject, activeFilter, query]);
 
   const recentNotes = useMemo(() => notes.slice(-3).reverse(), [notes]);
+  const parentOptions = useMemo(() => getSubjectParentOptions(subjects), [subjects]);
   const selectedSubject = activeSubject === 'all' ? null : subjectsById.get(activeSubject);
 
   const closeModal = useCallback(() => {
@@ -333,7 +336,7 @@ export default function App() {
           onRemoveSubject: removeSubject,
           onRemoveConnection: removeConnection,
         }}
-      />      <SubjectModal open={modalOpen} name={newSubjectName} parentSubjectId={newSubjectParentId} subjects={subjects} onNameChange={setNewSubjectName} onParentChange={setNewSubjectParentId} onClose={closeModal} onCreate={handleCreateSubject}/>
+      />      <SubjectModal open={modalOpen} name={newSubjectName} parentSubjectId={newSubjectParentId} parentOptions={parentOptions} onNameChange={setNewSubjectName} onParentChange={setNewSubjectParentId} onClose={closeModal} onCreate={handleCreateSubject}/>
     </div>
   );
 }

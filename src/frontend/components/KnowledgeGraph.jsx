@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FileText, Folder, GitBranch, MoreHorizontal, Pencil, Plus, RotateCcw, Trash2, X } from '../icons';
 import { IconButton } from './IconButton';
 import { MetricDefinitionComposer } from './context/MetricDefinitionComposer';
+import { getSubjectParentOptions } from '../knowledge/utils/subjectHierarchy';
 
 const MIN_ZOOM = 0.55;
 const MAX_ZOOM = 1.8;
@@ -72,10 +73,11 @@ const SubjectNode = memo(function SubjectNode({
   );
 });
 
-function SubjectDrawer({ subject, notes, metricDefinitions, drawer, onDrawerChange, onClose, onAddNote, onUpdateNote, onCreateMetricDefinition, onUpdateSubject, onRemoveSubject }) {
-  const { editingId, title, excerpt, metrics, editingSubject, subjectName, subjectDescription } = drawer;
+function SubjectDrawer({ subject, subjects, notes, metricDefinitions, drawer, onDrawerChange, onClose, onAddNote, onUpdateNote, onCreateMetricDefinition, onUpdateSubject, onRemoveSubject }) {
+  const { editingId, title, excerpt, metrics, editingSubject, subjectName, subjectDescription, parentSubjectId } = drawer;
   const titleRef = useRef(null);
   const subjectNameRef = useRef(null);
+  const parentOptions = useMemo(() => getSubjectParentOptions(subjects, subject.id), [subject.id, subjects]);
 
   useEffect(() => {
     if (editingId !== null) titleRef.current?.focus();
@@ -112,7 +114,7 @@ function SubjectDrawer({ subject, notes, metricDefinitions, drawer, onDrawerChan
     event.preventDefault();
     const name = subjectName.trim();
     if (!name) return;
-    if (await onUpdateSubject(subject.id, name, subjectDescription.trim() || null, subject.parentSubjectId)) onDrawerChange({ editingSubject: false });
+    if (await onUpdateSubject(subject.id, name, subjectDescription.trim() || null, parentSubjectId || null)) onDrawerChange({ editingSubject: false });
   };
 
   return (
@@ -133,6 +135,7 @@ function SubjectDrawer({ subject, notes, metricDefinitions, drawer, onDrawerChan
         <form className="note-editor" onSubmit={saveSubject}>
           <label>Subject name<input ref={subjectNameRef} value={subjectName} onChange={event => onDrawerChange({ subjectName: event.target.value })} maxLength="256"/></label>
           <label>Description<textarea value={subjectDescription} onChange={event => onDrawerChange({ subjectDescription: event.target.value })} placeholder="What are you studying?" rows="3"/></label>
+          <label>Parent subject<select value={parentSubjectId} onChange={event => onDrawerChange({ parentSubjectId: event.target.value })}><option value="">Top-level subject</option>{parentOptions.map(candidate => <option key={candidate.id} value={candidate.id}>{candidate.label}</option>)}</select><small className="hierarchy-hint">Descendants and fifth-level parents are unavailable.</small></label>
           <div><button type="button" className="ghost-button" onClick={() => onDrawerChange({ editingSubject: false })}>Cancel</button><button className="primary-button">Save subject</button></div>
         </form>
       ) : null}
@@ -327,6 +330,7 @@ export function KnowledgeGraph({
                     editingSubject: false,
                     subjectName: subject?.name ?? '',
                     subjectDescription: subject?.description ?? '',
+                    parentSubjectId: subject?.parentSubjectId ?? '',
                   },
                 });
               }}
@@ -356,6 +360,7 @@ export function KnowledgeGraph({
         {openSubject ? (
           <SubjectDrawer
             subject={openSubject}
+            subjects={subjects}
             notes={notesBySubject.get(openSubject.id) ?? []}
             metricDefinitions={metricDefinitions}
             drawer={drawer}

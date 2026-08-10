@@ -1,0 +1,76 @@
+using System.ComponentModel.DataAnnotations;
+
+namespace KnowledgeTracker.Web.Knowledge.Contracts;
+
+public sealed record CreateSubjectRequest
+{
+    [Required]
+    [StringLength(256)]
+    public required string Name { get; init; }
+
+    public string? Description { get; init; }
+    public Guid? ParentSubjectId { get; init; }
+}
+
+public sealed record UpdateSubjectRequest
+{
+    [Required]
+    [StringLength(256)]
+    public required string Name { get; init; }
+
+    public string? Description { get; init; }
+    public Guid? ParentSubjectId { get; init; }
+}
+
+public sealed record CreateStudyNoteRequest
+{
+    [Required]
+    [StringLength(512)]
+    public required string Title { get; init; }
+
+    [Required]
+    public required string Content { get; init; }
+
+    public TimeSpan StudyDuration { get; init; }
+
+    public DateTimeOffset StudyStartedAtUtc { get; init; }
+
+    public IReadOnlyCollection<StudyNoteMetricRequest> Metrics { get; init; } = [];
+}
+
+public sealed record UpdateStudyNoteRequest
+{
+    [Required]
+    [StringLength(512)]
+    public required string Title { get; init; }
+
+    [Required]
+    public required string Content { get; init; }
+
+    public TimeSpan StudyDuration { get; init; }
+
+    public IReadOnlyCollection<StudyNoteMetricRequest> Metrics { get; init; } = [];
+}
+
+public sealed record StudyNoteMetricRequest
+{
+    public Guid DefinitionId { get; init; }
+
+    [Range(typeof(decimal), "0", "9999999999999999.99")]
+    public decimal Value { get; init; }
+}
+
+public sealed record CreateStudyMetricDefinitionRequest
+{
+    [Required]
+    [StringLength(256)]
+    public required string Name { get; init; }
+
+    public KnowledgeTracker.Domain.Knowledge.MetricNumberKind NumberKind { get; init; }
+}
+
+public sealed record CreateSubjectConnectionRequest
+{
+    public Guid SubjectId { get; init; }
+    public Guid ConnectedSubjectId { get; init; }
+}

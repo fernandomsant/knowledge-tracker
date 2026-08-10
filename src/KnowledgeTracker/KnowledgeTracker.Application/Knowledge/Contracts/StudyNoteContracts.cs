@@ -4,10 +4,18 @@ public sealed record CreateStudyNoteRequest(
     string Title,
     string Content,
     TimeSpan StudyDuration,
-    DateTimeOffset StudyStartedAtUtc
+    DateTimeOffset StudyStartedAtUtc,
+    IReadOnlyCollection<StudyNoteMetricRequest> Metrics
 );
 
-public sealed record UpdateStudyNoteRequest(string Title, string Content, TimeSpan StudyDuration);
+public sealed record UpdateStudyNoteRequest(
+    string Title,
+    string Content,
+    TimeSpan StudyDuration,
+    IReadOnlyCollection<StudyNoteMetricRequest> Metrics
+);
+
+public sealed record StudyNoteMetricRequest(Guid DefinitionId, decimal Value);
 
 public sealed record StudyNoteDetails(
     Guid Id,
@@ -15,5 +23,8 @@ public sealed record StudyNoteDetails(
     string Title,
     string Content,
     TimeSpan StudyDuration,
-    DateTimeOffset StudyStartedAtUtc
+    DateTimeOffset StudyStartedAtUtc,
+    IReadOnlyCollection<StudyNoteMetricDetails> Metrics
 );
+
+public sealed record StudyNoteMetricDetails(StudyMetricDefinitionDetails Definition, decimal Value);

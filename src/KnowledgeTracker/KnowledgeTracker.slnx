@@ -4,5 +4,6 @@
   <Project Path="KnowledgeTracker.Data/KnowledgeTracker.Data.csproj" />
   <Project Path="KnowledgeTracker.Domain/KnowledgeTracker.Domain.csproj" />
   <Project Path="KnowledgeTracker.Infrastructure/KnowledgeTracker.Infrastructure.csproj" />
+  <Project Path="KnowledgeTracker.Migrations/KnowledgeTracker.Migrations.csproj" />
   <Project Path="KnowledgeTracker.Web/KnowledgeTracker.Web.csproj" />
 </Solution>

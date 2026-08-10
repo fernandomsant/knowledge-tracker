@@ -35,6 +35,7 @@ builder.Services.AddScoped<IUserRepository, SqlServerUserRepository>();
 builder.Services.AddScoped<ISessionRepository, SqlServerSessionRepository>();
 builder.Services.AddScoped<ISubjectRepository, SqlServerSubjectRepository>();
 builder.Services.AddScoped<IStudyNoteRepository, SqlServerStudyNoteRepository>();
+builder.Services.AddScoped<IStudyMetricDefinitionRepository, SqlServerStudyMetricDefinitionRepository>();
 builder.Services.AddScoped<ISubjectConnectionRepository, SqlServerSubjectConnectionRepository>();
 builder.Services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
 builder.Services.AddSingleton<IAccessTokenService>(_ =>
@@ -46,6 +47,7 @@ builder.Services.AddSingleton<IRefreshTokenService>(_ =>
 builder.Services.AddScoped<KnowledgeTracker.Application.Authentication.IAuthenticationService, KnowledgeTracker.Application.Authentication.AuthenticationService>();
 builder.Services.AddScoped<ISubjectService, SubjectService>();
 builder.Services.AddScoped<IStudyNoteService, StudyNoteService>();
+builder.Services.AddScoped<IStudyMetricDefinitionService, StudyMetricDefinitionService>();
 builder.Services.AddScoped<ISubjectConnectionService, SubjectConnectionService>();
 builder.Services
     .AddAuthentication(AccessTokenAuthenticationHandler.AuthenticationScheme)

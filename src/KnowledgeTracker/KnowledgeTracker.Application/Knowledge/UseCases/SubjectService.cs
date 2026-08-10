@@ -16,6 +16,7 @@ public sealed class SubjectService(ISubjectRepository subjects, IStudyNoteReposi
             subject.Id,
             subject.Name,
             subject.Description,
+            subject.ParentSubjectId,
             notes.Select(KnowledgeContractMapper.ToDetails).ToArray()
         );
     }
@@ -26,7 +27,8 @@ public sealed class SubjectService(ISubjectRepository subjects, IStudyNoteReposi
     public async Task<SubjectSummary> CreateAsync(CreateSubjectRequest request, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(request);
-        var subject = new Subject(request.Name, request.Description);
+        await ValidateParentAsync(null, request.ParentSubjectId, ct);
+        var subject = new Subject(request.Name, request.Description, request.ParentSubjectId);
         await subjects.AddAsync(subject, ct);
         return KnowledgeContractMapper.ToSummary(subject);
     }
@@ -44,6 +46,8 @@ public sealed class SubjectService(ISubjectRepository subjects, IStudyNoteReposi
 
         subject.Rename(request.Name);
         subject.UpdateDescription(request.Description);
+        await ValidateParentAsync(id, request.ParentSubjectId, ct);
+        subject.SetParent(request.ParentSubjectId);
         await subjects.UpdateAsync(subject, ct);
         return KnowledgeContractMapper.ToSummary(subject);
     }
@@ -55,6 +59,26 @@ public sealed class SubjectService(ISubjectRepository subjects, IStudyNoteReposi
 
         await subjects.DeleteAsync(id, ct);
         return true;
+    }
+
+    private async Task ValidateParentAsync(Guid? subjectId, Guid? parentSubjectId, CancellationToken ct)
+    {
+        if (parentSubjectId is null) return;
+
+        var depth = 0;
+        var currentId = parentSubjectId;
+        while (currentId is not null)
+        {
+            if (currentId == subjectId)
+                throw new ArgumentException("A subject cannot be its own ancestor.", nameof(parentSubjectId));
+
+            var parent = await subjects.FindAsync(currentId.Value, ct)
+                ?? throw new ArgumentException("The selected parent subject does not exist.", nameof(parentSubjectId));
+            depth++;
+            if (depth > 3)
+                throw new ArgumentException("Subjects can have at most four hierarchy levels.", nameof(parentSubjectId));
+            currentId = parent.ParentSubjectId;
+        }
     }
 
 }

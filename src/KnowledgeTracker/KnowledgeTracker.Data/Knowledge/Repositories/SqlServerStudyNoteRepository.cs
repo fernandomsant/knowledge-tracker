@@ -14,13 +14,16 @@ public sealed class SqlServerStudyNoteRepository(Func<DbConnection> connectionFa
         await connection.OpenAsync(ct);
         await using var command = connection.CreateCommand();
         command.CommandText = """
-            SELECT Id, SubjectId, Title, Content, StudyDurationTicks, StudyStartedAtUtc
-            FROM dbo.StudyNotes
-            WHERE Id = @Id;
+            SELECT note.Id, note.SubjectId, note.Title, note.Content, note.StudyDurationTicks, note.StudyStartedAtUtc,
+                   definition.Id, definition.Name, definition.NumberKind, metric.MetricValue
+            FROM dbo.StudyNotes AS note
+            LEFT JOIN dbo.StudyNoteMetrics AS metric ON metric.StudyNoteId = note.Id
+            LEFT JOIN dbo.StudyMetricDefinitions AS definition ON definition.Id = metric.MetricDefinitionId
+            WHERE note.Id = @Id;
             """;
         command.AddParameter("@Id", DbType.Guid, id);
         await using var reader = await command.ExecuteReaderAsync(ct);
-        return await reader.ReadAsync(ct) ? ReadStudyNote(reader) : null;
+        return (await ReadStudyNotesAsync(reader, ct)).SingleOrDefault();
     }
 
     public async Task<IReadOnlyCollection<StudyNote>> ListBySubjectAsync(
@@ -32,25 +35,27 @@ public sealed class SqlServerStudyNoteRepository(Func<DbConnection> connectionFa
         await connection.OpenAsync(ct);
         await using var command = connection.CreateCommand();
         command.CommandText = """
-            SELECT Id, SubjectId, Title, Content, StudyDurationTicks, StudyStartedAtUtc
-            FROM dbo.StudyNotes
-            WHERE SubjectId = @SubjectId
-            ORDER BY StudyStartedAtUtc DESC, Id;
+            SELECT note.Id, note.SubjectId, note.Title, note.Content, note.StudyDurationTicks, note.StudyStartedAtUtc,
+                   definition.Id, definition.Name, definition.NumberKind, metric.MetricValue
+            FROM dbo.StudyNotes AS note
+            LEFT JOIN dbo.StudyNoteMetrics AS metric ON metric.StudyNoteId = note.Id
+            LEFT JOIN dbo.StudyMetricDefinitions AS definition ON definition.Id = metric.MetricDefinitionId
+            WHERE note.SubjectId = @SubjectId
+            ORDER BY note.StudyStartedAtUtc DESC, note.Id, definition.NormalizedName;
             """;
         command.AddParameter("@SubjectId", DbType.Guid, subjectId);
         await using var reader = await command.ExecuteReaderAsync(ct);
 
-        var notes = new List<StudyNote>();
-        while (await reader.ReadAsync(ct))
-            notes.Add(ReadStudyNote(reader));
-        return notes;
+        return await ReadStudyNotesAsync(reader, ct);
     }
 
     public async Task AddAsync(StudyNote studyNote, CancellationToken ct)
     {
         await using var connection = connectionFactory();
         await connection.OpenAsync(ct);
+        await using var transaction = await connection.BeginTransactionAsync(ct);
         await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
         command.CommandText = """
             INSERT INTO dbo.StudyNotes
                 (Id, SubjectId, Title, Content, StudyDurationTicks, StudyStartedAtUtc)
@@ -59,13 +64,17 @@ public sealed class SqlServerStudyNoteRepository(Func<DbConnection> connectionFa
             """;
         AddStudyNoteParameters(command, studyNote);
         await command.ExecuteNonQueryAsync(ct);
+        await InsertMetricsAsync(connection, transaction, studyNote, ct);
+        await transaction.CommitAsync(ct);
     }
 
     public async Task UpdateAsync(StudyNote studyNote, CancellationToken ct)
     {
         await using var connection = connectionFactory();
         await connection.OpenAsync(ct);
+        await using var transaction = await connection.BeginTransactionAsync(ct);
         await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
         command.CommandText = """
             UPDATE dbo.StudyNotes
             SET Title = @Title,
@@ -75,6 +84,12 @@ public sealed class SqlServerStudyNoteRepository(Func<DbConnection> connectionFa
             """;
         AddStudyNoteParameters(command, studyNote);
         await command.ExecuteNonQueryAsync(ct);
+        command.Parameters.Clear();
+        command.CommandText = "DELETE FROM dbo.StudyNoteMetrics WHERE StudyNoteId = @Id;";
+        command.AddParameter("@Id", DbType.Guid, studyNote.Id);
+        await command.ExecuteNonQueryAsync(ct);
+        await InsertMetricsAsync(connection, transaction, studyNote, ct);
+        await transaction.CommitAsync(ct);
     }
 
     public async Task DeleteAsync(Guid id, CancellationToken ct)
@@ -97,13 +112,77 @@ public sealed class SqlServerStudyNoteRepository(Func<DbConnection> connectionFa
         command.AddParameter("@StudyStartedAtUtc", DbType.DateTimeOffset, studyNote.StudyStartedAtUtc);
     }
 
-    private static StudyNote ReadStudyNote(DbDataReader reader) =>
-        new(
-            reader.GetGuid(0),
-            reader.GetGuid(1),
-            reader.GetString(2),
-            reader.GetString(3),
-            TimeSpan.FromTicks(reader.GetInt64(4)),
-            reader.GetFieldValue<DateTimeOffset>(5)
-        );
+    private static async Task<IReadOnlyCollection<StudyNote>> ReadStudyNotesAsync(
+        DbDataReader reader,
+        CancellationToken ct
+    )
+    {
+        var rows = new Dictionary<Guid, StudyNoteRow>();
+        while (await reader.ReadAsync(ct))
+        {
+            var id = reader.GetGuid(0);
+            if (!rows.TryGetValue(id, out var row))
+            {
+                row = new StudyNoteRow(
+                    id,
+                    reader.GetGuid(1),
+                    reader.GetString(2),
+                    reader.GetString(3),
+                    TimeSpan.FromTicks(reader.GetInt64(4)),
+                    reader.GetFieldValue<DateTimeOffset>(5)
+                );
+                rows.Add(id, row);
+            }
+
+            if (!reader.IsDBNull(6))
+                row.Metrics.Add(new StudyNoteMetric(
+                    new StudyMetricDefinition(reader.GetGuid(6), reader.GetString(7), (MetricNumberKind)reader.GetByte(8)),
+                    reader.GetDecimal(9)
+                ));
+        }
+
+        return rows.Values.Select(row => new StudyNote(
+            row.Id, row.SubjectId, row.Title, row.Content, row.StudyDuration, row.StudyStartedAtUtc, row.Metrics
+        )).ToArray();
+    }
+
+    private static async Task InsertMetricsAsync(
+        DbConnection connection,
+        DbTransaction transaction,
+        StudyNote studyNote,
+        CancellationToken ct
+    )
+    {
+        foreach (var metric in studyNote.Metrics)
+        {
+            await using var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText = """
+                INSERT INTO dbo.StudyNoteMetrics (StudyNoteId, MetricDefinitionId, MetricValue)
+                VALUES (@StudyNoteId, @MetricDefinitionId, @MetricValue);
+                """;
+            command.AddParameter("@StudyNoteId", DbType.Guid, studyNote.Id);
+            command.AddParameter("@MetricDefinitionId", DbType.Guid, metric.Definition.Id);
+            command.AddParameter("@MetricValue", DbType.Decimal, metric.Value);
+            await command.ExecuteNonQueryAsync(ct);
+        }
+    }
+
+    private sealed class StudyNoteRow(
+        Guid id,
+        Guid subjectId,
+        string title,
+        string content,
+        TimeSpan studyDuration,
+        DateTimeOffset studyStartedAtUtc
+    )
+    {
+        public Guid Id { get; } = id;
+        public Guid SubjectId { get; } = subjectId;
+        public string Title { get; } = title;
+        public string Content { get; } = content;
+        public TimeSpan StudyDuration { get; } = studyDuration;
+        public DateTimeOffset StudyStartedAtUtc { get; } = studyStartedAtUtc;
+        public List<StudyNoteMetric> Metrics { get; } = [];
+    }
 }

@@ -22,7 +22,7 @@ public sealed class SqlServerSubjectRepository(Func<DbConnection> connectionFact
         await using var connection = connectionFactory();
         await connection.OpenAsync(ct);
         await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT Id, Name, Description FROM dbo.Subjects ORDER BY Name, Id;";
+        command.CommandText = "SELECT Id, Name, Description, ParentSubjectId FROM dbo.Subjects ORDER BY Name, Id;";
         await using var reader = await command.ExecuteReaderAsync(ct);
 
         var subjects = new List<Subject>();
@@ -37,8 +37,8 @@ public sealed class SqlServerSubjectRepository(Func<DbConnection> connectionFact
         await connection.OpenAsync(ct);
         await using var command = connection.CreateCommand();
         command.CommandText = """
-            INSERT INTO dbo.Subjects (Id, Name, Description)
-            VALUES (@Id, @Name, @Description);
+            INSERT INTO dbo.Subjects (Id, Name, Description, ParentSubjectId)
+            VALUES (@Id, @Name, @Description, @ParentSubjectId);
             """;
         AddSubjectParameters(command, subject);
         await command.ExecuteNonQueryAsync(ct);
@@ -51,7 +51,7 @@ public sealed class SqlServerSubjectRepository(Func<DbConnection> connectionFact
         await using var command = connection.CreateCommand();
         command.CommandText = """
             UPDATE dbo.Subjects
-            SET Name = @Name, Description = @Description
+            SET Name = @Name, Description = @Description, ParentSubjectId = @ParentSubjectId
             WHERE Id = @Id;
             """;
         AddSubjectParameters(command, subject);
@@ -89,7 +89,7 @@ public sealed class SqlServerSubjectRepository(Func<DbConnection> connectionFact
     private static DbCommand CreateFindCommand(DbConnection connection, Guid id)
     {
         var command = connection.CreateCommand();
-        command.CommandText = "SELECT Id, Name, Description FROM dbo.Subjects WHERE Id = @Id;";
+        command.CommandText = "SELECT Id, Name, Description, ParentSubjectId FROM dbo.Subjects WHERE Id = @Id;";
         command.AddParameter("@Id", DbType.Guid, id);
         return command;
     }
@@ -99,8 +99,9 @@ public sealed class SqlServerSubjectRepository(Func<DbConnection> connectionFact
         command.AddParameter("@Id", DbType.Guid, subject.Id);
         command.AddParameter("@Name", DbType.String, subject.Name);
         command.AddParameter("@Description", DbType.String, (object?)subject.Description ?? DBNull.Value);
+        command.AddParameter("@ParentSubjectId", DbType.Guid, (object?)subject.ParentSubjectId ?? DBNull.Value);
     }
 
     private static Subject ReadSubject(DbDataReader reader) =>
-        new(reader.GetGuid(0), reader.GetString(1), reader.IsDBNull(2) ? null : reader.GetString(2));
+        new(reader.GetGuid(0), reader.GetString(1), reader.IsDBNull(2) ? null : reader.GetString(2), reader.IsDBNull(3) ? null : reader.GetGuid(3));
 }

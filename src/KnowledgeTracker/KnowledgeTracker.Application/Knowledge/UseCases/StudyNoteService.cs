@@ -2,7 +2,11 @@ using KnowledgeTracker.Domain.Knowledge;
 
 namespace KnowledgeTracker.Application.Knowledge;
 
-public sealed class StudyNoteService(ISubjectRepository subjects, IStudyNoteRepository studyNotes)
+public sealed class StudyNoteService(
+    ISubjectRepository subjects,
+    IStudyNoteRepository studyNotes,
+    IStudyMetricDefinitionRepository metricDefinitions
+)
     : IStudyNoteService
 {
     public async Task<IReadOnlyCollection<StudyNoteDetails>> ListBySubjectAsync(
@@ -28,7 +32,8 @@ public sealed class StudyNoteService(ISubjectRepository subjects, IStudyNoteRepo
             request.Title,
             request.Content,
             request.StudyDuration,
-            request.StudyStartedAtUtc
+            request.StudyStartedAtUtc,
+            await CreateMetricsAsync(request.Metrics, ct)
         );
         await studyNotes.AddAsync(studyNote, ct);
         return KnowledgeContractMapper.ToDetails(studyNote);
@@ -45,7 +50,12 @@ public sealed class StudyNoteService(ISubjectRepository subjects, IStudyNoteRepo
         if (studyNote is null)
             return null;
 
-        studyNote.Update(request.Title, request.Content, request.StudyDuration);
+        studyNote.Update(
+            request.Title,
+            request.Content,
+            request.StudyDuration,
+            await CreateMetricsAsync(request.Metrics, ct)
+        );
         await studyNotes.UpdateAsync(studyNote, ct);
         return KnowledgeContractMapper.ToDetails(studyNote);
     }
@@ -57,6 +67,18 @@ public sealed class StudyNoteService(ISubjectRepository subjects, IStudyNoteRepo
 
         await studyNotes.DeleteAsync(id, ct);
         return true;
+    }
+
+    private async Task<IReadOnlyCollection<StudyNoteMetric>> CreateMetricsAsync(
+        IReadOnlyCollection<StudyNoteMetricRequest> requests,
+        CancellationToken ct
+    )
+    {
+        var definitions = await Task.WhenAll(requests.Select(async request =>
+            await metricDefinitions.FindAsync(request.DefinitionId, ct)
+                ?? throw new ArgumentException("A selected study metric does not exist.", nameof(requests))
+        ));
+        return requests.Select((request, index) => new StudyNoteMetric(definitions[index], request.Value)).ToArray();
     }
 
 }

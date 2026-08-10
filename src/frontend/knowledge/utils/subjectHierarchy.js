@@ -38,3 +38,17 @@ export function getSubjectParentOptions(subjects, excludedSubjectId = null) {
     .filter(subject => subject.depth < 4)
     .toSorted((left, right) => left.label.localeCompare(right.label));
 }
+
+export function getSubjectHierarchyEdges(subjects) {
+  const subjectsById = new Map(subjects.map(subject => [subject.id, subject]));
+
+  return subjects.flatMap(subject => {
+    if (!subject.parentSubjectId) return [];
+
+    const parent = subjectsById.get(subject.parentSubjectId);
+    if (!parent) return [];
+
+    const level = getAncestry(subject, subjectsById).length - 1;
+    return [{ id: `hierarchy:${parent.id}:${subject.id}`, parent, child: subject, level }];
+  });
+}

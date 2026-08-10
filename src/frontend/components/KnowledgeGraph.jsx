@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FileText, Folder, GitBranch, MoreHorizontal, Pencil, Plus, RotateCcw, Trash2, X } from '../icons';
 import { IconButton } from './IconButton';
 import { MetricDefinitionComposer } from './context/MetricDefinitionComposer';
-import { getSubjectParentOptions } from '../knowledge/utils/subjectHierarchy';
+import { getSubjectHierarchyEdges, getSubjectParentOptions } from '../knowledge/utils/subjectHierarchy';
 
 const MIN_ZOOM = 0.55;
 const MAX_ZOOM = 1.8;
@@ -215,6 +215,7 @@ export function KnowledgeGraph({
     () => new Set(connections.map(edge => edgeKey(edge.source, edge.target))),
     [connections]
   );
+  const hierarchyEdges = useMemo(() => getSubjectHierarchyEdges(subjects), [subjects]);
 
   const beginPan = useCallback(event => {
     if (event.button !== 0 || event.target.closest('button, .subject-drawer, .canvas-controls')) return;
@@ -298,6 +299,18 @@ export function KnowledgeGraph({
         ) : null}
         <div className="graph-world" style={{ transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${zoom})` }}>
           <svg className="connections" width="1200" height="720" aria-hidden="true">
+            <defs>
+              <marker id="hierarchy-arrow-1" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#2e9483"/></marker>
+              <marker id="hierarchy-arrow-2" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#547fc8"/></marker>
+              <marker id="hierarchy-arrow-3" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#c58c35"/></marker>
+            </defs>
+            {hierarchyEdges.map(edge => {
+              const x1 = edge.parent.x + 105;
+              const y1 = edge.parent.y + 73;
+              const x2 = edge.child.x + 105;
+              const y2 = edge.child.y + 73;
+              return <line key={edge.id} className={`hierarchy-edge hierarchy-level-${edge.level}`} x1={x1} y1={y1} x2={x2} y2={y2} markerEnd={`url(#hierarchy-arrow-${Math.min(edge.level, 3)})`}/>;
+            })}
             {connections.map(edge => {
               const source = subjectsById.get(edge.source);
               const target = subjectsById.get(edge.target);
@@ -339,7 +352,7 @@ export function KnowledgeGraph({
             />
           ))}
         </div>
-        <div className="graph-legend"><span><i/>{connections.length} connections</span><span>{connectMode ? 'Choose two subjects' : 'Drag subjects to arrange them'}</span></div>
+        <div className="graph-legend"><span><i className="manual-link"/>{connections.length} related links</span><span><i className="hierarchy-link"/>{hierarchyEdges.length} hierarchy links</span><span>{connectMode ? 'Choose two subjects' : 'Drag subjects to arrange them'}</span></div>
         <div className="canvas-controls">
           <button onClick={onCreateSubject}><Plus size={16}/> Add node</button>
           <button className={connectionsOpen ? 'active' : ''} onClick={() => updateCanvasContext({ connectionsOpen: !connectionsOpen })}><GitBranch size={16}/> Links ({connections.length})</button>

@@ -32,6 +32,9 @@ export const knowledgeClient = {
     return { subjects, connections: [...new Map(connectionGroups.flat().map(item => [item.id, item])).values()] };
   },
   createSubject: (accessToken, name) => request(accessToken, '/api/subjects', { method: 'POST', body: { name } }),
+  updateSubject: (accessToken, id, name, description) => request(accessToken, `/api/subjects/${id}`, {
+    method: 'PUT', body: { name, description },
+  }),
   deleteSubject: (accessToken, id) => request(accessToken, `/api/subjects/${id}`, { method: 'DELETE' }),
   createStudyNote: (accessToken, subjectId, title, content) => request(accessToken, `/api/subjects/${subjectId}/notes`, {
     method: 'POST', body: { title, content, studyDuration: '00:00:00', studyStartedAtUtc: new Date().toISOString() },

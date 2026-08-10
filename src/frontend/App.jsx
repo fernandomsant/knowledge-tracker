@@ -144,7 +144,7 @@ export default function App() {
   const { accessToken } = useAuthenticationSession();
   const {
     subjects, notes, connections, subjectsById, notesBySubject, status: knowledgeStatus, error: knowledgeError,
-    addSubject, removeSubject, moveSubject, addNote, updateNote, connectSubjects, removeConnection,
+    addSubject, updateSubject, removeSubject, moveSubject, addNote, updateNote, connectSubjects, removeConnection,
   } = useKnowledgeStore(accessToken);
   const [activeNav, setActiveNav] = useState('Overview');
   const [activeSubject, setActiveSubject] = useState('all');
@@ -269,6 +269,7 @@ export default function App() {
                 onConnect={connectSubjects}
                 onAddNote={addNote}
                 onUpdateNote={updateNote}
+                onUpdateSubject={updateSubject}
                 onCreateSubject={openModal}
                 onRemoveSubject={removeSubject}
                 onRemoveConnection={removeConnection}
@@ -296,6 +297,7 @@ export default function App() {
           onConnect: connectSubjects,
           onAddNote: addNote,
           onUpdateNote: updateNote,
+          onUpdateSubject: updateSubject,
           onCreateSubject: openModal,
           onRemoveSubject: removeSubject,
           onRemoveConnection: removeConnection,

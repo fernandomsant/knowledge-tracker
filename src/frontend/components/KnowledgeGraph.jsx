@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FileText, Folder, GitBranch, MoreHorizontal, Plus, RotateCcw, Trash2, X } from '../icons';
+import { FileText, Folder, GitBranch, MoreHorizontal, Pencil, Plus, RotateCcw, Trash2, X } from '../icons';
 import { IconButton } from './IconButton';
 
 const MIN_ZOOM = 0.55;
@@ -71,15 +71,28 @@ const SubjectNode = memo(function SubjectNode({
   );
 });
 
-function SubjectDrawer({ subject, notes, onClose, onAddNote, onUpdateNote, onRemoveSubject }) {
+function SubjectDrawer({ subject, notes, onClose, onAddNote, onUpdateNote, onUpdateSubject, onRemoveSubject }) {
   const [editingId, setEditingId] = useState(null);
   const [title, setTitle] = useState('');
   const [excerpt, setExcerpt] = useState('');
+  const [editingSubject, setEditingSubject] = useState(false);
+  const [subjectName, setSubjectName] = useState(subject.name);
+  const [subjectDescription, setSubjectDescription] = useState(subject.description ?? '');
   const titleRef = useRef(null);
+  const subjectNameRef = useRef(null);
 
   useEffect(() => {
     if (editingId !== null) titleRef.current?.focus();
   }, [editingId]);
+
+  useEffect(() => {
+    setSubjectName(subject.name);
+    setSubjectDescription(subject.description ?? '');
+  }, [subject.description, subject.id, subject.name]);
+
+  useEffect(() => {
+    if (editingSubject) subjectNameRef.current?.focus();
+  }, [editingSubject]);
 
   const beginEditing = note => {
     setEditingId(note?.id ?? 'new');
@@ -87,13 +100,21 @@ function SubjectDrawer({ subject, notes, onClose, onAddNote, onUpdateNote, onRem
     setExcerpt(note?.excerpt ?? '');
   };
 
-  const handleSave = event => {
+  const handleSave = async event => {
     event.preventDefault();
     const nextTitle = title.trim();
     if (!nextTitle) return;
-    if (editingId === 'new') onAddNote(subject.id, nextTitle, excerpt.trim());
-    else onUpdateNote(editingId, nextTitle, excerpt.trim());
-    setEditingId(null);
+    const note = editingId === 'new'
+      ? await onAddNote(subject.id, nextTitle, excerpt.trim())
+      : await onUpdateNote(editingId, nextTitle, excerpt.trim());
+    if (note) setEditingId(null);
+  };
+
+  const saveSubject = async event => {
+    event.preventDefault();
+    const name = subjectName.trim();
+    if (!name) return;
+    if (await onUpdateSubject(subject.id, name, subjectDescription.trim() || null)) setEditingSubject(false);
   };
 
   return (
@@ -104,12 +125,19 @@ function SubjectDrawer({ subject, notes, onClose, onAddNote, onUpdateNote, onRem
     >
       <div className="drawer-head">
         <div><span>SUBJECT DETAILS</span><h3>{subject.name}</h3></div>
-        <div className="drawer-actions"><button className="remove-node-button" onClick={() => { if (window.confirm(`Remove ${subject.name} and its notes?`)) onRemoveSubject(); }}><Trash2 size={15}/> Remove node</button><IconButton label="Close subject details" onClick={onClose}><X size={19}/></IconButton></div>
+        <div className="drawer-actions"><button className="text-button" onClick={() => setEditingSubject(true)}><Pencil size={15}/> Edit</button><button className="remove-node-button" onClick={() => { if (window.confirm(`Remove ${subject.name} and its notes?`)) onRemoveSubject(); }}><Trash2 size={15}/> Remove node</button><IconButton label="Close subject details" onClick={onClose}><X size={19}/></IconButton></div>
       </div>
       <div className={`subject-banner ${subject.color}`}>
         <span><Folder size={24}/></span>
         <div><strong>{subject.name}</strong><small>{notes.length} {notes.length === 1 ? 'note' : 'notes'} in this subject</small></div>
       </div>
+      {editingSubject ? (
+        <form className="note-editor" onSubmit={saveSubject}>
+          <label>Subject name<input ref={subjectNameRef} value={subjectName} onChange={event => setSubjectName(event.target.value)} maxLength="256"/></label>
+          <label>Description<textarea value={subjectDescription} onChange={event => setSubjectDescription(event.target.value)} placeholder="What are you studying?" rows="3"/></label>
+          <div><button type="button" className="ghost-button" onClick={() => setEditingSubject(false)}>Cancel</button><button className="primary-button">Save subject</button></div>
+        </form>
+      ) : null}
       <div className="drawer-section-title">
         <div><span>Ideas in this subject</span><small>Capture thoughts while the context is fresh.</small></div>
         <button className="text-button" onClick={() => beginEditing(null)}><Plus size={15}/> Add note</button>
@@ -146,6 +174,7 @@ export function KnowledgeGraph({
   onConnect,
   onAddNote,
   onUpdateNote,
+  onUpdateSubject,
   onCreateSubject,
   onRemoveSubject,
   onRemoveConnection,
@@ -298,6 +327,7 @@ export function KnowledgeGraph({
             onClose={() => setOpenSubjectId(null)}
             onAddNote={onAddNote}
             onUpdateNote={onUpdateNote}
+            onUpdateSubject={onUpdateSubject}
             onRemoveSubject={removeOpenSubject}
           />
         ) : null}

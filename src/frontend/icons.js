@@ -16,6 +16,7 @@ export { default as Menu } from 'lucide-react/dist/esm/icons/menu.mjs';
 export { default as Maximize2 } from 'lucide-react/dist/esm/icons/maximize-2.mjs';
 export { default as MoreHorizontal } from 'lucide-react/dist/esm/icons/ellipsis.mjs';
 export { default as Network } from 'lucide-react/dist/esm/icons/network.mjs';
+export { default as Pencil } from 'lucide-react/dist/esm/icons/pencil.mjs';
 export { default as Plus } from 'lucide-react/dist/esm/icons/plus.mjs';
 export { default as RotateCcw } from 'lucide-react/dist/esm/icons/rotate-ccw.mjs';
 export { default as Search } from 'lucide-react/dist/esm/icons/search.mjs';

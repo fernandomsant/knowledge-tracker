@@ -10,6 +10,7 @@ function knowledgeReducer(state, action) {
     case 'request/failed': return { ...state, error: action.error };
     case 'request/clear': return { ...state, error: null };
     case 'subject/add': return { ...state, subjects: [...state.subjects, action.subject] };
+    case 'subject/update': return { ...state, subjects: state.subjects.map(subject => subject.id === action.subject.id ? { ...subject, ...action.subject } : subject) };
     case 'subject/remove': return {
       ...state,
       subjects: state.subjects.filter(subject => subject.id !== action.id),
@@ -78,6 +79,18 @@ export function useKnowledgeStore(accessToken) {
     }
   }, [accessToken, state.subjects.length]);
 
+  const updateSubject = useCallback(async (id, name, description) => {
+    try {
+      const subject = await knowledgeClient.updateSubject(accessToken, id, name, description);
+      dispatch({ type: 'subject/update', subject: { id, name: subject.name, description: subject.description } });
+      dispatch({ type: 'request/clear' });
+      return subject;
+    } catch (reason) {
+      dispatch({ type: 'request/failed', error: errorMessage(reason) });
+      return null;
+    }
+  }, [accessToken]);
+
   const removeSubject = useCallback(async id => {
     try {
       await knowledgeClient.deleteSubject(accessToken, id);
@@ -140,5 +153,5 @@ export function useKnowledgeStore(accessToken) {
     }
   }, [accessToken]);
 
-  return { ...state, subjectsById, notesBySubject, addSubject, removeSubject, moveSubject, addNote, updateNote, connectSubjects, removeConnection };
+  return { ...state, subjectsById, notesBySubject, addSubject, updateSubject, removeSubject, moveSubject, addNote, updateNote, connectSubjects, removeConnection };
 }

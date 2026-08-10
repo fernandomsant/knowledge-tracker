@@ -112,7 +112,7 @@ function SubjectDrawer({ subject, notes, metricDefinitions, drawer, onDrawerChan
     event.preventDefault();
     const name = subjectName.trim();
     if (!name) return;
-    if (await onUpdateSubject(subject.id, name, subjectDescription.trim() || null)) onDrawerChange({ editingSubject: false });
+    if (await onUpdateSubject(subject.id, name, subjectDescription.trim() || null, subject.parentSubjectId)) onDrawerChange({ editingSubject: false });
   };
 
   return (

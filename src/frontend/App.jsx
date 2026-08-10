@@ -111,7 +111,7 @@ const NotesList = memo(function NotesList({ notes, subjectsById }) {
   );
 });
 
-function SubjectModal({ open, name, onNameChange, onClose, onCreate }) {
+function SubjectModal({ open, name, parentSubjectId, subjects, onNameChange, onParentChange, onClose, onCreate }) {
   const inputRef = useRef(null);
   useEffect(() => {
     if (!open) return undefined;
@@ -125,6 +125,7 @@ function SubjectModal({ open, name, onNameChange, onClose, onCreate }) {
         <div className="modal-head"><div><span>NEW SUBJECT</span><h2>Create a subject</h2></div><IconButton type="button" label="Close modal" onClick={onClose}><X size={19}/></IconButton></div>
         <p>Group related ideas into a subject. It will appear as a new node on your map.</p>
         <label>Subject name<input ref={inputRef} value={name} onChange={event => onNameChange(event.target.value)} placeholder="e.g. Behavioral economics"/></label>
+        <label>Parent subject<select value={parentSubjectId} onChange={event => onParentChange(event.target.value)}><option value="">Top-level subject</option>{subjects.map(subject => <option key={subject.id} value={subject.id}>{subject.name}</option>)}</select></label>
         <div className="modal-actions"><button type="button" className="ghost-button" onClick={onClose}>Cancel</button><button className="primary-button" disabled={!name.trim()}>Create subject</button></div>
       </form>
     </div>
@@ -173,6 +174,7 @@ export default function App() {
   const [copied, setCopied] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [newSubjectName, setNewSubjectName] = useState('');
+  const [newSubjectParentId, setNewSubjectParentId] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
   const [canvasExpanded, setCanvasExpanded] = useState(false);
   const [canvasContext, setCanvasContext] = useState(initialCanvasContext);
@@ -206,6 +208,7 @@ export default function App() {
   const closeModal = useCallback(() => {
     setModalOpen(false);
     setNewSubjectName('');
+    setNewSubjectParentId('');
   }, []);
 
   const openModal = useCallback(() => setModalOpen(true), []);
@@ -231,10 +234,10 @@ export default function App() {
     event.preventDefault();
     const name = newSubjectName.trim();
     if (!name) return;
-    if (!await addSubject(name)) return;
+    if (!await addSubject(name, newSubjectParentId || null)) return;
     setActiveSubject('all');
     closeModal();
-  }, [addSubject, closeModal, newSubjectName]);
+  }, [addSubject, closeModal, newSubjectName, newSubjectParentId]);
 
   return (
     <div className="app-shell">
@@ -330,7 +333,7 @@ export default function App() {
           onRemoveSubject: removeSubject,
           onRemoveConnection: removeConnection,
         }}
-      />      <SubjectModal open={modalOpen} name={newSubjectName} onNameChange={setNewSubjectName} onClose={closeModal} onCreate={handleCreateSubject}/>
+      />      <SubjectModal open={modalOpen} name={newSubjectName} parentSubjectId={newSubjectParentId} subjects={subjects} onNameChange={setNewSubjectName} onParentChange={setNewSubjectParentId} onClose={closeModal} onCreate={handleCreateSubject}/>
     </div>
   );
 }

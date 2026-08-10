@@ -31,7 +31,7 @@ const noteDateFormatter = new Intl.DateTimeFormat('en', { month: 'short', day: '
 const errorMessage = reason => reason instanceof Error ? reason.message : 'Your knowledge space could not be updated. Try again.';
 
 function toSubject(subject, index) {
-  return { id: subject.id, name: subject.name, description: subject.description, color: PALETTE[index % PALETTE.length], x: 120 + (index % 3) * 260, y: 110 + Math.floor(index / 3) * 210 };
+  return { id: subject.id, name: subject.name, description: subject.description, parentSubjectId: subject.parentSubjectId, color: PALETTE[index % PALETTE.length], x: 120 + (index % 3) * 260, y: 110 + Math.floor(index / 3) * 210 };
 }
 
 function toNote(note) {
@@ -68,9 +68,9 @@ export function useKnowledgeStore(accessToken) {
     return index;
   }, [state.notes, state.subjects]);
 
-  const addSubject = useCallback(async name => {
+  const addSubject = useCallback(async (name, parentSubjectId) => {
     try {
-      const subject = await knowledgeClient.createSubject(accessToken, name);
+      const subject = await knowledgeClient.createSubject(accessToken, name, parentSubjectId);
       dispatch({ type: 'subject/add', subject: toSubject(subject, state.subjects.length) });
       dispatch({ type: 'request/clear' });
       return subject;
@@ -80,10 +80,10 @@ export function useKnowledgeStore(accessToken) {
     }
   }, [accessToken, state.subjects.length]);
 
-  const updateSubject = useCallback(async (id, name, description) => {
+  const updateSubject = useCallback(async (id, name, description, parentSubjectId) => {
     try {
-      const subject = await knowledgeClient.updateSubject(accessToken, id, name, description);
-      dispatch({ type: 'subject/update', subject: { id, name: subject.name, description: subject.description } });
+      const subject = await knowledgeClient.updateSubject(accessToken, id, name, description, parentSubjectId);
+      dispatch({ type: 'subject/update', subject: { id, name: subject.name, description: subject.description, parentSubjectId: subject.parentSubjectId } });
       dispatch({ type: 'request/clear' });
       return subject;
     } catch (reason) {

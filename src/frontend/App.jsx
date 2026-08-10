@@ -24,6 +24,16 @@ const initialCanvasContext = {
   connectionStart: null,
   openSubjectId: null,
   connectionsOpen: false,
+  drawer: {
+    subjectId: null,
+    editingId: null,
+    title: '',
+    excerpt: '',
+    metrics: [],
+    editingSubject: false,
+    subjectName: '',
+    subjectDescription: '',
+  },
 };
 
 const Sidebar = memo(function Sidebar({

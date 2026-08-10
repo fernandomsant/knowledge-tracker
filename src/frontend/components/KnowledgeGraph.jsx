@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FileText, Folder, GitBranch, MoreHorizontal, Pencil, Plus, RotateCcw, Trash2, X } from '../icons';
 import { IconButton } from './IconButton';
+import { MetricDefinitionComposer } from './context/MetricDefinitionComposer';
 
 const MIN_ZOOM = 0.55;
 const MAX_ZOOM = 1.8;
@@ -162,7 +163,10 @@ function SubjectDrawer({ subject, notes, metricDefinitions, onClose, onAddNote, 
               </div>
             ))}
             {metrics.length === 0 ? <small>Study date and duration are always recorded. Pages read and exercises done are ready to use.</small> : null}
-            <button type="button" className="text-button" onClick={async () => { const name = window.prompt('Metric name'); if (!name?.trim()) return; const type = window.confirm('Use a natural number? Choose Cancel for a rational number.') ? 1 : 2; const definition = await onCreateMetricDefinition(name.trim(), type); if (definition) setMetrics(current => [...current, { definitionId: definition.id, value: '' }]); }}><Plus size={14}/> Create reusable metric</button>
+            <MetricDefinitionComposer
+              onCreate={onCreateMetricDefinition}
+              onCreated={definition => setMetrics(current => [...current, { definitionId: definition.id, value: '' }])}
+            />
           </section>
           <div><button type="button" className="ghost-button" onClick={() => setEditingId(null)}>Cancel</button><button className="primary-button">Save note</button></div>
         </form>

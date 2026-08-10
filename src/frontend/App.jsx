@@ -17,6 +17,15 @@ const NAV_ITEMS = [
   { label: 'Graph view', Icon: Network },
 ];
 
+const initialCanvasContext = {
+  pan: { x: 0, y: 0 },
+  zoom: 1,
+  connectMode: false,
+  connectionStart: null,
+  openSubjectId: null,
+  connectionsOpen: false,
+};
+
 const Sidebar = memo(function Sidebar({
   subjects, notesBySubject, noteCount, activeNav, activeSubject,
   onNavigate, onSelectSubject, onCreateSubject, open, onClose,
@@ -156,6 +165,7 @@ export default function App() {
   const [newSubjectName, setNewSubjectName] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
   const [canvasExpanded, setCanvasExpanded] = useState(false);
+  const [canvasContext, setCanvasContext] = useState(initialCanvasContext);
   const copiedTimerRef = useRef(null);
 
   useEffect(() => {
@@ -265,6 +275,8 @@ export default function App() {
                 subjectsById={subjectsById}
                 notesBySubject={notesBySubject}
                 connections={connections}
+                canvasContext={canvasContext}
+                onCanvasContextChange={setCanvasContext}
                 onMoveSubject={moveSubject}
                 onConnect={connectSubjects}
                 onAddNote={addNote}
@@ -295,6 +307,8 @@ export default function App() {
           subjectsById,
           notesBySubject,
           connections,
+          canvasContext,
+          onCanvasContextChange: setCanvasContext,
           onMoveSubject: moveSubject,
           onConnect: connectSubjects,
           onAddNote: addNote,

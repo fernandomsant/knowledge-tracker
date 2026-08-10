@@ -192,6 +192,8 @@ export function KnowledgeGraph({
   subjectsById,
   notesBySubject,
   connections,
+  canvasContext,
+  onCanvasContextChange,
   onMoveSubject,
   onConnect,
   onAddNote,
@@ -203,14 +205,13 @@ export function KnowledgeGraph({
   onRemoveSubject,
   onRemoveConnection,
 }) {
-  const [pan, setPan] = useState({ x: 0, y: 0 });
-  const [zoom, setZoom] = useState(1);
-  const [connectMode, setConnectMode] = useState(false);
-  const [connectionStart, setConnectionStart] = useState(null);
-  const [openSubjectId, setOpenSubjectId] = useState(null);
-  const [connectionsOpen, setConnectionsOpen] = useState(false);
+  const { pan, zoom, connectMode, connectionStart, openSubjectId, connectionsOpen } = canvasContext;
   const canvasRef = useRef(null);
   const panDragRef = useRef(null);
+
+  const updateCanvasContext = useCallback(update => {
+    onCanvasContextChange(current => ({ ...current, ...update }));
+  }, [onCanvasContextChange]);
 
   const connectionKeys = useMemo(
     () => new Set(connections.map(edge => edgeKey(edge.source, edge.target))),
@@ -232,8 +233,8 @@ export function KnowledgeGraph({
   const movePan = useCallback(event => {
     const drag = panDragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
-    setPan({ x: drag.panX + event.clientX - drag.clientX, y: drag.panY + event.clientY - drag.clientY });
-  }, []);
+    updateCanvasContext({ pan: { x: drag.panX + event.clientX - drag.clientX, y: drag.panY + event.clientY - drag.clientY } });
+  }, [updateCanvasContext]);
 
   const endPan = useCallback(event => {
     if (panDragRef.current?.pointerId === event.pointerId) panDragRef.current = null;
@@ -250,38 +251,36 @@ export function KnowledgeGraph({
     const pointerY = event.clientY - rect.top;
     const worldX = (pointerX - pan.x) / zoom;
     const worldY = (pointerY - pan.y) / zoom;
-    setPan({ x: pointerX - worldX * nextZoom, y: pointerY - worldY * nextZoom });
-    setZoom(nextZoom);
-  }, [pan, zoom]);
+    updateCanvasContext({ pan: { x: pointerX - worldX * nextZoom, y: pointerY - worldY * nextZoom }, zoom: nextZoom });
+  }, [pan, updateCanvasContext, zoom]);
 
   const selectForConnection = useCallback(id => {
     if (connectionStart === null) {
-      setConnectionStart(id);
+      updateCanvasContext({ connectionStart: id });
       return;
     }
     if (connectionStart !== id && !connectionKeys.has(edgeKey(connectionStart, id))) {
       onConnect(connectionStart, id);
     }
-    setConnectionStart(null);
-  }, [connectionKeys, connectionStart, onConnect]);
+    updateCanvasContext({ connectionStart: null });
+  }, [connectionKeys, connectionStart, onConnect, updateCanvasContext]);
 
   const toggleConnectMode = useCallback(() => {
-    setConnectMode(current => !current);
-    setConnectionStart(null);
-    setOpenSubjectId(null);
-  }, []);
+    updateCanvasContext({ connectMode: !connectMode, connectionStart: null, openSubjectId: null });
+  }, [connectMode, updateCanvasContext]);
 
   const resetCanvas = useCallback(() => {
-    setPan({ x: 0, y: 0 });
-    setZoom(1);
-  }, []);
+    updateCanvasContext({ pan: { x: 0, y: 0 }, zoom: 1 });
+  }, [updateCanvasContext]);
 
   const removeOpenSubject = useCallback(() => {
     if (openSubjectId === null) return;
     onRemoveSubject(openSubjectId);
-    setOpenSubjectId(null);
-    setConnectionStart(current => current === openSubjectId ? null : current);
-  }, [onRemoveSubject, openSubjectId]);
+    updateCanvasContext({
+      openSubjectId: null,
+      connectionStart: connectionStart === openSubjectId ? null : connectionStart,
+    });
+  }, [connectionStart, onRemoveSubject, openSubjectId, updateCanvasContext]);
 
   const openSubject = openSubjectId ? subjectsById.get(openSubjectId) : null;
 
@@ -320,7 +319,7 @@ export function KnowledgeGraph({
               isSelected={connectionStart === subject.id}
               connectMode={connectMode}
               zoom={zoom}
-              onOpen={setOpenSubjectId}
+              onOpen={id => updateCanvasContext({ openSubjectId: id })}
               onSelect={selectForConnection}
               onMove={onMoveSubject}
             />
@@ -329,14 +328,14 @@ export function KnowledgeGraph({
         <div className="graph-legend"><span><i/>{connections.length} connections</span><span>{connectMode ? 'Choose two subjects' : 'Drag subjects to arrange them'}</span></div>
         <div className="canvas-controls">
           <button onClick={onCreateSubject}><Plus size={16}/> Add node</button>
-          <button className={connectionsOpen ? 'active' : ''} onClick={() => setConnectionsOpen(current => !current)}><GitBranch size={16}/> Links ({connections.length})</button>
+          <button className={connectionsOpen ? 'active' : ''} onClick={() => updateCanvasContext({ connectionsOpen: !connectionsOpen })}><GitBranch size={16}/> Links ({connections.length})</button>
           <button className={connectMode ? 'active' : ''} onClick={toggleConnectMode}><GitBranch size={16}/>{connectMode ? 'Done' : 'Connect'}</button>
           <span>{Math.round(zoom * 100)}%</span>
           <IconButton label="Reset canvas" onClick={resetCanvas}><RotateCcw size={16}/></IconButton>
         </div>
         {connectionsOpen ? (
           <aside className="connection-panel" onPointerDown={event => event.stopPropagation()}>
-            <div className="connection-panel-head"><div><span>CONNECTIONS</span><strong>{connections.length} links</strong></div><IconButton label="Close connections" onClick={() => setConnectionsOpen(false)}><X size={18}/></IconButton></div>
+            <div className="connection-panel-head"><div><span>CONNECTIONS</span><strong>{connections.length} links</strong></div><IconButton label="Close connections" onClick={() => updateCanvasContext({ connectionsOpen: false })}><X size={18}/></IconButton></div>
             {connections.length ? connections.map(connection => {
               const source = subjectsById.get(connection.source);
               const target = subjectsById.get(connection.target);
@@ -349,7 +348,7 @@ export function KnowledgeGraph({
             subject={openSubject}
             notes={notesBySubject.get(openSubject.id) ?? []}
             metricDefinitions={metricDefinitions}
-            onClose={() => setOpenSubjectId(null)}
+            onClose={() => updateCanvasContext({ openSubjectId: null })}
             onAddNote={onAddNote}
             onUpdateNote={onUpdateNote}
             onCreateMetricDefinition={onCreateMetricDefinition}

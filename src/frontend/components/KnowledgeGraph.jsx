@@ -75,6 +75,7 @@ function SubjectDrawer({ subject, notes, onClose, onAddNote, onUpdateNote, onUpd
   const [editingId, setEditingId] = useState(null);
   const [title, setTitle] = useState('');
   const [excerpt, setExcerpt] = useState('');
+  const [metrics, setMetrics] = useState([]);
   const [editingSubject, setEditingSubject] = useState(false);
   const [subjectName, setSubjectName] = useState(subject.name);
   const [subjectDescription, setSubjectDescription] = useState(subject.description ?? '');
@@ -98,15 +99,20 @@ function SubjectDrawer({ subject, notes, onClose, onAddNote, onUpdateNote, onUpd
     setEditingId(note?.id ?? 'new');
     setTitle(note?.title ?? '');
     setExcerpt(note?.excerpt ?? '');
+    setMetrics(note?.metrics?.map(metric => ({ name: metric.name, value: String(metric.value) })) ?? []);
   };
 
   const handleSave = async event => {
     event.preventDefault();
     const nextTitle = title.trim();
     if (!nextTitle) return;
+    const nextMetrics = metrics
+      .filter(metric => metric.name.trim() || metric.value.trim())
+      .map(metric => ({ name: metric.name.trim(), value: Number(metric.value) }));
+    if (nextMetrics.some(metric => !metric.name || !Number.isFinite(metric.value) || metric.value < 0)) return;
     const note = editingId === 'new'
-      ? await onAddNote(subject.id, nextTitle, excerpt.trim())
-      : await onUpdateNote(editingId, nextTitle, excerpt.trim());
+      ? await onAddNote(subject.id, nextTitle, excerpt.trim(), nextMetrics)
+      : await onUpdateNote(editingId, nextTitle, excerpt.trim(), nextMetrics);
     if (note) setEditingId(null);
   };
 
@@ -146,6 +152,17 @@ function SubjectDrawer({ subject, notes, onClose, onAddNote, onUpdateNote, onUpd
         <form className="note-editor" onSubmit={handleSave}>
           <label>Note title<input ref={titleRef} value={title} onChange={event => setTitle(event.target.value)} placeholder="Name this idea"/></label>
           <label>Excerpt<textarea value={excerpt} onChange={event => setExcerpt(event.target.value)} placeholder="Add the key thought..." rows="4"/></label>
+          <section className="note-metrics" aria-label="Study metrics">
+            <div className="note-metrics-head"><span>Study metrics</span><button type="button" className="text-button" onClick={() => setMetrics(current => [...current, { name: '', value: '' }])}><Plus size={14}/> Add metric</button></div>
+            {metrics.map((metric, index) => (
+              <div className="metric-row" key={`${editingId}-metric-${index}`}>
+                <input aria-label="Metric name" value={metric.name} onChange={event => setMetrics(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item))} placeholder="Pages read" maxLength="256"/>
+                <input aria-label="Metric value" type="number" min="0" step="0.01" value={metric.value} onChange={event => setMetrics(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, value: event.target.value } : item))} placeholder="0"/>
+                <IconButton label={`Remove ${metric.name || 'metric'}`} onClick={() => setMetrics(current => current.filter((_, itemIndex) => itemIndex !== index))}><X size={15}/></IconButton>
+              </div>
+            ))}
+            {metrics.length === 0 ? <small>Examples: pages read, exercises done, videos watched.</small> : null}
+          </section>
           <div><button type="button" className="ghost-button" onClick={() => setEditingId(null)}>Cancel</button><button className="primary-button">Save note</button></div>
         </form>
       ) : null}

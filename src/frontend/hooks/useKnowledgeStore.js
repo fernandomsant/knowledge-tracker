@@ -35,7 +35,7 @@ function toSubject(subject, index) {
 }
 
 function toNote(note) {
-  return { id: note.id, subjectId: note.subjectId, title: note.title, excerpt: note.content, status: 'Draft', date: noteDateFormatter.format(new Date(note.studyStartedAtUtc)) };
+  return { id: note.id, subjectId: note.subjectId, title: note.title, excerpt: note.content, metrics: note.metrics ?? [], status: 'Draft', date: noteDateFormatter.format(new Date(note.studyStartedAtUtc)) };
 }
 
 const toConnection = connection => ({ id: connection.id, source: connection.subjectId, target: connection.connectedSubjectId });
@@ -105,9 +105,9 @@ export function useKnowledgeStore(accessToken) {
 
   const moveSubject = useCallback((id, x, y) => dispatch({ type: 'subject/move', id, x, y }), []);
 
-  const addNote = useCallback(async (subjectId, title, excerpt) => {
+  const addNote = useCallback(async (subjectId, title, excerpt, metrics) => {
     try {
-      const note = await knowledgeClient.createStudyNote(accessToken, subjectId, title, excerpt);
+      const note = await knowledgeClient.createStudyNote(accessToken, subjectId, title, excerpt, metrics);
       dispatch({ type: 'note/add', note: toNote(note) });
       dispatch({ type: 'request/clear' });
       return note;
@@ -117,9 +117,9 @@ export function useKnowledgeStore(accessToken) {
     }
   }, [accessToken]);
 
-  const updateNote = useCallback(async (id, title, excerpt) => {
+  const updateNote = useCallback(async (id, title, excerpt, metrics) => {
     try {
-      const note = await knowledgeClient.updateStudyNote(accessToken, id, title, excerpt);
+      const note = await knowledgeClient.updateStudyNote(accessToken, id, title, excerpt, metrics);
       dispatch({ type: 'note/update', note: toNote(note) });
       dispatch({ type: 'request/clear' });
       return note;

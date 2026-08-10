@@ -78,6 +78,7 @@ function SubjectDrawer({ subject, subjects, notes, metricDefinitions, drawer, on
   const titleRef = useRef(null);
   const subjectNameRef = useRef(null);
   const parentOptions = useMemo(() => getSubjectParentOptions(subjects, subject.id), [subject.id, subjects]);
+  const directChildCount = useMemo(() => subjects.filter(candidate => candidate.parentSubjectId === subject.id).length, [subject.id, subjects]);
 
   useEffect(() => {
     if (editingId !== null) titleRef.current?.focus();
@@ -125,7 +126,7 @@ function SubjectDrawer({ subject, subjects, notes, metricDefinitions, drawer, on
     >
       <div className="drawer-head">
         <div><span>SUBJECT DETAILS</span><h3>{subject.name}</h3></div>
-        <div className="drawer-actions"><button className="text-button" onClick={() => onDrawerChange({ editingSubject: true })}><Pencil size={15}/> Edit</button><button className="remove-node-button" onClick={() => { if (window.confirm(`Remove ${subject.name} and its notes?`)) onRemoveSubject(); }}><Trash2 size={15}/> Remove node</button><IconButton label="Close subject details" onClick={onClose}><X size={19}/></IconButton></div>
+        <div className="drawer-actions"><button className="text-button" onClick={() => onDrawerChange({ editingSubject: true })}><Pencil size={15}/> Edit</button><button className="remove-node-button" onClick={() => { const childNotice = directChildCount ? ` ${directChildCount} child ${directChildCount === 1 ? 'subject will' : 'subjects will'} become top-level.` : ''; if (window.confirm(`Remove ${subject.name} and its notes?${childNotice}`)) onRemoveSubject(); }}><Trash2 size={15}/> Remove node</button><IconButton label="Close subject details" onClick={onClose}><X size={19}/></IconButton></div>
       </div>
       <div className={`subject-banner ${subject.color}`}>
         <span><Folder size={24}/></span>

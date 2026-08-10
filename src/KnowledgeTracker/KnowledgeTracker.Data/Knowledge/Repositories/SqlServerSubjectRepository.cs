@@ -75,6 +75,14 @@ public sealed class SqlServerSubjectRepository(Func<DbConnection> connectionFact
             await removeConnections.ExecuteNonQueryAsync(ct);
         }
 
+        await using (var promoteChildren = connection.CreateCommand())
+        {
+            promoteChildren.Transaction = transaction;
+            promoteChildren.CommandText = "UPDATE dbo.Subjects SET ParentSubjectId = NULL WHERE ParentSubjectId = @Id;";
+            promoteChildren.AddParameter("@Id", DbType.Guid, id);
+            await promoteChildren.ExecuteNonQueryAsync(ct);
+        }
+
         await using (var removeSubject = connection.CreateCommand())
         {
             removeSubject.Transaction = transaction;

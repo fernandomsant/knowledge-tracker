@@ -35,7 +35,7 @@ function toSubject(subject, index) {
 }
 
 function toNote(note) {
-  return { id: note.id, subjectId: note.subjectId, title: note.title, excerpt: note.content, metrics: note.metrics ?? [], status: 'Draft', date: noteDateFormatter.format(new Date(note.studyStartedAtUtc)) };
+  return { id: note.id, subjectId: note.subjectId, title: note.title, excerpt: note.content, metrics: note.metrics ?? [], studyDuration: note.studyDuration, studyStartedAtUtc: note.studyStartedAtUtc, status: 'Draft', date: noteDateFormatter.format(new Date(note.studyStartedAtUtc)) };
 }
 
 const toConnection = connection => ({ id: connection.id, source: connection.subjectId, target: connection.connectedSubjectId });
@@ -106,9 +106,9 @@ export function useKnowledgeStore(accessToken) {
 
   const moveSubject = useCallback((id, x, y) => dispatch({ type: 'subject/move', id, x, y }), []);
 
-  const addNote = useCallback(async (subjectId, title, excerpt, metrics) => {
+  const addNote = useCallback(async (subjectId, title, excerpt, studyDuration, studyStartedAtUtc, metrics) => {
     try {
-      const note = await knowledgeClient.createStudyNote(accessToken, subjectId, title, excerpt, metrics);
+      const note = await knowledgeClient.createStudyNote(accessToken, subjectId, title, excerpt, studyDuration, studyStartedAtUtc, metrics);
       dispatch({ type: 'note/add', note: toNote(note) });
       dispatch({ type: 'request/clear' });
       return note;
@@ -118,9 +118,9 @@ export function useKnowledgeStore(accessToken) {
     }
   }, [accessToken]);
 
-  const updateNote = useCallback(async (id, title, excerpt, metrics) => {
+  const updateNote = useCallback(async (id, title, excerpt, studyDuration, studyStartedAtUtc, metrics) => {
     try {
-      const note = await knowledgeClient.updateStudyNote(accessToken, id, title, excerpt, metrics);
+      const note = await knowledgeClient.updateStudyNote(accessToken, id, title, excerpt, studyDuration, studyStartedAtUtc, metrics);
       dispatch({ type: 'note/update', note: toNote(note) });
       dispatch({ type: 'request/clear' });
       return note;

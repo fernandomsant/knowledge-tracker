@@ -56,6 +56,7 @@ public sealed class StudyNoteService(
             request.StudyDuration,
             await CreateMetricsAsync(request.Metrics, ct)
         );
+        studyNote.SetStudyStartedAtUtc(request.StudyStartedAtUtc);
         await studyNotes.UpdateAsync(studyNote, ct);
         return KnowledgeContractMapper.ToDetails(studyNote);
     }

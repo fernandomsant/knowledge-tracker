@@ -82,6 +82,7 @@ public sealed class StudyNotesController(ISubjectService subjects, IStudyNoteSer
                     request.Title,
                     request.Content,
                     request.StudyDuration,
+                    request.StudyStartedAtUtc,
                     request.Metrics.Select(metric => new KnowledgeTracker.Application.Knowledge.StudyNoteMetricRequest(metric.DefinitionId, metric.Value)).ToArray()
                 ),
                 ct

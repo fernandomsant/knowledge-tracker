@@ -30,7 +30,7 @@ public sealed class StudyNote
     public string Title { get; private set; } = string.Empty;
     public string Content { get; private set; } = string.Empty;
     public TimeSpan StudyDuration { get; private set; }
-    public DateTimeOffset StudyStartedAtUtc { get; }
+    public DateTimeOffset StudyStartedAtUtc { get; private set; }
     public IReadOnlyCollection<StudyNoteMetric> Metrics => metrics.AsReadOnly();
 
     public void Update(
@@ -51,6 +51,11 @@ public sealed class StudyNote
         Content = content.Trim();
         StudyDuration = studyDuration;
         ReplaceMetrics(updatedMetrics ?? []);
+    }
+
+    public void SetStudyStartedAtUtc(DateTimeOffset studyStartedAtUtc)
+    {
+        StudyStartedAtUtc = studyStartedAtUtc;
     }
 
     private void ReplaceMetrics(IEnumerable<StudyNoteMetric> updatedMetrics)

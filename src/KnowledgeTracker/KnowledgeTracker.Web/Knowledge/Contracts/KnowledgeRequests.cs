@@ -49,6 +49,8 @@ public sealed record UpdateStudyNoteRequest
 
     public TimeSpan StudyDuration { get; init; }
 
+    public DateTimeOffset StudyStartedAtUtc { get; init; }
+
     public IReadOnlyCollection<StudyNoteMetricRequest> Metrics { get; init; } = [];
 }
 

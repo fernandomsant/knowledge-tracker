@@ -12,6 +12,7 @@ public sealed record UpdateStudyNoteRequest(
     string Title,
     string Content,
     TimeSpan StudyDuration,
+    DateTimeOffset StudyStartedAtUtc,
     IReadOnlyCollection<StudyNoteMetricRequest> Metrics
 );
 

@@ -30,6 +30,8 @@ const initialCanvasContext = {
     editingId: null,
     title: '',
     excerpt: '',
+    studyStartedAt: '',
+    studyDuration: '00:00',
     metrics: [],
     editingSubject: false,
     subjectName: '',

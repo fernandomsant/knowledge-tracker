@@ -79,7 +79,7 @@ const SubjectNode = memo(function SubjectNode({
 });
 
 function SubjectDrawer({ subject, subjects, notes, metricDefinitions, drawer, onDrawerChange, onClose, onAddNote, onUpdateNote, onCreateMetricDefinition, onUpdateSubject, onRemoveSubject }) {
-  const { editingId, title, excerpt, studyStartedAt, metrics, editingSubject, subjectName, subjectDescription, parentSubjectId } = drawer;
+  const { editingId, title, excerpt, studyStartedAt, studyDuration, metrics, editingSubject, subjectName, subjectDescription, parentSubjectId } = drawer;
   const titleRef = useRef(null);
   const subjectNameRef = useRef(null);
   const parentOptions = useMemo(() => getSubjectParentOptions(subjects, subject.id), [subject.id, subjects]);
@@ -98,6 +98,7 @@ function SubjectDrawer({ subject, subjects, notes, metricDefinitions, drawer, on
       title: note?.title ?? '',
       excerpt: note?.excerpt ?? '',
       studyStartedAt: toDateTimeLocalValue(note?.studyStartedAtUtc),
+      studyDuration: note?.studyDuration?.slice(0, 5) ?? '00:00',
       metrics: note?.metrics?.map(metric => ({ definitionId: metric.definition.id, value: String(metric.value) })) ?? [],
     });
   };
@@ -109,13 +110,14 @@ function SubjectDrawer({ subject, subjects, notes, metricDefinitions, drawer, on
     const nextStudyStartedAt = new Date(studyStartedAt);
     if (Number.isNaN(nextStudyStartedAt.valueOf())) return;
     const nextStudyStartedAtUtc = nextStudyStartedAt.toISOString();
+    const nextStudyDuration = `${studyDuration}:00`;
     const nextMetrics = metrics
       .filter(metric => metric.definitionId || metric.value.trim())
       .map(metric => ({ definitionId: metric.definitionId, value: Number(metric.value) }));
     if (nextMetrics.some(metric => !metric.definitionId || !Number.isFinite(metric.value) || metric.value < 0)) return;
     const note = editingId === 'new'
-      ? await onAddNote(subject.id, nextTitle, excerpt.trim(), nextStudyStartedAtUtc, nextMetrics)
-      : await onUpdateNote(editingId, nextTitle, excerpt.trim(), nextStudyStartedAtUtc, nextMetrics);
+      ? await onAddNote(subject.id, nextTitle, excerpt.trim(), nextStudyDuration, nextStudyStartedAtUtc, nextMetrics)
+      : await onUpdateNote(editingId, nextTitle, excerpt.trim(), nextStudyDuration, nextStudyStartedAtUtc, nextMetrics);
     if (note) onDrawerChange({ editingId: null });
   };
 
@@ -157,6 +159,7 @@ function SubjectDrawer({ subject, subjects, notes, metricDefinitions, drawer, on
           <label>Note title<input ref={titleRef} value={title} onChange={event => onDrawerChange({ title: event.target.value })} placeholder="Name this idea"/></label>
           <label>Excerpt<textarea value={excerpt} onChange={event => onDrawerChange({ excerpt: event.target.value })} placeholder="Add the key thought..." rows="4"/></label>
           <label>Study date and time<input type="datetime-local" value={studyStartedAt} onChange={event => onDrawerChange({ studyStartedAt: event.target.value })} required/></label>
+          <label>Time spent studying<input type="time" value={studyDuration} onChange={event => onDrawerChange({ studyDuration: event.target.value })} step="60" required/></label>
           <section className="note-metrics" aria-label="Study metrics">
             <div className="note-metrics-head"><span>Study metrics</span><button type="button" className="text-button" onClick={() => onDrawerChange({ metrics: [...metrics, { definitionId: '', value: '' }] })}><Plus size={14}/> Add metric</button></div>
             {metrics.map((metric, index) => (

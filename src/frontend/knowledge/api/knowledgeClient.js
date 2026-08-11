@@ -37,11 +37,11 @@ export const knowledgeClient = {
     method: 'PUT', body: { name, description, parentSubjectId: parentSubjectId || null },
   }),
   deleteSubject: (accessToken, id) => request(accessToken, `/api/subjects/${id}`, { method: 'DELETE' }),
-  createStudyNote: (accessToken, subjectId, title, content, metrics) => request(accessToken, `/api/subjects/${subjectId}/notes`, {
-    method: 'POST', body: { title, content, metrics, studyDuration: '00:00:00', studyStartedAtUtc: new Date().toISOString() },
+  createStudyNote: (accessToken, subjectId, title, content, studyStartedAtUtc, metrics) => request(accessToken, `/api/subjects/${subjectId}/notes`, {
+    method: 'POST', body: { title, content, metrics, studyDuration: '00:00:00', studyStartedAtUtc },
   }),
-  updateStudyNote: (accessToken, id, title, content, metrics) => request(accessToken, `/api/study-notes/${id}`, {
-    method: 'PUT', body: { title, content, metrics, studyDuration: '00:00:00' },
+  updateStudyNote: (accessToken, id, title, content, studyStartedAtUtc, metrics) => request(accessToken, `/api/study-notes/${id}`, {
+    method: 'PUT', body: { title, content, metrics, studyDuration: '00:00:00', studyStartedAtUtc },
   }),
   createMetricDefinition: (accessToken, name, numberKind) => request(accessToken, '/api/study-metric-definitions', {
     method: 'POST', body: { name, numberKind },

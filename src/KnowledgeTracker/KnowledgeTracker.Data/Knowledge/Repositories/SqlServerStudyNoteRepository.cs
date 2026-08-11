@@ -79,7 +79,8 @@ public sealed class SqlServerStudyNoteRepository(Func<DbConnection> connectionFa
             UPDATE dbo.StudyNotes
             SET Title = @Title,
                 Content = @Content,
-                StudyDurationTicks = @StudyDurationTicks
+                StudyDurationTicks = @StudyDurationTicks,
+                StudyStartedAtUtc = @StudyStartedAtUtc
             WHERE Id = @Id;
             """;
         AddStudyNoteParameters(command, studyNote);

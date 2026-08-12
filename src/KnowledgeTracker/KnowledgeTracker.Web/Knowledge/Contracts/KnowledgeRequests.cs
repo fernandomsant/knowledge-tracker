@@ -95,4 +95,7 @@ public sealed record CreateSubjectGoalRequest
     [JsonConverter(typeof(FlexibleNullableDecimalConverter))]
     public decimal? TargetValue { get; init; }
     public DateOnly? TargetDate { get; init; }
+    public KnowledgeTracker.Domain.Knowledge.GoalPeriod Period { get; init; }
+    public DateOnly? PeriodStartDate { get; init; }
+    public DateOnly? PeriodEndDate { get; init; }
 }

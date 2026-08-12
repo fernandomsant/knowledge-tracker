@@ -56,6 +56,7 @@ function toKnowledgeState(knowledge) {
     subjects: knowledge.subjects.map(toSubject),
     metricDefinitions: knowledge.metricDefinitions,
     notes: knowledge.subjects.flatMap(subject => subject.studyNotes.map(toNote)),
+    goals: knowledge.goals,
     connections: knowledge.connections.map(toConnection),
   };
 }

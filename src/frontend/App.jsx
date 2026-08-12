@@ -2,9 +2,8 @@
 import {
   ArrowRight, Bell, Brain, Check, ChevronDown, Clock3, FileText, Folder,
   GitBranch, Hash, HelpCircle, LayoutDashboard, Library, List, Menu,
-  Maximize2, MoreHorizontal, Network, Plus, Search, Settings, Share2, Sparkles, Tag, X, Zap,
+  Maximize2, MoreHorizontal, Network, Plus, Search, Settings, Share2, Sparkles, X, Zap,
 } from './icons';
-import { NOTE_STATUSES } from './data/seed';
 import { useAuthenticationSession } from './authentication/context/AuthenticationContext';
 import { useKnowledgeStore } from './hooks/useKnowledgeStore';
 import { IconButton } from './components/IconButton';
@@ -100,12 +99,11 @@ const NotesList = memo(function NotesList({ notes, subjectsById }) {
     <div className="notes-list">
       {notes.map(note => {
         const subject = subjectsById.get(note.subjectId) ?? { name: 'Unsorted', color: 'purple' };
-        const statusClass = note.status.toLowerCase().replace(' ', '-');
         return (
           <article className="note-row" key={note.id}>
             <span className={`file-box ${subject.color}`}><FileText size={19}/></span>
             <div className="note-copy"><strong>{note.title}</strong><p>{note.excerpt}</p></div>
-            <span className={`status ${statusClass}`}><i/>{note.status}</span><time>{note.date}</time>
+            <time>{note.date}</time>
             <span className={`subject-tag ${subject.color}`}>{subject.name}</span>
             <IconButton label={`Options for ${note.title}`}><MoreHorizontal size={18}/></IconButton>
           </article>
@@ -172,7 +170,6 @@ export default function App() {
   } = useKnowledgeStore(accessToken);
   const [activeNav, setActiveNav] = useState('Overview');
   const [activeSubject, setActiveSubject] = useState('all');
-  const [activeFilter, setActiveFilter] = useState('All notes');
   const [view, setView] = useState('canvas');
   const [query, setQuery] = useState('');
   const [copied, setCopied] = useState(false);
@@ -201,10 +198,9 @@ export default function App() {
     const normalizedQuery = query.trim().toLowerCase();
     return notes.filter(note => {
       if (activeSubject !== 'all' && note.subjectId !== activeSubject) return false;
-      if (activeFilter !== 'All notes' && note.status !== activeFilter) return false;
       return !normalizedQuery || `${note.title} ${note.excerpt}`.toLowerCase().includes(normalizedQuery);
     });
-  }, [notes, activeSubject, activeFilter, query]);
+  }, [notes, activeSubject, query]);
 
   const recentNotes = useMemo(() => notes.slice(-3).reverse(), [notes]);
   const parentOptions = useMemo(() => getSubjectParentOptions(subjects), [subjects]);
@@ -282,10 +278,6 @@ export default function App() {
                 <IconButton label="Workspace options"><MoreHorizontal size={19}/></IconButton>
               </div>
             </header>
-            <div className="filter-row">
-              <div>{['All notes', ...NOTE_STATUSES].map(filter => <button key={filter} className={activeFilter === filter ? 'active' : ''} onClick={() => setActiveFilter(filter)}>{filter}{filter === 'All notes' ? <small>{notes.length}</small> : null}</button>)}</div>
-              <button className="filter-button"><Tag size={15}/>Filter<ChevronDown size={14}/></button>
-            </div>
             {knowledgeStatus === 'loading' ? <p role="status">Loading your knowledge space…</p> : null}
             {knowledgeError ? <p role="alert">{knowledgeError}</p> : null}
             {view === 'canvas' ? (

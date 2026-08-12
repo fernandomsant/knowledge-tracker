@@ -35,7 +35,7 @@ function toSubject(subject, index) {
 }
 
 function toNote(note) {
-  return { id: note.id, subjectId: note.subjectId, title: note.title, excerpt: note.content, metrics: note.metrics ?? [], studyDuration: note.studyDuration, studyStartedAtUtc: note.studyStartedAtUtc, status: 'Draft', date: noteDateFormatter.format(new Date(note.studyStartedAtUtc)) };
+  return { id: note.id, subjectId: note.subjectId, title: note.title, excerpt: note.content, metrics: note.metrics ?? [], studyDuration: note.studyDuration, studyStartedAtUtc: note.studyStartedAtUtc, date: noteDateFormatter.format(new Date(note.studyStartedAtUtc)) };
 }
 
 const toConnection = connection => ({ id: connection.id, source: connection.subjectId, target: connection.connectedSubjectId });

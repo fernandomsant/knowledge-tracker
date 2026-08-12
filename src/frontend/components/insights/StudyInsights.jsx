@@ -1,0 +1,27 @@
+import { Clock3, FileText, Target } from '../../icons';
+
+const day = 86_400_000;
+const dateFormatter = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' });
+const startOfDay = value => new Date(value.getFullYear(), value.getMonth(), value.getDate());
+const startOfWeek = value => { const start = startOfDay(value); start.setDate(start.getDate() - ((start.getDay() + 6) % 7)); return start; };
+const minutes = value => { const parts = String(value ?? '').split(':').map(Number); return parts.length === 3 && parts.every(Number.isFinite) ? parts[0] * 60 + parts[1] + parts[2] / 60 : 0; };
+const duration = value => value >= 60 ? `${Math.floor(value / 60)}h ${Math.round(value % 60)}m` : `${Math.round(value)}m`;
+
+function Allocation({ title, allocations, subjects, notesBySubject }) {
+  const maximum = Math.max(...allocations.map(item => item.minutes), 1);
+  return <section className="insight-card allocation-card"><div className="insight-heading"><div><span>{title}</span><h3>Time by subject</h3></div><Clock3 size={18}/></div><div className="allocation-list">{allocations.length ? allocations.slice(0, 5).map(item => { const subject = subjects.get(item.subjectId); return <div className="allocation-row" key={item.subjectId}><div><strong>{subject?.name ?? 'Deleted subject'}</strong><small>{notesBySubject.get(item.subjectId)?.length ?? 0} notes</small></div><div className="allocation-meter"><i style={{ width: `${item.minutes / maximum * 100}%` }}/></div><b>{duration(item.minutes)}</b></div>; }) : <p className="insight-empty">No study time has been recorded for this period yet.</p>}</div></section>;
+}
+
+export function StudyInsights({ subjects, notes, goals, notesBySubject, onSelectSubject }) {
+  const now = new Date();
+  const today = startOfDay(now);
+  const subjectsById = new Map(subjects.map(subject => [subject.id, subject]));
+  const totalsFor = start => subjects.map(subject => ({ subjectId: subject.id, minutes: (notesBySubject.get(subject.id) ?? []).filter(note => new Date(note.studyStartedAtUtc) >= start).reduce((total, note) => total + minutes(note.studyDuration), 0) })).filter(item => item.minutes > 0).toSorted((left, right) => right.minutes - left.minutes);
+  const weekly = totalsFor(startOfWeek(now));
+  const monthly = totalsFor(new Date(now.getFullYear(), now.getMonth(), 1));
+  const stale = subjects.map(subject => { const latest = (notesBySubject.get(subject.id) ?? []).toSorted((left, right) => new Date(right.studyStartedAtUtc) - new Date(left.studyStartedAtUtc))[0]; return { subject, daysSince: latest ? Math.floor((today - startOfDay(new Date(latest.studyStartedAtUtc))) / day) : null }; }).filter(item => item.daysSince === null || item.daysSince >= 14).toSorted((left, right) => (right.daysSince ?? Infinity) - (left.daysSince ?? Infinity));
+  const upcoming = goals.map(goal => ({ ...goal, deadline: goal.kind === 2 ? goal.targetDate : goal.periodEndDate })).filter(goal => goal.deadline).map(goal => ({ ...goal, daysLeft: Math.ceil((new Date(`${goal.deadline}T00:00:00`) - today) / day) })).filter(goal => goal.daysLeft <= 21).toSorted((left, right) => left.daysLeft - right.daysLeft);
+  const weeklyTotal = weekly.reduce((total, item) => total + item.minutes, 0);
+  const monthlyTotal = monthly.reduce((total, item) => total + item.minutes, 0);
+  return <section className="study-insights" aria-label="Study insights"><div className="insight-overview"><div><span>STUDY PULSE</span><h2>Where your attention matters next.</h2><p>Live signals from your notes and goals, across the whole workspace.</p></div><div className="pulse-totals"><div><Clock3 size={17}/><span>This week<strong>{duration(weeklyTotal)}</strong></span></div><div><FileText size={17}/><span>This month<strong>{duration(monthlyTotal)}</strong></span></div></div></div><div className="insights-grid"><section className="insight-card attention-card"><div className="insight-heading"><div><span>ATTENTION QUEUE</span><h3>Subjects to revisit</h3></div><b>{stale.length}</b></div><div className="attention-list">{stale.length ? stale.slice(0, 4).map(({ subject, daysSince }) => <button key={subject.id} onClick={() => onSelectSubject(subject.id)}><i className={`color-dot ${subject.color}`}/><span><strong>{subject.name}</strong><small>{daysSince === null ? 'No notes recorded yet' : `${daysSince} days since your last note`}</small></span><b>{notesBySubject.get(subject.id)?.length ?? 0} notes</b></button>) : <p className="insight-empty">Every subject has been active in the last two weeks.</p>}</div></section><section className="insight-card deadline-card"><div className="insight-heading"><div><span>UPCOMING DEADLINES</span><h3>Goals on the horizon</h3></div><Target size={18}/></div><div className="deadline-list">{upcoming.length ? upcoming.slice(0, 4).map(goal => <div key={goal.id}><span><strong>{goal.title}</strong><small>{subjectsById.get(goal.subjectId)?.name ?? 'Subject goal'} · due {dateFormatter.format(new Date(`${goal.deadline}T00:00:00`))}</small></span><b className={goal.daysLeft < 0 ? 'late' : goal.daysLeft <= 7 ? 'soon' : ''}>{goal.daysLeft < 0 ? `${Math.abs(goal.daysLeft)}d late` : `${goal.daysLeft}d left`}</b></div>) : <p className="insight-empty">No date or custom-period goals are due in the next 21 days.</p>}</div></section><Allocation title="THIS WEEK" allocations={weekly} subjects={subjectsById} notesBySubject={notesBySubject}/><Allocation title="THIS MONTH" allocations={monthly} subjects={subjectsById} notesBySubject={notesBySubject}/></div></section>;
+}

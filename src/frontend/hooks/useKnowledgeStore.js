@@ -33,6 +33,7 @@ function knowledgeReducer(state, action) {
     case 'connection/remove': return { ...state, connections: state.connections.filter(connection => connection.id !== action.id) };
     case 'goal/add': return { ...state, goals: [...state.goals, action.goal] };
     case 'goal/remove': return { ...state, goals: state.goals.filter(goal => goal.id !== action.id) };
+    case 'goal/complete': return { ...state, goals: state.goals.map(goal => goal.id === action.id ? { ...goal, isCompleted: true, completedAtUtc: action.completedAtUtc } : goal) };
     default: return state;
   }
 }
@@ -207,5 +208,17 @@ export function useKnowledgeStore(accessToken) {
     }
   }, [accessToken]);
 
-  return { ...state, subjectsById, notesBySubject, goalsBySubject, addSubject, updateSubject, removeSubject, moveSubject, addNote, updateNote, createMetricDefinition, connectSubjects, removeConnection, addSubjectGoal, removeSubjectGoal };
+  const completeSubjectGoal = useCallback(async id => {
+    try {
+      await knowledgeClient.completeSubjectGoal(accessToken, id);
+      dispatch({ type: 'goal/complete', id, completedAtUtc: new Date().toISOString() });
+      dispatch({ type: 'request/clear' });
+      return true;
+    } catch (reason) {
+      dispatch({ type: 'request/failed', error: errorMessage(reason) });
+      return false;
+    }
+  }, [accessToken]);
+
+  return { ...state, subjectsById, notesBySubject, goalsBySubject, addSubject, updateSubject, removeSubject, moveSubject, addNote, updateNote, createMetricDefinition, connectSubjects, removeConnection, addSubjectGoal, removeSubjectGoal, completeSubjectGoal };
 }

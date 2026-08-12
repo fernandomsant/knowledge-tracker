@@ -28,4 +28,7 @@ public sealed class SubjectGoalsController(ISubjectGoalService goals) : Controll
 
     [HttpDelete("subject-goals/{id:guid}")]
     public async Task<IActionResult> DeleteAsync(Guid id, CancellationToken ct) => await goals.DeleteAsync(id, ct) ? NoContent() : NotFound();
+
+    [HttpPost("subject-goals/{id:guid}/complete")]
+    public async Task<IActionResult> CompleteAsync(Guid id, CancellationToken ct) => await goals.CompleteAsync(id, ct) ? NoContent() : BadRequest();
 }

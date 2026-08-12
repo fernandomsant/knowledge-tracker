@@ -7,4 +7,5 @@ public interface ISubjectGoalRepository
     Task<IReadOnlyCollection<SubjectGoal>> ListBySubjectAsync(Guid subjectId, CancellationToken ct);
     Task AddAsync(SubjectGoal goal, CancellationToken ct);
     Task<bool> DeleteAsync(Guid id, CancellationToken ct);
+    Task<bool> CompleteAsync(Guid id, DateTimeOffset completedAtUtc, CancellationToken ct);
 }

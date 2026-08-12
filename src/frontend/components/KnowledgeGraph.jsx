@@ -80,7 +80,7 @@ const SubjectNode = memo(function SubjectNode({
   );
 });
 
-function SubjectDrawer({ subject, subjects, notes, goals, metricDefinitions, drawer, onDrawerChange, onClose, onAddNote, onUpdateNote, onCreateMetricDefinition, onUpdateSubject, onRemoveSubject, onCreateGoal, onRemoveGoal }) {
+function SubjectDrawer({ subject, subjects, notes, goals, metricDefinitions, drawer, onDrawerChange, onClose, onAddNote, onUpdateNote, onCreateMetricDefinition, onUpdateSubject, onRemoveSubject, onCreateGoal, onRemoveGoal, onCompleteGoal }) {
   const { editingId, title, excerpt, studyStartedAt, studyDuration, metrics, editingSubject, subjectName, subjectDescription, parentSubjectId } = drawer;
   const titleRef = useRef(null);
   const subjectNameRef = useRef(null);
@@ -164,7 +164,7 @@ function SubjectDrawer({ subject, subjects, notes, goals, metricDefinitions, dra
           <div><button type="button" className="ghost-button" onClick={() => onDrawerChange({ editingSubject: false })}>Cancel</button></div>
         </form>
       ) : null}
-      <SubjectGoals goals={goals} notes={notes} metricDefinitions={metricDefinitions} onCreate={goal => onCreateGoal(subject.id, goal)} onRemove={onRemoveGoal}/>
+      <SubjectGoals goals={goals} notes={notes} metricDefinitions={metricDefinitions} onCreate={goal => onCreateGoal(subject.id, goal)} onRemove={onRemoveGoal} onComplete={onCompleteGoal}/>
       <div className="drawer-section-title">
         <div><span>Ideas in this subject</span><small>Capture thoughts while the context is fresh.</small></div>
         <button className="text-button" onClick={() => beginEditing(null)}><Plus size={15}/> Add note</button>
@@ -232,6 +232,7 @@ export function KnowledgeGraph({
   onRemoveConnection,
   onCreateGoal,
   onRemoveGoal,
+  onCompleteGoal,
 }) {
   const { pan, zoom, connectMode, connectionStart, openSubjectId, connectionsOpen, drawer } = canvasContext;
   const canvasRef = useRef(null);
@@ -421,6 +422,7 @@ export function KnowledgeGraph({
               onRemoveSubject={removeOpenSubject}
               onCreateGoal={onCreateGoal}
               onRemoveGoal={onRemoveGoal}
+              onCompleteGoal={onCompleteGoal}
           />
         ) : null}
       </div>

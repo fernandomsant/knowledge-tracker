@@ -21,6 +21,8 @@
 @media(max-width:820px){.workspace-panel>.graph-shell{width:100%}.expand-canvas-button{display:flex}}
 @media(max-width:420px){.expand-canvas-button{width:100%;justify-content:center}}.expand-canvas-button:disabled{opacity:.42;cursor:not-allowed}
 .drawer-actions{display:flex;align-items:center;gap:8px}
+.drawer-note-item{display:grid;gap:8px}
+.drawer-note-item .note-viewer{margin:0}
 .note-row{grid-template-columns:auto minmax(220px,1fr) auto auto auto}
 .drawer-note-preview{min-width:0;border:0;background:transparent;padding:0;text-align:left;cursor:pointer}
 .drawer-note-preview:hover strong{color:#286b5b}

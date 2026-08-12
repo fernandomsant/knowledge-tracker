@@ -191,14 +191,16 @@ function SubjectDrawer({ subject, subjects, notes, metricDefinitions, drawer, on
           <div><button type="button" className="ghost-button" onClick={() => onDrawerChange({ editingId: null })}>Cancel</button><button className="primary-button">Save note</button></div>
         </form>
       ) : null}
-      {viewingNote ? <NoteViewer note={viewingNote} onClose={() => setViewingNoteId(null)} onEdit={() => beginEditing(viewingNote)}/> : null}
       <div className="drawer-notes">
         {notes.map(note => (
-          <article className="drawer-note" key={note.id}>
-            <span className={`file-box ${subject.color}`}><FileText size={17}/></span>
-            <button type="button" className="drawer-note-preview" onClick={() => openNote(note)}><strong>{note.title}</strong><p>{note.excerpt || 'No excerpt yet.'}</p><small>{note.date}</small></button>
-            <IconButton label={`Edit ${note.title}`} onClick={() => beginEditing(note)}><MoreHorizontal size={18}/></IconButton>
-          </article>
+          <div className="drawer-note-item" key={note.id}>
+            <article className="drawer-note">
+              <span className={`file-box ${subject.color}`}><FileText size={17}/></span>
+              <button type="button" className="drawer-note-preview" onClick={() => openNote(note)}><strong>{note.title}</strong><p>{note.excerpt || 'No excerpt yet.'}</p><small>{note.date}</small></button>
+              <IconButton label={`Edit ${note.title}`} onClick={() => beginEditing(note)}><MoreHorizontal size={18}/></IconButton>
+            </article>
+            {viewingNote?.id === note.id ? <NoteViewer note={note} onClose={() => setViewingNoteId(null)} onEdit={() => beginEditing(note)}/> : null}
+          </div>
         ))}
         {notes.length === 0 && editingId === null ? (
           <div className="empty-state"><FileText size={26}/><strong>No notes here yet</strong><p>Add the first idea to start shaping this subject.</p></div>

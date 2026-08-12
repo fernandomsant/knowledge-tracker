@@ -272,7 +272,6 @@ export default function App() {
             <header className="panel-head">
               <div><span>SUBJECT MAP</span><h2>Your knowledge space</h2><p>Arrange subjects, connect related thinking, then open a node to work with its notes.</p></div>
               <div className="panel-actions">
-                <button className="primary-button" onClick={openModal}><Plus size={16}/> New node</button>
                 <div className="view-toggle"><button className={view === 'canvas' ? 'active' : ''} onClick={() => setView('canvas')}><Network size={15}/>Canvas</button><button className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}><List size={15}/>Notes list</button></div>
                 <button className="expand-canvas-button" onClick={expandCanvas} disabled={view !== 'canvas'}><Maximize2 size={16}/> Expand canvas</button>
                 <IconButton label="Workspace options"><MoreHorizontal size={19}/></IconButton>

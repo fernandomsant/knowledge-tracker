@@ -165,8 +165,8 @@ const CanvasOverlay = memo(function CanvasOverlay({ open, onClose, graphProps })
 export default function App() {
   const { accessToken, user } = useAuthenticationSession();
   const {
-    subjects, notes, connections, metricDefinitions, subjectsById, notesBySubject, status: knowledgeStatus, error: knowledgeError,
-    addSubject, updateSubject, removeSubject, moveSubject, addNote, updateNote, createMetricDefinition, connectSubjects, removeConnection,
+    subjects, notes, connections, metricDefinitions, subjectsById, notesBySubject, goalsBySubject, status: knowledgeStatus, error: knowledgeError,
+    addSubject, updateSubject, removeSubject, moveSubject, addNote, updateNote, createMetricDefinition, connectSubjects, removeConnection, addSubjectGoal, removeSubjectGoal,
   } = useKnowledgeStore(accessToken);
   const [activeNav, setActiveNav] = useState('Overview');
   const [activeSubject, setActiveSubject] = useState('all');
@@ -292,11 +292,14 @@ export default function App() {
                 onAddNote={addNote}
                 onUpdateNote={updateNote}
                 metricDefinitions={metricDefinitions}
+                goalsBySubject={goalsBySubject}
                 onCreateMetricDefinition={createMetricDefinition}
                 onUpdateSubject={updateSubject}
                 onCreateSubject={openModal}
                 onRemoveSubject={removeSubject}
                 onRemoveConnection={removeConnection}
+                onCreateGoal={addSubjectGoal}
+                onRemoveGoal={removeSubjectGoal}
               />
             ) : <NotesList notes={filteredNotes} subjectsById={subjectsById}/>}
           </section>
@@ -324,11 +327,14 @@ export default function App() {
           onAddNote: addNote,
           onUpdateNote: updateNote,
           metricDefinitions,
+          goalsBySubject,
           onCreateMetricDefinition: createMetricDefinition,
           onUpdateSubject: updateSubject,
           onCreateSubject: openModal,
           onRemoveSubject: removeSubject,
           onRemoveConnection: removeConnection,
+          onCreateGoal: addSubjectGoal,
+          onRemoveGoal: removeSubjectGoal,
         }}
       />      <SubjectModal open={modalOpen} name={newSubjectName} parentSubjectId={newSubjectParentId} parentOptions={parentOptions} onNameChange={setNewSubjectName} onParentChange={setNewSubjectParentId} onClose={closeModal} onCreate={handleCreateSubject}/>
     </div>

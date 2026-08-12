@@ -76,3 +76,15 @@ public sealed record CreateSubjectConnectionRequest
     public Guid SubjectId { get; init; }
     public Guid ConnectedSubjectId { get; init; }
 }
+
+public sealed record CreateSubjectGoalRequest
+{
+    [Required]
+    [StringLength(256)]
+    public required string Title { get; init; }
+    public KnowledgeTracker.Domain.Knowledge.GoalKind Kind { get; init; }
+    public Guid? MetricDefinitionId { get; init; }
+    [Range(typeof(decimal), "0.01", "9999999999999999.99")]
+    public decimal? TargetValue { get; init; }
+    public DateOnly? TargetDate { get; init; }
+}

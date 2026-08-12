@@ -3,6 +3,11 @@ import { PALETTE } from '../data/seed';
 import { knowledgeClient } from '../knowledge/api/knowledgeClient';
 
 function knowledgeReducer(state, action) {
+  const applyMetricDelta = (goals, metrics, direction) => goals.map(goal => {
+    if (goal.kind !== 1) return goal;
+    const value = metrics.find(metric => metric.definition.id === goal.metricDefinition.id)?.value ?? 0;
+    return value ? { ...goal, currentValue: Math.max(0, goal.currentValue + direction * value) } : goal;
+  });
   switch (action.type) {
     case 'knowledge/loading': return { ...state, status: 'loading', error: null };
     case 'knowledge/loaded': return { ...state, ...action.knowledge, status: 'ready', error: null };
@@ -18,15 +23,21 @@ function knowledgeReducer(state, action) {
       connections: state.connections.filter(connection => connection.source !== action.id && connection.target !== action.id),
     };
     case 'subject/move': return { ...state, subjects: state.subjects.map(subject => subject.id === action.id ? { ...subject, x: action.x, y: action.y } : subject) };
-    case 'note/add': return { ...state, notes: [...state.notes, action.note] };
-    case 'note/update': return { ...state, notes: state.notes.map(note => note.id === action.note.id ? { ...note, ...action.note } : note) };
+    case 'note/add': return { ...state, notes: [...state.notes, action.note], goals: applyMetricDelta(state.goals, action.note.metrics, 1) };
+    case 'note/update': {
+      const previous = state.notes.find(note => note.id === action.note.id);
+      const goals = applyMetricDelta(applyMetricDelta(state.goals, previous?.metrics ?? [], -1), action.note.metrics, 1);
+      return { ...state, notes: state.notes.map(note => note.id === action.note.id ? { ...note, ...action.note } : note), goals };
+    }
     case 'connection/add': return { ...state, connections: [...state.connections, action.connection] };
     case 'connection/remove': return { ...state, connections: state.connections.filter(connection => connection.id !== action.id) };
+    case 'goal/add': return { ...state, goals: [...state.goals, action.goal] };
+    case 'goal/remove': return { ...state, goals: state.goals.filter(goal => goal.id !== action.id) };
     default: return state;
   }
 }
 
-const initialState = { subjects: [], notes: [], connections: [], metricDefinitions: [], status: 'loading', error: null };
+const initialState = { subjects: [], notes: [], connections: [], goals: [], metricDefinitions: [], status: 'loading', error: null };
 const noteDateFormatter = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' });
 const errorMessage = reason => reason instanceof Error ? reason.message : 'Your knowledge space could not be updated. Try again.';
 
@@ -67,6 +78,11 @@ export function useKnowledgeStore(accessToken) {
     state.notes.forEach(note => index.get(note.subjectId)?.push(note));
     return index;
   }, [state.notes, state.subjects]);
+  const goalsBySubject = useMemo(() => {
+    const index = new Map(state.subjects.map(subject => [subject.id, []]));
+    state.goals.forEach(goal => index.get(goal.subjectId)?.push(goal));
+    return index;
+  }, [state.goals, state.subjects]);
 
   const addSubject = useCallback(async (name, parentSubjectId) => {
     try {
@@ -166,5 +182,29 @@ export function useKnowledgeStore(accessToken) {
     }
   }, [accessToken]);
 
-  return { ...state, subjectsById, notesBySubject, addSubject, updateSubject, removeSubject, moveSubject, addNote, updateNote, createMetricDefinition, connectSubjects, removeConnection };
+  const addSubjectGoal = useCallback(async (subjectId, goal) => {
+    try {
+      const created = await knowledgeClient.createSubjectGoal(accessToken, subjectId, goal);
+      dispatch({ type: 'goal/add', goal: created });
+      dispatch({ type: 'request/clear' });
+      return created;
+    } catch (reason) {
+      dispatch({ type: 'request/failed', error: errorMessage(reason) });
+      return null;
+    }
+  }, [accessToken]);
+
+  const removeSubjectGoal = useCallback(async id => {
+    try {
+      await knowledgeClient.deleteSubjectGoal(accessToken, id);
+      dispatch({ type: 'goal/remove', id });
+      dispatch({ type: 'request/clear' });
+      return true;
+    } catch (reason) {
+      dispatch({ type: 'request/failed', error: errorMessage(reason) });
+      return false;
+    }
+  }, [accessToken]);
+
+  return { ...state, subjectsById, notesBySubject, goalsBySubject, addSubject, updateSubject, removeSubject, moveSubject, addNote, updateNote, createMetricDefinition, connectSubjects, removeConnection, addSubjectGoal, removeSubjectGoal };
 }

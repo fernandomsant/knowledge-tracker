@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FileText, Folder, GitBranch, MoreHorizontal, Pencil, Plus, RotateCcw, Trash2, X } from '../icons';
 import { IconButton } from './IconButton';
 import { MetricDefinitionComposer } from './context/MetricDefinitionComposer';
+import { NoteViewer } from './context/NoteViewer';
 import { getSubjectHierarchyEdges, getSubjectParentOptions } from '../knowledge/utils/subjectHierarchy';
 
 const MIN_ZOOM = 0.55;
@@ -82,7 +83,9 @@ function SubjectDrawer({ subject, subjects, notes, metricDefinitions, drawer, on
   const { editingId, title, excerpt, studyStartedAt, studyDuration, metrics, editingSubject, subjectName, subjectDescription, parentSubjectId } = drawer;
   const titleRef = useRef(null);
   const subjectNameRef = useRef(null);
+  const [viewingNoteId, setViewingNoteId] = useState(null);
   const parentOptions = useMemo(() => getSubjectParentOptions(subjects, subject.id), [subject.id, subjects]);
+  const viewingNote = useMemo(() => notes.find(note => note.id === viewingNoteId) ?? null, [notes, viewingNoteId]);
 
   useEffect(() => {
     if (editingId !== null) titleRef.current?.focus();
@@ -93,6 +96,7 @@ function SubjectDrawer({ subject, subjects, notes, metricDefinitions, drawer, on
   }, [editingSubject]);
 
   const beginEditing = note => {
+    setViewingNoteId(null);
     onDrawerChange({
       editingId: note?.id ?? 'new',
       title: note?.title ?? '',
@@ -101,6 +105,11 @@ function SubjectDrawer({ subject, subjects, notes, metricDefinitions, drawer, on
       studyDuration: note?.studyDuration?.slice(0, 5) ?? '00:00',
       metrics: note?.metrics?.map(metric => ({ definitionId: metric.definition.id, value: String(metric.value) })) ?? [],
     });
+  };
+
+  const openNote = note => {
+    setViewingNoteId(note.id);
+    onDrawerChange({ editingId: null });
   };
 
   const handleSave = async event => {
@@ -182,11 +191,12 @@ function SubjectDrawer({ subject, subjects, notes, metricDefinitions, drawer, on
           <div><button type="button" className="ghost-button" onClick={() => onDrawerChange({ editingId: null })}>Cancel</button><button className="primary-button">Save note</button></div>
         </form>
       ) : null}
+      {viewingNote ? <NoteViewer note={viewingNote} onClose={() => setViewingNoteId(null)} onEdit={() => beginEditing(viewingNote)}/> : null}
       <div className="drawer-notes">
         {notes.map(note => (
           <article className="drawer-note" key={note.id}>
             <span className={`file-box ${subject.color}`}><FileText size={17}/></span>
-            <div><strong>{note.title}</strong><p>{note.excerpt || 'No excerpt yet.'}</p><small>{note.date}</small></div>
+            <button type="button" className="drawer-note-preview" onClick={() => openNote(note)}><strong>{note.title}</strong><p>{note.excerpt || 'No excerpt yet.'}</p><small>{note.date}</small></button>
             <IconButton label={`Edit ${note.title}`} onClick={() => beginEditing(note)}><MoreHorizontal size={18}/></IconButton>
           </article>
         ))}

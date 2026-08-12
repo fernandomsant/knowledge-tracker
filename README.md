@@ -56,6 +56,8 @@ Migrations are explicit SQL files in `src/KnowledgeTracker/KnowledgeTracker.Data
 npm run migrate
 ```
 
+This also creates the local starter workspace. Sign in with `student` / `student` to explore its seeded subjects and study notes.
+
 The migration runner reads the development connection string, applies files in sequence, records them in `dbo.SchemaMigrations`, verifies their checksums, and locks migration execution so concurrent runs cannot conflict.
 
 For deployment or CI, provide the connection string through an environment variable instead:

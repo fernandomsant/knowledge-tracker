@@ -8,6 +8,20 @@ namespace KnowledgeTracker.Data.Authentication.Repositories;
 
 public sealed class SqlServerUserRepository(Func<DbConnection> connectionFactory) : IUserRepository
 {
+    public async Task<User?> FindByIdAsync(Guid id, CancellationToken ct)
+    {
+        await using var connection = connectionFactory();
+        await connection.OpenAsync(ct);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT Id, Login, PasswordHash
+            FROM dbo.Users
+            WHERE Id = @Id;
+            """;
+        command.AddParameter("@Id", DbType.Guid, id);
+        return await ReadUserAsync(command, ct);
+    }
+
     public async Task<User?> FindAsync(string normalizedLogin, CancellationToken ct)
     {
         await using var connection = connectionFactory();
@@ -20,16 +34,7 @@ public sealed class SqlServerUserRepository(Func<DbConnection> connectionFactory
             """;
         command.AddParameter("@NormalizedLogin", DbType.String, normalizedLogin);
 
-        await using var reader = await command.ExecuteReaderAsync(ct);
-        if (!await reader.ReadAsync(ct))
-            return null;
-
-        return new User
-        {
-            Id = reader.GetGuid(0),
-            Login = reader.GetString(1),
-            PasswordHash = reader.GetString(2),
-        };
+        return await ReadUserAsync(command, ct);
     }
 
     public async Task AddAsync(User user, CancellationToken ct)
@@ -46,5 +51,18 @@ public sealed class SqlServerUserRepository(Func<DbConnection> connectionFactory
         command.AddParameter("@NormalizedLogin", DbType.String, user.NormalizedLogin);
         command.AddParameter("@PasswordHash", DbType.String, user.PasswordHash);
         await command.ExecuteNonQueryAsync(ct);
+    }
+
+    private static async Task<User?> ReadUserAsync(DbCommand command, CancellationToken ct)
+    {
+        await using var reader = await command.ExecuteReaderAsync(ct);
+        return await reader.ReadAsync(ct)
+            ? new User
+            {
+                Id = reader.GetGuid(0),
+                Login = reader.GetString(1),
+                PasswordHash = reader.GetString(2),
+            }
+            : null;
     }
 }

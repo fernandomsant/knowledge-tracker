@@ -45,6 +45,7 @@ builder.Services.AddSingleton<IRefreshTokenService>(_ =>
     new OpaqueRefreshTokenService(refreshTokenPepper)
 );
 builder.Services.AddScoped<KnowledgeTracker.Application.Authentication.IAuthenticationService, KnowledgeTracker.Application.Authentication.AuthenticationService>();
+builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<ISubjectService, SubjectService>();
 builder.Services.AddScoped<IStudyNoteService, StudyNoteService>();
 builder.Services.AddScoped<IStudyMetricDefinitionService, StudyMetricDefinitionService>();

@@ -41,7 +41,7 @@ const initialCanvasContext = {
 };
 
 const Sidebar = memo(function Sidebar({
-  subjects, notesBySubject, noteCount, activeNav, activeSubject,
+  user, subjects, notesBySubject, noteCount, activeNav, activeSubject,
   onNavigate, onSelectSubject, onCreateSubject, open, onClose,
 }) {
   return (
@@ -50,7 +50,7 @@ const Sidebar = memo(function Sidebar({
       <aside className={`sidebar ${open ? 'is-open' : ''}`}>
         <div className="brand"><span className="brand-mark"><Brain size={20}/></span><strong>knowly</strong><span className="beta">BETA</span></div>
         <button className="workspace-switcher">
-          <span className="avatar">AM</span><span><strong>Alex Morgan</strong><small>Personal workspace</small></span><ChevronDown size={16}/>
+          <span className="avatar">{user.login.slice(0, 2).toUpperCase()}</span><span><strong>{user.login}</strong><small>Personal workspace</small></span><ChevronDown size={16}/>
         </button>
         <nav className="primary-nav" aria-label="Primary navigation">
           {NAV_ITEMS.map(({ label, Icon }) => (
@@ -79,13 +79,13 @@ const Sidebar = memo(function Sidebar({
   );
 });
 
-const Topbar = memo(function Topbar({ activeNav, query, onQueryChange, onOpenMenu }) {
+const Topbar = memo(function Topbar({ user, activeNav, query, onQueryChange, onOpenMenu }) {
   return (
     <header className="topbar">
       <div className="crumbs"><IconButton label="Open menu" className="menu-button" onClick={onOpenMenu}><Menu size={20}/></IconButton><span>Workspace</span><b>/</b><strong>{activeNav}</strong></div>
       <div className="top-actions">
         <label className="search"><Search size={17}/><input value={query} onChange={event => onQueryChange(event.target.value)} placeholder="Search notes..."/><kbd>âŒ˜ K</kbd></label>
-        <IconButton label="Notifications" className="notification"><Bell size={18}/><i/></IconButton><span className="avatar">AM</span>
+        <IconButton label="Notifications" className="notification"><Bell size={18}/><i/></IconButton><span className="avatar">{user.login.slice(0, 2).toUpperCase()}</span>
       </div>
     </header>
   );
@@ -165,7 +165,7 @@ const CanvasOverlay = memo(function CanvasOverlay({ open, onClose, graphProps })
   );
 });
 export default function App() {
-  const { accessToken } = useAuthenticationSession();
+  const { accessToken, user } = useAuthenticationSession();
   const {
     subjects, notes, connections, metricDefinitions, subjectsById, notesBySubject, status: knowledgeStatus, error: knowledgeError,
     addSubject, updateSubject, removeSubject, moveSubject, addNote, updateNote, createMetricDefinition, connectSubjects, removeConnection,
@@ -247,6 +247,7 @@ export default function App() {
   return (
     <div className="app-shell">
       <Sidebar
+        user={user}
         subjects={subjects}
         notesBySubject={notesBySubject}
         noteCount={notes.length}
@@ -259,10 +260,10 @@ export default function App() {
         onClose={closeMenu}
       />
       <div className="page-wrap">
-        <Topbar activeNav={activeNav} query={query} onQueryChange={setQuery} onOpenMenu={openMenu}/>
+        <Topbar user={user} activeNav={activeNav} query={query} onQueryChange={setQuery} onOpenMenu={openMenu}/>
         <main>
           <section className="page-intro">
-            <div><span className="eyebrow"><Sparkles size={14}/> YOUR KNOWLEDGE SPACE</span><h1>Good morning, Alex.</h1><p>{selectedSubject ? `Exploring ${selectedSubject.name}.` : 'Gather your ideas, find the patterns, and keep learning.'}</p></div>
+            <div><span className="eyebrow"><Sparkles size={14}/> YOUR KNOWLEDGE SPACE</span><h1>Good morning, {user.login}.</h1><p>{selectedSubject ? `Exploring ${selectedSubject.name}.` : 'Gather your ideas, find the patterns, and keep learning.'}</p></div>
             <button className={`share-button ${copied ? 'success' : ''}`} onClick={handleShare}>{copied ? <Check size={17}/> : <Share2 size={17}/>} {copied ? 'Link copied' : 'Share space'}</button>
           </section>
           <section className="stats-grid">

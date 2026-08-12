@@ -1,0 +1,6 @@
+@baseUrl = http://localhost:5015
+@accessToken = replace-with-an-access-token
+
+### Get the signed-in user
+GET {{baseUrl}}/api/current-user
+Authorization: Bearer {{accessToken}}

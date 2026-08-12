@@ -13,6 +13,7 @@ export { default as HelpCircle } from 'lucide-react/dist/esm/icons/circle-help.m
 export { default as LayoutDashboard } from 'lucide-react/dist/esm/icons/layout-dashboard.mjs';
 export { default as Library } from 'lucide-react/dist/esm/icons/library.mjs';
 export { default as List } from 'lucide-react/dist/esm/icons/list.mjs';
+export { default as LogOut } from 'lucide-react/dist/esm/icons/log-out.mjs';
 export { default as Menu } from 'lucide-react/dist/esm/icons/menu.mjs';
 export { default as Maximize2 } from 'lucide-react/dist/esm/icons/maximize-2.mjs';
 export { default as MoreHorizontal } from 'lucide-react/dist/esm/icons/ellipsis.mjs';

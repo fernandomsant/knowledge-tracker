@@ -1,7 +1,7 @@
 ﻿import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowRight, Bell, Brain, Check, ChevronDown, Clock3, FileText, Folder,
-  GitBranch, Hash, HelpCircle, LayoutDashboard, Library, List, Menu,
+  GitBranch, Hash, HelpCircle, LayoutDashboard, Library, List, LogOut, Menu,
   Maximize2, MoreHorizontal, Network, Plus, Search, Settings, Share2, Sparkles, X, Zap,
 } from './icons';
 import { useAuthenticationSession } from './authentication/context/AuthenticationContext';
@@ -41,7 +41,7 @@ const initialCanvasContext = {
 
 const Sidebar = memo(function Sidebar({
   user, subjects, notesBySubject, noteCount, activeNav, activeSubject,
-  onNavigate, onSelectSubject, onCreateSubject, open, onClose,
+  onNavigate, onSelectSubject, onCreateSubject, onLogout, open, onClose,
 }) {
   return (
     <>
@@ -70,7 +70,7 @@ const Sidebar = memo(function Sidebar({
           ))}
         </section>
         <div className="sidebar-bottom">
-          <button><Settings size={17}/>Settings</button><button><HelpCircle size={17}/>Help center</button>
+          <button><Settings size={17}/>Settings</button><button><HelpCircle size={17}/>Help center</button><button className="logout-button" onClick={onLogout}><LogOut size={17}/>Log out</button>
           <div className="upgrade"><span><Zap size={16}/></span><strong>Unlock more space</strong><p>Unlimited notes, exports and advanced connections.</p><button>Upgrade plan <ArrowRight size={14}/></button></div>
         </div>
       </aside>
@@ -163,7 +163,7 @@ const CanvasOverlay = memo(function CanvasOverlay({ open, onClose, graphProps })
   );
 });
 export default function App() {
-  const { accessToken, user } = useAuthenticationSession();
+  const { accessToken, user, logout } = useAuthenticationSession();
   const {
     subjects, notes, connections, metricDefinitions, subjectsById, notesBySubject, goalsBySubject, status: knowledgeStatus, error: knowledgeError,
     addSubject, updateSubject, removeSubject, moveSubject, addNote, updateNote, createMetricDefinition, connectSubjects, removeConnection, addSubjectGoal, removeSubjectGoal,
@@ -252,6 +252,7 @@ export default function App() {
         onNavigate={handleNavigate}
         onSelectSubject={setActiveSubject}
         onCreateSubject={openModal}
+        onLogout={logout}
         open={menuOpen}
         onClose={closeMenu}
       />

@@ -55,6 +55,13 @@ export function useAuthentication() {
     credentials => authenticationClient.register(credentials).then(applySession),
     [applySession]
   );
+  const logout = useCallback(async () => {
+    try {
+      if (session.accessToken) await authenticationClient.logout(session.accessToken);
+    } finally {
+      setSession(unauthenticatedState);
+    }
+  }, [session.accessToken]);
 
-  return { ...session, login, register };
+  return { ...session, login, register, logout };
 }

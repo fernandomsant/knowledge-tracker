@@ -3,6 +3,7 @@ using KnowledgeTracker.Domain.Authentication;
 using KnowledgeTracker.Web.Authentication.Contracts;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace KnowledgeTracker.Web.Authentication.Controllers;
 
@@ -82,6 +83,18 @@ public sealed class AuthenticationController(IAuthenticationService authenticati
             Response.Cookies.Delete(RefreshTokenCookieName, CookieOptions());
             return Unauthorized();
         }
+    }
+
+    [HttpPost("logout")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> LogoutAsync(CancellationToken ct)
+    {
+        if (Guid.TryParse(User.FindFirstValue("session_id"), out var sessionId))
+            await authentication.LogoutAsync(sessionId, ct);
+
+        Response.Cookies.Delete(RefreshTokenCookieName, CookieOptions());
+        return NoContent();
     }
 
     private string UserAgent()

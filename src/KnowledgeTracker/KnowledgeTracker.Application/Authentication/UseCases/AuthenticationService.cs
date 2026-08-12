@@ -79,6 +79,8 @@ public sealed class AuthenticationService(
         return new TokenPair(IssueAccessToken(result.Session, now), nextRefreshToken);
     }
 
+    public Task LogoutAsync(Guid sessionId, CancellationToken ct) => sessions.RevokeAsync(sessionId, ct);
+
     private AccessToken IssueAccessToken(AuthenticationSession session, DateTimeOffset now) =>
         accessTokens.Issue(
             AccessToken.Unsigned(

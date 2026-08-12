@@ -1,4 +1,6 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
+using KnowledgeTracker.Web.Knowledge.Serialization;
 
 namespace KnowledgeTracker.Web.Knowledge.Contracts;
 
@@ -85,6 +87,7 @@ public sealed record CreateSubjectGoalRequest
     public KnowledgeTracker.Domain.Knowledge.GoalKind Kind { get; init; }
     public Guid? MetricDefinitionId { get; init; }
     [Range(typeof(decimal), "0.01", "9999999999999999.99")]
+    [JsonConverter(typeof(FlexibleNullableDecimalConverter))]
     public decimal? TargetValue { get; init; }
     public DateOnly? TargetDate { get; init; }
 }

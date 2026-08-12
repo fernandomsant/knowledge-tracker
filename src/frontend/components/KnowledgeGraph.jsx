@@ -136,18 +136,22 @@ function SubjectDrawer({ subject, subjects, notes, metricDefinitions, drawer, on
     >
       <div className="drawer-head">
         <div><span>SUBJECT DETAILS</span><h3>{subject.name}</h3></div>
-        <div className="drawer-actions"><button className="text-button" onClick={() => onDrawerChange({ editingSubject: true })}><Pencil size={15}/> Edit</button><button className="remove-node-button" onClick={() => { if (window.confirm(`Remove ${subject.name} and its notes?`)) onRemoveSubject(); }}><Trash2 size={15}/> Remove node</button><IconButton label="Close subject details" onClick={onClose}><X size={19}/></IconButton></div>
+        <div className="drawer-actions">
+          {editingSubject ? <button type="submit" form="subject-editor" className="primary-button">Save changes</button> : <button className="text-button" onClick={() => onDrawerChange({ editingSubject: true })}><Pencil size={15}/> Edit</button>}
+          <button className="remove-node-button" onClick={() => { if (window.confirm(`Remove ${subject.name} and its notes?`)) onRemoveSubject(); }}><Trash2 size={15}/> Remove node</button>
+          <IconButton label="Close subject details" onClick={onClose}><X size={19}/></IconButton>
+        </div>
       </div>
       <div className={`subject-banner ${subject.color}`}>
         <span><Folder size={24}/></span>
         <div><strong>{subject.name}</strong><small>{notes.length} {notes.length === 1 ? 'note' : 'notes'} in this subject</small></div>
       </div>
       {editingSubject ? (
-        <form className="note-editor" onSubmit={saveSubject}>
+        <form id="subject-editor" className="note-editor" onSubmit={saveSubject}>
           <label>Subject name<input ref={subjectNameRef} value={subjectName} onChange={event => onDrawerChange({ subjectName: event.target.value })} maxLength="256"/></label>
           <label>Description<textarea value={subjectDescription} onChange={event => onDrawerChange({ subjectDescription: event.target.value })} placeholder="What are you studying?" rows="3"/></label>
           <label>Parent subject<select value={parentSubjectId} onChange={event => onDrawerChange({ parentSubjectId: event.target.value })}><option value="">Top-level subject</option>{parentOptions.map(candidate => <option key={candidate.id} value={candidate.id}>{candidate.label}</option>)}</select><small className="hierarchy-hint">Descendants and fifth-level parents are unavailable.</small></label>
-          <div><button type="button" className="ghost-button" onClick={() => onDrawerChange({ editingSubject: false })}>Cancel</button><button className="primary-button">Save subject</button></div>
+          <div><button type="button" className="ghost-button" onClick={() => onDrawerChange({ editingSubject: false })}>Cancel</button></div>
         </form>
       ) : null}
       <div className="drawer-section-title">

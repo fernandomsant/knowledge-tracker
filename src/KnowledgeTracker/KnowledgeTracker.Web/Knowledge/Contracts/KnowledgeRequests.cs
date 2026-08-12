@@ -86,7 +86,12 @@ public sealed record CreateSubjectGoalRequest
     public required string Title { get; init; }
     public KnowledgeTracker.Domain.Knowledge.GoalKind Kind { get; init; }
     public Guid? MetricDefinitionId { get; init; }
-    [Range(typeof(decimal), "0.01", "9999999999999999.99")]
+    [Range(
+        typeof(decimal),
+        "0.01",
+        "9999999999999999.99",
+        ParseLimitsInInvariantCulture = true,
+        ConvertValueInInvariantCulture = true)]
     [JsonConverter(typeof(FlexibleNullableDecimalConverter))]
     public decimal? TargetValue { get; init; }
     public DateOnly? TargetDate { get; init; }

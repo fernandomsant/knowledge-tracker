@@ -164,7 +164,7 @@ function SubjectDrawer({ subject, subjects, notes, goals, metricDefinitions, dra
           <div><button type="button" className="ghost-button" onClick={() => onDrawerChange({ editingSubject: false })}>Cancel</button></div>
         </form>
       ) : null}
-      <SubjectGoals goals={goals} metricDefinitions={metricDefinitions} onCreate={goal => onCreateGoal(subject.id, goal)} onRemove={onRemoveGoal}/>
+      <SubjectGoals goals={goals} notes={notes} metricDefinitions={metricDefinitions} onCreate={goal => onCreateGoal(subject.id, goal)} onRemove={onRemoveGoal}/>
       <div className="drawer-section-title">
         <div><span>Ideas in this subject</span><small>Capture thoughts while the context is fresh.</small></div>
         <button className="text-button" onClick={() => beginEditing(null)}><Plus size={15}/> Add note</button>

@@ -22,20 +22,59 @@ const SubjectNode = memo(function SubjectNode({
   noteCount,
   isSelected,
   connectMode,
+  zoom,
   onOpen,
   onSelect,
+  onMove,
 }) {
+  const dragRef = useRef(null);
+  const movedRef = useRef(false);
+
   const handlePointerDown = event => {
     if (event.button !== 0) return;
     event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    dragRef.current = {
+      pointerId: event.pointerId,
+      clientX: event.clientX,
+      clientY: event.clientY,
+      x: subject.x,
+      y: subject.y,
+    };
+    movedRef.current = false;
+  };
+
+  const handlePointerMove = event => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId || connectMode) return;
+    const deltaX = event.clientX - drag.clientX;
+    const deltaY = event.clientY - drag.clientY;
+    if (Math.abs(deltaX) + Math.abs(deltaY) > 4) movedRef.current = true;
+    onMove(subject.id, drag.x + deltaX / zoom, drag.y + deltaY / zoom);
+  };
+
+  const handlePointerUp = event => {
+    if (dragRef.current?.pointerId === event.pointerId) dragRef.current = null;
+  };
+
+  const handleClick = () => {
+    if (movedRef.current) {
+      movedRef.current = false;
+      return;
+    }
+    if (connectMode) onSelect(subject.id);
+    else onOpen(subject.id);
   };
 
   return (
     <button
       className={`subject-node ${subject.color} ${isSelected ? 'selected' : ''} ${connectMode ? 'connectable' : ''}`}
-      style={{ transform: `translate3d(${subject.x}px, ${subject.y}px, 0)`, cursor: connectMode ? 'crosshair' : 'pointer' }}
+      style={{ transform: `translate3d(${subject.x}px, ${subject.y}px, 0)` }}
       onPointerDown={handlePointerDown}
-      onClick={() => connectMode ? onSelect(subject.id) : onOpen(subject.id)}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={() => { dragRef.current = null; }}
+      onClick={handleClick}
     >
       <span className="node-top">
         <span className="folder-box"><Folder size={21}/></span>
@@ -234,8 +273,13 @@ export function KnowledgeGraph({
   );
   const hierarchyEdges = useMemo(() => getSubjectHierarchyEdges(subjects), [subjects]);
   const positionedSubjects = useMemo(() => layoutSubjects(subjects, connections), [connections, subjects]);
-  const positionedSubjectsById = useMemo(() => new Map(positionedSubjects.map(subject => [subject.id, subject])), [positionedSubjects]);
-  const positionedHierarchyEdges = useMemo(() => getSubjectHierarchyEdges(positionedSubjects), [positionedSubjects]);
+  const [manualPositions, setManualPositions] = useState(new Map());
+  useEffect(() => {
+    setManualPositions(new Map());
+  }, [positionedSubjects]);
+  const displaySubjects = useMemo(() => positionedSubjects.map(subject => ({ ...subject, ...manualPositions.get(subject.id) })), [manualPositions, positionedSubjects]);
+  const displaySubjectsById = useMemo(() => new Map(displaySubjects.map(subject => [subject.id, subject])), [displaySubjects]);
+  const positionedHierarchyEdges = useMemo(() => getSubjectHierarchyEdges(displaySubjects), [displaySubjects]);
 
   const beginPan = useCallback(event => {
     if (event.button !== 0 || event.target.closest('button, .subject-drawer, .canvas-controls')) return;
@@ -289,8 +333,13 @@ export function KnowledgeGraph({
   }, [connectMode, updateCanvasContext]);
 
   const resetCanvas = useCallback(() => {
+    setManualPositions(new Map());
     updateCanvasContext({ pan: { x: 0, y: 0 }, zoom: 1 });
   }, [updateCanvasContext]);
+
+  const moveSubject = useCallback((id, x, y) => {
+    setManualPositions(current => new Map(current).set(id, { x, y }));
+  }, []);
 
   const removeOpenSubject = useCallback(() => {
     if (openSubjectId === null) return;
@@ -332,8 +381,8 @@ export function KnowledgeGraph({
               return <line key={edge.id} className={`hierarchy-edge hierarchy-level-${edge.level}`} x1={x1} y1={y1} x2={x2} y2={y2} markerEnd={`url(#hierarchy-arrow-${Math.min(edge.level, 3)})`}/>;
             })}
             {connections.map(edge => {
-              const source = positionedSubjectsById.get(edge.source);
-              const target = positionedSubjectsById.get(edge.target);
+              const source = displaySubjectsById.get(edge.source);
+              const target = displaySubjectsById.get(edge.target);
               if (!source || !target) return null;
               const x1 = source.x + 105;
               const y1 = source.y + 73;
@@ -342,13 +391,14 @@ export function KnowledgeGraph({
               return <g key={edge.id}><line x1={x1} y1={y1} x2={x2} y2={y2}/><circle cx={x1} cy={y1} r="4"/><circle cx={x2} cy={y2} r="4"/></g>;
             })}
           </svg>
-          {positionedSubjects.map(subject => (
+          {displaySubjects.map(subject => (
             <SubjectNode
               key={subject.id}
               subject={subject}
               noteCount={notesBySubject.get(subject.id)?.length ?? 0}
               isSelected={connectionStart === subject.id}
               connectMode={connectMode}
+              zoom={zoom}
               onOpen={id => {
                 const subject = subjectsById.get(id);
                 updateCanvasContext({
@@ -367,10 +417,11 @@ export function KnowledgeGraph({
                 });
               }}
               onSelect={selectForConnection}
+              onMove={moveSubject}
             />
           ))}
         </div>
-        <div className="graph-legend"><span><i className="manual-link"/>{connections.length} related links</span><span><i className="hierarchy-link"/>{hierarchyEdges.length} hierarchy links</span><span>{connectMode ? 'Choose two subjects' : 'Layout updates automatically'}</span></div>
+        <div className="graph-legend"><span><i className="manual-link"/>{connections.length} related links</span><span><i className="hierarchy-link"/>{hierarchyEdges.length} hierarchy links</span><span>{connectMode ? 'Choose two subjects' : 'Drag to arrange'}</span></div>
         <div className="canvas-controls">
           <button onClick={onCreateSubject}><Plus size={16}/> Add node</button>
           <button className={connectionsOpen ? 'active' : ''} onClick={() => updateCanvasContext({ connectionsOpen: !connectionsOpen })}><GitBranch size={16}/> Links ({connections.length})</button>

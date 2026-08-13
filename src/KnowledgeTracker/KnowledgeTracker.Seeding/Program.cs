@@ -59,6 +59,17 @@ file static class StudentWorkspaceSeed
                 ("@description", subject.Description),
                 ("@parentSubjectId", subject.ParentSubjectId is null ? DBNull.Value : Guid.Parse(subject.ParentSubjectId)));
 
+        foreach (var topic in subjects.Select(subject => new TopicSeed(subject.Id, subject.Name)).Concat([
+            new TopicSeed(SeedId("topic-linux"), "Linux"),
+            new TopicSeed(SeedId("topic-network-security"), "Network Security"),
+            new TopicSeed(SeedId("topic-german-grammar"), "German Grammar"),
+            new TopicSeed(SeedId("topic-data-structures"), "Data Structures")
+        ]))
+            await ExecuteAsync(connection, transaction, """
+                IF NOT EXISTS (SELECT 1 FROM dbo.Topics WHERE Id = @id)
+                INSERT INTO dbo.Topics (Id, Name) VALUES (@id, @name);
+                """, ("@id", Guid.Parse(topic.Id)), ("@name", topic.Name));
+
         var notes = new[]
         {
             new NoteSeed("B3B8371A-5F7D-4D0C-BA4E-BC8FC5D2D406", "D9674C7B-D6AC-44A2-9531-E22972518F10", "Value types and reference types", "Value types store their data directly, while reference types store a reference to an object. Copying each kind has different effects.", 27000000000, "2026-08-04T18:00:00+00:00"),
@@ -91,12 +102,20 @@ file static class StudentWorkspaceSeed
             Note("learning-spaced-repetition", "67010711-B6F1-452B-9D6B-21F7FCE8C00D", "Spacing creates useful difficulty", "Reviewing after partial forgetting requires retrieval effort and strengthens long-term memory more than immediate rereading.", 32, "2026-06-21T13:00:00+00:00"),
             Note("learning-interleaving", "67010711-B6F1-452B-9D6B-21F7FCE8C00D", "Interleaving improves discrimination", "Mixing related problem types requires deciding which method applies instead of repeating one routine.", 34, "2026-07-18T13:00:00+00:00"),
             Note("learning-review-plan", "67010711-B6F1-452B-9D6B-21F7FCE8C00D", "Build a weekly review plan", "Schedule a short review block for each active subject and adjust it using missed retrieval prompts.", 29, "2026-08-10T13:00:00+00:00"),
+            Note("csharp-generics", "D9674C7B-D6AC-44A2-9531-E22972518F10", "Generic constraints communicate intent", "Constraints describe the capabilities a type parameter needs and keep invalid generic combinations out at compile time.", 46, "2026-08-11T18:00:00+00:00"),
+            Note("csharp-patterns", "D9674C7B-D6AC-44A2-9531-E22972518F10", "Pattern matching narrows values", "Patterns combine a type test and extraction into one readable branch while preserving compiler flow analysis.", 43, "2026-08-12T18:15:00+00:00"),
+            Note("database-index-maintenance", SeedId("subject-sql-server"), "Indexes need measured maintenance", "Rebuild or reorganize decisions should be based on workload and fragmentation evidence rather than a fixed schedule.", 41, "2026-08-11T19:00:00+00:00"),
+            Note("algorithms-dynamic-programming", SeedId("subject-algorithms"), "Dynamic programming reuses subproblems", "Store the result of overlapping subproblems when the optimal solution can be built from smaller optimal solutions.", 57, "2026-08-12T16:00:00+00:00"),
+            Note("networking-tls", SeedId("subject-networking"), "TLS authenticates and encrypts", "A TLS handshake agrees keys and authenticates the endpoint before protected application data is exchanged.", 45, "2026-08-11T15:30:00+00:00"),
+            Note("math-eigenvectors", SeedId("subject-linear-algebra"), "Eigenvectors preserve direction", "An eigenvector keeps its direction under a linear transformation while the eigenvalue describes its scaling.", 48, "2026-08-12T14:00:00+00:00"),
+            Note("german-modal-verbs", SeedId("subject-german"), "Modal verbs move the infinitive", "In main clauses a modal verb occupies the finite verb position while the main infinitive moves to the end.", 34, "2026-08-11T20:00:00+00:00"),
+            Note("learning-feedback", "67010711-B6F1-452B-9D6B-21F7FCE8C00D", "Feedback should follow retrieval", "Attempting recall before checking an answer makes corrective feedback more diagnostic and memorable.", 31, "2026-08-12T13:00:00+00:00"),
         };
         foreach (var note in notes)
             await ExecuteAsync(connection, transaction, """
                 IF NOT EXISTS (SELECT 1 FROM dbo.StudyNotes WHERE Id = @id)
-                INSERT INTO dbo.StudyNotes (Id, SubjectId, Title, Content, StudyDurationTicks, StudyStartedAtUtc)
-                VALUES (@id, @subjectId, @title, @content, @studyDurationTicks, @studyStartedAtUtc);
+                INSERT INTO dbo.StudyNotes (Id, SubjectId, TopicId, Title, Content, StudyDurationTicks, StudyStartedAtUtc)
+                VALUES (@id, @subjectId, @subjectId, @title, @content, @studyDurationTicks, @studyStartedAtUtc);
                 """,
                 ("@id", Guid.Parse(note.Id)),
                 ("@subjectId", Guid.Parse(note.SubjectId)),
@@ -153,6 +172,7 @@ file static class StudentWorkspaceSeed
     }
 
     private sealed record SubjectSeed(string Id, string Name, string Description, string? ParentSubjectId);
+    private sealed record TopicSeed(string Id, string Name);
     private sealed record NoteSeed(string Id, string SubjectId, string Title, string Content, long StudyDurationTicks, string StudyStartedAtUtc);
     private sealed record ConnectionSeed(string Id, string SubjectId, string ConnectedSubjectId);
     private sealed record MetricSeed(string StudyNoteId, string MetricDefinitionId, decimal Value);
@@ -174,8 +194,8 @@ file static class StudentWorkspaceSeed
         foreach (var goal in goals)
             await ExecuteAsync(connection, transaction, """
                 IF NOT EXISTS (SELECT 1 FROM dbo.SubjectGoals WHERE Id = @id)
-                INSERT INTO dbo.SubjectGoals (Id, SubjectId, Title, GoalKind, MetricDefinitionId, TargetValue, TargetDate, GoalPeriod, CustomPeriodStartDate, CustomPeriodEndDate, IsCompleted, CompletedAtUtc, CreatedAtUtc)
-                VALUES (@id, @subjectId, @title, @kind, @metricDefinitionId, @targetValue, @targetDate, @period, @periodStartDate, @periodEndDate, @isCompleted, @completedAtUtc, @createdAtUtc);
+                INSERT INTO dbo.SubjectGoals (Id, SubjectId, TopicId, Title, GoalKind, MetricDefinitionId, TargetValue, TargetDate, GoalPeriod, CustomPeriodStartDate, CustomPeriodEndDate, IsCompleted, CompletedAtUtc, CreatedAtUtc)
+                VALUES (@id, @subjectId, @subjectId, @title, @kind, @metricDefinitionId, @targetValue, @targetDate, @period, @periodStartDate, @periodEndDate, @isCompleted, @completedAtUtc, @createdAtUtc);
                 """,
                 ("@id", Guid.Parse(goal.Id)), ("@subjectId", Guid.Parse(goal.SubjectId)), ("@title", goal.Title), ("@kind", goal.Kind), ("@metricDefinitionId", (object?)(goal.MetricDefinitionId is null ? null : Guid.Parse(goal.MetricDefinitionId)) ?? DBNull.Value), ("@targetValue", (object?)goal.TargetValue ?? DBNull.Value), ("@targetDate", (object?)(goal.TargetDate?.ToDateTime(TimeOnly.MinValue)) ?? DBNull.Value), ("@period", goal.Period), ("@periodStartDate", (object?)(goal.PeriodStartDate?.ToDateTime(TimeOnly.MinValue)) ?? DBNull.Value), ("@periodEndDate", (object?)(goal.PeriodEndDate?.ToDateTime(TimeOnly.MinValue)) ?? DBNull.Value), ("@isCompleted", goal.IsCompleted), ("@completedAtUtc", (object?)goal.CompletedAtUtc ?? DBNull.Value), ("@createdAtUtc", goal.CreatedAtUtc));
 

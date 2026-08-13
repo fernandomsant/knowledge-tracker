@@ -1,4 +1,5 @@
 ﻿import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense } from 'react';
 import {
   ArrowRight, Bell, Brain, Check, ChevronDown, Clock3, FileText, Folder,
   GitBranch, Hash, HelpCircle, LayoutDashboard, Library, List, LogOut, Menu,
@@ -9,6 +10,8 @@ import { useKnowledgeStore } from './hooks/useKnowledgeStore';
 import { IconButton } from './components/IconButton';
 import { KnowledgeGraph } from './components/KnowledgeGraph';
 import { getSubjectParentOptions } from './knowledge/utils/subjectHierarchy';
+
+const StudyDashboard = lazy(() => import('./components/dashboard/StudyDashboard'));
 
 const NAV_ITEMS = [
   { label: 'Overview', Icon: LayoutDashboard },
@@ -165,7 +168,7 @@ const CanvasOverlay = memo(function CanvasOverlay({ open, onClose, graphProps })
 export default function App() {
   const { accessToken, user, logout } = useAuthenticationSession();
   const {
-    subjects, notes, connections, metricDefinitions, subjectsById, notesBySubject, goalsBySubject, status: knowledgeStatus, error: knowledgeError,
+    subjects, notes, connections, goals, metricDefinitions, subjectsById, notesBySubject, goalsBySubject, status: knowledgeStatus, error: knowledgeError,
     addSubject, updateSubject, removeSubject, moveSubject, addNote, updateNote, createMetricDefinition, connectSubjects, removeConnection, addSubjectGoal, removeSubjectGoal, completeSubjectGoal,
   } = useKnowledgeStore(accessToken);
   const [activeNav, setActiveNav] = useState('Overview');
@@ -217,6 +220,11 @@ export default function App() {
   const closeMenu = useCallback(() => setMenuOpen(false), []);
   const expandCanvas = useCallback(() => setCanvasExpanded(true), []);
   const minimizeCanvas = useCallback(() => setCanvasExpanded(false), []);
+  const inspectSubject = useCallback(id => {
+    setActiveSubject(id);
+    setView('canvas');
+    setCanvasContext(context => ({ ...context, openSubjectId: id }));
+  }, []);
 
   const handleNavigate = useCallback(label => {
     setActiveNav(label);
@@ -269,6 +277,7 @@ export default function App() {
             <StatCard Icon={Clock3} color="amber" label="Study streak" value="7 days" detail="Best: 14 days"/>
             <StatCard Icon={Hash} color="purple" label="Topics covered" value={subjects.length} detail="In your knowledge space"/>
           </section>
+          <Suspense fallback={null}><StudyDashboard subjects={subjects} notes={notes} goals={goals} onInspectSubject={inspectSubject}/></Suspense>
           <section className="workspace-panel">
             <header className="panel-head">
               <div><span>SUBJECT MAP</span><h2>Your knowledge space</h2><p>Arrange subjects, connect related thinking, then open a node to work with its notes.</p></div>

@@ -32,6 +32,9 @@ public sealed class SubjectGoalsController(ISubjectGoalService goals) : Controll
     [HttpPost("subject-goals/{id:guid}/complete")]
     public async Task<IActionResult> CompleteAsync(Guid id, CancellationToken ct) => await goals.CompleteAsync(id, ct) ? NoContent() : BadRequest();
 
+    [HttpPut("subject-goals/{id:guid}/priority")]
+    public async Task<IActionResult> SwapPriorityAsync(Guid id, [FromBody] SwapSubjectGoalPriorityRequest request, CancellationToken ct) => await goals.SwapPriorityAsync(id, request.SwapWithId, ct) ? NoContent() : BadRequest();
+
     [HttpPut("subject-sub-goals/{id:guid}/completion")]
     public async Task<IActionResult> SetSubGoalCompletionAsync(Guid id, [FromBody] SetSubGoalCompletionRequest request, CancellationToken ct) => await goals.SetSubGoalCompletionAsync(id, request.IsCompleted, ct) ? NoContent() : BadRequest();
 }

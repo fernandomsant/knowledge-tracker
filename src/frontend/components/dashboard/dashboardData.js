@@ -116,7 +116,7 @@ export function buildStudyBehaviorData({ subjects, notes, goals, range, now = ne
     const consistency = expected ? completed / expected * 100 : 0;
     const trend = trendFor(occurrences);
     return { ...goal, periodLabel: PERIOD_LABELS[goal.period], completed, expected, missed, consistency, streak: currentStreak(occurrences), trend, ...recurringGoalPriority({ consistency, missed, expected, trend }) };
-  }).toSorted((left, right) => left.priorityRank - right.priorityRank || left.consistency - right.consistency || right.expected - left.expected);
+  }).toSorted((left, right) => (left.priorityOrder ?? Number.MAX_SAFE_INTEGER) - (right.priorityOrder ?? Number.MAX_SAFE_INTEGER) || left.priorityRank - right.priorityRank || left.consistency - right.consistency || right.expected - left.expected);
   const unsupportedPeriodicGoals = goals.filter(goal => !goal.isCompleted && goal.kind !== 1 && goal.period >= 1 && goal.period <= 3);
   return { subjectActivity, totalNotes, periodicGoals, unsupportedPeriodicGoals };
 }

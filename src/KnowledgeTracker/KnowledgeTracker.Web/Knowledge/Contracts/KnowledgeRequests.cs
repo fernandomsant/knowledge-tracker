@@ -107,3 +107,4 @@ public sealed record CreateSubjectGoalRequest
 }
 
 public sealed record SetSubGoalCompletionRequest(bool IsCompleted);
+public sealed record SwapSubjectGoalPriorityRequest(Guid SwapWithId);

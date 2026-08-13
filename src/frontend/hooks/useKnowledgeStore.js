@@ -3,6 +3,9 @@ import { PALETTE } from '../data/seed';
 import { knowledgeClient } from '../knowledge/api/knowledgeClient';
 
 function knowledgeReducer(state, action) {
+  const orderGoals = goals => goals
+    .toSorted((left, right) => (left.priorityOrder ?? left.priorityPosition ?? Number.MAX_SAFE_INTEGER) - (right.priorityOrder ?? right.priorityPosition ?? Number.MAX_SAFE_INTEGER) || new Date(left.createdAtUtc) - new Date(right.createdAtUtc))
+    .map((goal, priorityOrder) => ({ ...goal, priorityOrder }));
   const applyMetricDelta = (goals, metrics, direction) => goals.map(goal => {
     if (goal.kind !== 1) return goal;
     const value = metrics.find(metric => metric.definition.id === goal.metricDefinition.id)?.value ?? 0;
@@ -10,7 +13,7 @@ function knowledgeReducer(state, action) {
   });
   switch (action.type) {
     case 'knowledge/loading': return { ...state, status: 'loading', error: null };
-    case 'knowledge/loaded': return { ...state, ...action.knowledge, status: 'ready', error: null };
+    case 'knowledge/loaded': return { ...state, ...action.knowledge, goals: orderGoals(action.knowledge.goals), status: 'ready', error: null };
     case 'knowledge/failed': return { ...state, status: 'error', error: action.error };
     case 'request/failed': return { ...state, error: action.error };
     case 'request/clear': return { ...state, error: null };
@@ -22,7 +25,6 @@ function knowledgeReducer(state, action) {
       notes: state.notes.filter(note => note.subjectId !== action.id),
       connections: state.connections.filter(connection => connection.source !== action.id && connection.target !== action.id),
     };
-    case 'subject/move': return { ...state, subjects: state.subjects.map(subject => subject.id === action.id ? { ...subject, x: action.x, y: action.y } : subject) };
     case 'note/add': return { ...state, notes: [...state.notes, action.note], goals: applyMetricDelta(state.goals, action.note.metrics, 1) };
     case 'note/update': {
       const previous = state.notes.find(note => note.id === action.note.id);
@@ -31,9 +33,17 @@ function knowledgeReducer(state, action) {
     }
     case 'connection/add': return { ...state, connections: [...state.connections, action.connection] };
     case 'connection/remove': return { ...state, connections: state.connections.filter(connection => connection.id !== action.id) };
-    case 'goal/add': return { ...state, goals: [...state.goals, action.goal] };
+    case 'goal/add': return { ...state, goals: orderGoals([...state.goals, action.goal]) };
     case 'goal/remove': return { ...state, goals: state.goals.filter(goal => goal.id !== action.id) };
     case 'goal/complete': return { ...state, goals: state.goals.map(goal => goal.id === action.id ? { ...goal, isCompleted: true, completedAtUtc: action.completedAtUtc } : goal) };
+    case 'goal/prioritize': {
+      const ranked = orderGoals(state.goals);
+      const index = ranked.findIndex(goal => goal.id === action.id);
+      const destination = ranked.findIndex(goal => goal.id === action.swapWithId);
+      if (index < 0 || destination < 0) return state;
+      [ranked[index], ranked[destination]] = [ranked[destination], ranked[index]];
+      return { ...state, goals: ranked.map((goal, priorityOrder) => ({ ...goal, priorityOrder })) };
+    }
     case 'sub-goal/complete': return { ...state, goals: state.goals.map(goal => ({ ...goal, subGoals: goal.subGoals?.map(subGoal => subGoal.id === action.id ? { ...subGoal, isCompleted: action.isCompleted, completedAtUtc: action.isCompleted ? action.completedAtUtc : null } : subGoal) ?? [] })) };
     default: return state;
   }
@@ -44,7 +54,7 @@ const noteDateFormatter = new Intl.DateTimeFormat('en', { month: 'short', day: '
 const errorMessage = reason => reason instanceof Error ? reason.message : 'Your knowledge space could not be updated. Try again.';
 
 function toSubject(subject, index) {
-  return { id: subject.id, name: subject.name, description: subject.description, parentSubjectId: subject.parentSubjectId, color: PALETTE[index % PALETTE.length], x: 120 + (index % 3) * 260, y: 110 + Math.floor(index / 3) * 210 };
+  return { id: subject.id, name: subject.name, description: subject.description, parentSubjectId: subject.parentSubjectId, color: PALETTE[index % PALETTE.length] };
 }
 
 function toNote(note) {
@@ -123,7 +133,6 @@ export function useKnowledgeStore(accessToken) {
     }
   }, [accessToken]);
 
-  const moveSubject = useCallback((id, x, y) => dispatch({ type: 'subject/move', id, x, y }), []);
 
   const addNote = useCallback(async (subjectId, title, excerpt, studyDuration, studyStartedAtUtc, metrics) => {
     try {
@@ -220,6 +229,16 @@ export function useKnowledgeStore(accessToken) {
       return false;
     }
   }, [accessToken]);
+  const prioritizeSubjectGoal = useCallback(async (id, swapWithId) => {
+    try {
+      await knowledgeClient.swapSubjectGoalPriority(accessToken, id, swapWithId);
+      dispatch({ type: 'goal/prioritize', id, swapWithId });
+      return true;
+    } catch (reason) {
+      dispatch({ type: 'request/failed', error: errorMessage(reason) });
+      return false;
+    }
+  }, [accessToken]);
   const setSubGoalCompletion = useCallback(async (id, isCompleted) => {
     try {
       await knowledgeClient.setSubGoalCompletion(accessToken, id, isCompleted);
@@ -232,5 +251,5 @@ export function useKnowledgeStore(accessToken) {
     }
   }, [accessToken]);
 
-  return { ...state, subjectsById, notesBySubject, goalsBySubject, addSubject, updateSubject, removeSubject, moveSubject, addNote, updateNote, createMetricDefinition, connectSubjects, removeConnection, addSubjectGoal, removeSubjectGoal, completeSubjectGoal, setSubGoalCompletion };
+  return { ...state, subjectsById, notesBySubject, goalsBySubject, addSubject, updateSubject, removeSubject, addNote, updateNote, createMetricDefinition, connectSubjects, removeConnection, addSubjectGoal, removeSubjectGoal, completeSubjectGoal, prioritizeSubjectGoal, setSubGoalCompletion };
 }

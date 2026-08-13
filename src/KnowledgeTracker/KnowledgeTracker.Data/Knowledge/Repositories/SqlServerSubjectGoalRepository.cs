@@ -11,7 +11,7 @@ public sealed class SqlServerSubjectGoalRepository(Func<DbConnection> connection
     public async Task<IReadOnlyCollection<SubjectGoal>> ListBySubjectAsync(Guid subjectId, CancellationToken ct)
     {
         await using var connection = connectionFactory(); await connection.OpenAsync(ct); await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT Id, SubjectId, Title, GoalKind, MetricDefinitionId, TargetValue, TargetDate, GoalPeriod, CustomPeriodStartDate, CustomPeriodEndDate, IsCompleted, CompletedAtUtc, CreatedAtUtc FROM dbo.SubjectGoals WHERE SubjectId = @SubjectId ORDER BY CreatedAtUtc DESC;";
+        command.CommandText = "SELECT Id, SubjectId, Title, GoalKind, MetricDefinitionId, TargetValue, TargetDate, GoalPeriod, CustomPeriodStartDate, CustomPeriodEndDate, PriorityPosition, IsCompleted, CompletedAtUtc, CreatedAtUtc FROM dbo.SubjectGoals WHERE SubjectId = @SubjectId ORDER BY PriorityPosition;";
         command.AddParameter("@SubjectId", DbType.Guid, subjectId); await using var reader = await command.ExecuteReaderAsync(ct);
         var goals = new List<SubjectGoal>(); while (await reader.ReadAsync(ct)) goals.Add(ReadGoal(reader)); return goals;
     }
@@ -19,7 +19,7 @@ public sealed class SqlServerSubjectGoalRepository(Func<DbConnection> connection
     public async Task AddAsync(SubjectGoal goal, CancellationToken ct)
     {
         await using var connection = connectionFactory(); await connection.OpenAsync(ct); await using var command = connection.CreateCommand();
-        command.CommandText = "INSERT INTO dbo.SubjectGoals (Id, SubjectId, Title, GoalKind, MetricDefinitionId, TargetValue, TargetDate, GoalPeriod, CustomPeriodStartDate, CustomPeriodEndDate, IsCompleted, CompletedAtUtc, CreatedAtUtc) VALUES (@Id, @SubjectId, @Title, @GoalKind, @MetricDefinitionId, @TargetValue, @TargetDate, @GoalPeriod, @CustomPeriodStartDate, @CustomPeriodEndDate, @IsCompleted, @CompletedAtUtc, @CreatedAtUtc);";
+        command.CommandText = "INSERT INTO dbo.SubjectGoals (Id, SubjectId, Title, GoalKind, MetricDefinitionId, TargetValue, TargetDate, GoalPeriod, CustomPeriodStartDate, CustomPeriodEndDate, PriorityPosition, IsCompleted, CompletedAtUtc, CreatedAtUtc) VALUES (@Id, @SubjectId, @Title, @GoalKind, @MetricDefinitionId, @TargetValue, @TargetDate, @GoalPeriod, @CustomPeriodStartDate, @CustomPeriodEndDate, (SELECT ISNULL(MAX(PriorityPosition), 0) + 1 FROM dbo.SubjectGoals WITH (TABLOCKX)), @IsCompleted, @CompletedAtUtc, @CreatedAtUtc);";
         command.AddParameter("@Id", DbType.Guid, goal.Id); command.AddParameter("@SubjectId", DbType.Guid, goal.SubjectId); command.AddParameter("@Title", DbType.String, goal.Title); command.AddParameter("@GoalKind", DbType.Byte, (byte)goal.Kind); command.AddParameter("@MetricDefinitionId", DbType.Guid, (object?)goal.MetricDefinitionId ?? DBNull.Value); command.AddParameter("@TargetValue", DbType.Decimal, (object?)goal.TargetValue ?? DBNull.Value); command.AddParameter("@TargetDate", DbType.Date, (object?)goal.TargetDate ?? DBNull.Value); command.AddParameter("@GoalPeriod", DbType.Byte, (byte)goal.Period); command.AddParameter("@CustomPeriodStartDate", DbType.Date, (object?)goal.CustomPeriodStartDate ?? DBNull.Value); command.AddParameter("@CustomPeriodEndDate", DbType.Date, (object?)goal.CustomPeriodEndDate ?? DBNull.Value); command.AddParameter("@IsCompleted", DbType.Boolean, goal.IsCompleted); command.AddParameter("@CompletedAtUtc", DbType.DateTimeOffset, (object?)goal.CompletedAtUtc ?? DBNull.Value); command.AddParameter("@CreatedAtUtc", DbType.DateTimeOffset, goal.CreatedAtUtc); await command.ExecuteNonQueryAsync(ct);
     }
 
@@ -62,5 +62,12 @@ public sealed class SqlServerSubjectGoalRepository(Func<DbConnection> connection
         command.AddParameter("@Id", DbType.Guid, id); command.AddParameter("@IsCompleted", DbType.Boolean, isCompleted); command.AddParameter("@CompletedAtUtc", DbType.DateTimeOffset, isCompleted ? changedAtUtc : DBNull.Value); return await command.ExecuteNonQueryAsync(ct) > 0;
     }
 
-    private static SubjectGoal ReadGoal(DbDataReader reader) => new(reader.GetGuid(0), reader.GetGuid(1), reader.GetString(2), (GoalKind)reader.GetByte(3), reader.IsDBNull(4) ? null : reader.GetGuid(4), reader.IsDBNull(5) ? null : reader.GetDecimal(5), reader.IsDBNull(6) ? null : DateOnly.FromDateTime(reader.GetDateTime(6)), (GoalPeriod)reader.GetByte(7), reader.IsDBNull(8) ? null : DateOnly.FromDateTime(reader.GetDateTime(8)), reader.IsDBNull(9) ? null : DateOnly.FromDateTime(reader.GetDateTime(9)), reader.GetBoolean(10), reader.IsDBNull(11) ? null : reader.GetFieldValue<DateTimeOffset>(11), reader.GetFieldValue<DateTimeOffset>(12));
+    public async Task<bool> SwapPriorityAsync(Guid id, Guid swapWithId, CancellationToken ct)
+    {
+        await using var connection = connectionFactory(); await connection.OpenAsync(ct); await using var transaction = await connection.BeginTransactionAsync(ct); await using var command = connection.CreateCommand(); command.Transaction = transaction;
+        command.CommandText = "DECLARE @First BIGINT = (SELECT PriorityPosition FROM dbo.SubjectGoals WHERE Id = @Id); DECLARE @Second BIGINT = (SELECT PriorityPosition FROM dbo.SubjectGoals WHERE Id = @SwapWithId); UPDATE dbo.SubjectGoals SET PriorityPosition = CASE WHEN Id = @Id THEN @Second WHEN Id = @SwapWithId THEN @First END WHERE Id IN (@Id, @SwapWithId);";
+        command.AddParameter("@Id", DbType.Guid, id); command.AddParameter("@SwapWithId", DbType.Guid, swapWithId); var changed = await command.ExecuteNonQueryAsync(ct); await transaction.CommitAsync(ct); return changed == 2;
+    }
+
+    private static SubjectGoal ReadGoal(DbDataReader reader) => new(reader.GetGuid(0), reader.GetGuid(1), reader.GetString(2), (GoalKind)reader.GetByte(3), reader.IsDBNull(4) ? null : reader.GetGuid(4), reader.IsDBNull(5) ? null : reader.GetDecimal(5), reader.IsDBNull(6) ? null : DateOnly.FromDateTime(reader.GetDateTime(6)), (GoalPeriod)reader.GetByte(7), reader.IsDBNull(8) ? null : DateOnly.FromDateTime(reader.GetDateTime(8)), reader.IsDBNull(9) ? null : DateOnly.FromDateTime(reader.GetDateTime(9)), reader.GetInt64(10), reader.GetBoolean(11), reader.IsDBNull(12) ? null : reader.GetFieldValue<DateTimeOffset>(12), reader.GetFieldValue<DateTimeOffset>(13));
 }

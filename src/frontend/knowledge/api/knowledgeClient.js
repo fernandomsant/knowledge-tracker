@@ -54,5 +54,6 @@ export const knowledgeClient = {
   createSubjectGoal: (accessToken, subjectId, goal) => request(accessToken, `/api/subjects/${subjectId}/goals`, { method: 'POST', body: goal }),
   deleteSubjectGoal: (accessToken, id) => request(accessToken, `/api/subject-goals/${id}`, { method: 'DELETE' }),
   completeSubjectGoal: (accessToken, id) => request(accessToken, `/api/subject-goals/${id}/complete`, { method: 'POST' }),
+  swapSubjectGoalPriority: (accessToken, id, swapWithId) => request(accessToken, `/api/subject-goals/${id}/priority`, { method: 'PUT', body: { swapWithId } }),
   setSubGoalCompletion: (accessToken, id, isCompleted) => request(accessToken, `/api/subject-sub-goals/${id}/completion`, { method: 'PUT', body: { isCompleted } }),
 };

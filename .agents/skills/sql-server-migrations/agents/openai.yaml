@@ -1,0 +1,4 @@
+interface:
+  display_name: "SQL Server Migrations"
+  short_description: "Create safe project SQL migrations"
+  default_prompt: "Create a safe SQL Server migration for this project."

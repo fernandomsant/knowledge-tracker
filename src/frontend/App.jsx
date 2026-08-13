@@ -169,7 +169,7 @@ export default function App() {
   const { accessToken, user, logout } = useAuthenticationSession();
   const {
     subjects, notes, connections, goals, metricDefinitions, subjectsById, notesBySubject, goalsBySubject, status: knowledgeStatus, error: knowledgeError,
-    addSubject, updateSubject, removeSubject, moveSubject, addNote, updateNote, createMetricDefinition, connectSubjects, removeConnection, addSubjectGoal, removeSubjectGoal, completeSubjectGoal, setSubGoalCompletion,
+    addSubject, updateSubject, removeSubject, addNote, updateNote, createMetricDefinition, connectSubjects, removeConnection, addSubjectGoal, removeSubjectGoal, completeSubjectGoal, prioritizeSubjectGoal, setSubGoalCompletion,
   } = useKnowledgeStore(accessToken);
   const [activeNav, setActiveNav] = useState('Overview');
   const [activeSubject, setActiveSubject] = useState('all');
@@ -277,7 +277,7 @@ export default function App() {
             <StatCard Icon={Clock3} color="amber" label="Study streak" value="7 days" detail="Best: 14 days"/>
             <StatCard Icon={Hash} color="purple" label="Topics covered" value={subjects.length} detail="In your knowledge space"/>
           </section>
-          <Suspense fallback={null}><StudyDashboard subjects={subjects} notes={notes} goals={goals} onInspectSubject={inspectSubject}/></Suspense>
+          <Suspense fallback={null}><StudyDashboard subjects={subjects} notes={notes} goals={goals} onInspectSubject={inspectSubject} onPrioritizeGoal={prioritizeSubjectGoal}/></Suspense>
           <section className="workspace-panel">
             <header className="panel-head">
               <div><span>SUBJECT MAP</span><h2>Your knowledge space</h2><p>Arrange subjects, connect related thinking, then open a node to work with its notes.</p></div>
@@ -297,7 +297,6 @@ export default function App() {
                 connections={connections}
                 canvasContext={canvasContext}
                 onCanvasContextChange={setCanvasContext}
-                onMoveSubject={moveSubject}
                 onConnect={connectSubjects}
                 onAddNote={addNote}
                 onUpdateNote={updateNote}
@@ -334,7 +333,6 @@ export default function App() {
           connections,
           canvasContext,
           onCanvasContextChange: setCanvasContext,
-          onMoveSubject: moveSubject,
           onConnect: connectSubjects,
           onAddNote: addNote,
           onUpdateNote: updateNote,

@@ -7,4 +7,5 @@ public interface ISubjectGoalService
     Task<bool> DeleteAsync(Guid id, CancellationToken ct);
     Task<bool> CompleteAsync(Guid id, CancellationToken ct);
     Task<bool> SetSubGoalCompletionAsync(Guid id, bool isCompleted, CancellationToken ct);
+    Task<bool> SwapPriorityAsync(Guid id, Guid swapWithId, CancellationToken ct);
 }

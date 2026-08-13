@@ -1,10 +1,10 @@
 export const PALETTE = ['teal', 'blue', 'amber', 'purple'];
 
 export const initialSubjects = [
-  { id: 'learning', name: 'Learning science', color: 'teal', x: 120, y: 105 },
-  { id: 'design', name: 'Product design', color: 'blue', x: 470, y: 95 },
-  { id: 'methods', name: 'Research methods', color: 'amber', x: 285, y: 335 },
-  { id: 'thinking', name: 'Critical thinking', color: 'purple', x: 670, y: 320 },
+  { id: 'learning', name: 'Learning science', color: 'teal' },
+  { id: 'design', name: 'Product design', color: 'blue' },
+  { id: 'methods', name: 'Research methods', color: 'amber' },
+  { id: 'thinking', name: 'Critical thinking', color: 'purple' },
 ];
 
 export const initialNotes = [

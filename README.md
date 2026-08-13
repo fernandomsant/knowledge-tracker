@@ -58,6 +58,16 @@ npm run migrate
 
 The migration runner reads the development connection string, applies files in sequence, records them in `dbo.SchemaMigrations`, verifies their checksums, and locks migration execution so concurrent runs cannot conflict.
 
+## Seed the local starter workspace
+
+After the schema migrations complete, create the `student` account, subjects, and study notes separately:
+
+```powershell
+npm run seed
+```
+
+Sign in with `student` / `student`. The seed is idempotent, so rerunning it preserves existing seeded records.
+
 For deployment or CI, provide the connection string through an environment variable instead:
 
 ```powershell

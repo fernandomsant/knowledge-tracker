@@ -2,6 +2,8 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FileText, Folder, GitBranch, MoreHorizontal, Pencil, Plus, RotateCcw, Trash2, X } from '../icons';
 import { IconButton } from './IconButton';
 import { MetricDefinitionComposer } from './context/MetricDefinitionComposer';
+import { NoteViewer } from './context/NoteViewer';
+import { SubjectGoals } from './context/SubjectGoals';
 import { getSubjectHierarchyEdges, getSubjectParentOptions } from '../knowledge/utils/subjectHierarchy';
 
 const MIN_ZOOM = 0.55;
@@ -78,12 +80,14 @@ const SubjectNode = memo(function SubjectNode({
   );
 });
 
-function SubjectDrawer({ subject, subjects, notes, metricDefinitions, drawer, onDrawerChange, onClose, onAddNote, onUpdateNote, onCreateMetricDefinition, onUpdateSubject, onRemoveSubject }) {
+function SubjectDrawer({ subject, subjects, notes, goals, metricDefinitions, drawer, onDrawerChange, onClose, onAddNote, onUpdateNote, onCreateMetricDefinition, onUpdateSubject, onRemoveSubject, onCreateGoal, onRemoveGoal, onCompleteGoal }) {
   const { editingId, title, excerpt, studyStartedAt, studyDuration, metrics, editingSubject, subjectName, subjectDescription, parentSubjectId } = drawer;
   const titleRef = useRef(null);
   const subjectNameRef = useRef(null);
+  const [viewingNoteId, setViewingNoteId] = useState(null);
   const parentOptions = useMemo(() => getSubjectParentOptions(subjects, subject.id), [subject.id, subjects]);
   const directChildCount = useMemo(() => subjects.filter(candidate => candidate.parentSubjectId === subject.id).length, [subject.id, subjects]);
+  const viewingNote = useMemo(() => notes.find(note => note.id === viewingNoteId) ?? null, [notes, viewingNoteId]);
 
   useEffect(() => {
     if (editingId !== null) titleRef.current?.focus();
@@ -94,6 +98,7 @@ function SubjectDrawer({ subject, subjects, notes, metricDefinitions, drawer, on
   }, [editingSubject]);
 
   const beginEditing = note => {
+    setViewingNoteId(null);
     onDrawerChange({
       editingId: note?.id ?? 'new',
       title: note?.title ?? '',
@@ -102,6 +107,11 @@ function SubjectDrawer({ subject, subjects, notes, metricDefinitions, drawer, on
       studyDuration: note?.studyDuration?.slice(0, 5) ?? '00:00',
       metrics: note?.metrics?.map(metric => ({ definitionId: metric.definition.id, value: String(metric.value) })) ?? [],
     });
+  };
+
+  const openNote = note => {
+    setViewingNoteId(note.id);
+    onDrawerChange({ editingId: null });
   };
 
   const handleSave = async event => {
@@ -137,20 +147,25 @@ function SubjectDrawer({ subject, subjects, notes, metricDefinitions, drawer, on
     >
       <div className="drawer-head">
         <div><span>SUBJECT DETAILS</span><h3>{subject.name}</h3></div>
-        <div className="drawer-actions"><button className="text-button" onClick={() => onDrawerChange({ editingSubject: true })}><Pencil size={15}/> Edit</button><button className="remove-node-button" onClick={() => { const childNotice = directChildCount ? ` ${directChildCount} child ${directChildCount === 1 ? 'subject will' : 'subjects will'} become top-level.` : ''; if (window.confirm(`Remove ${subject.name} and its notes?${childNotice}`)) onRemoveSubject(); }}><Trash2 size={15}/> Remove node</button><IconButton label="Close subject details" onClick={onClose}><X size={19}/></IconButton></div>
+        <div className="drawer-actions">
+          {editingSubject ? <button type="submit" form="subject-editor" className="primary-button">Save changes</button> : <button className="text-button" onClick={() => onDrawerChange({ editingSubject: true })}><Pencil size={15}/> Edit</button>}
+          <button className="remove-node-button" onClick={() => { const childNotice = directChildCount ? ` ${directChildCount} child ${directChildCount === 1 ? 'subject will' : 'subjects will'} become top-level.` : ''; if (window.confirm(`Remove ${subject.name} and its notes?${childNotice}`)) onRemoveSubject(); }}><Trash2 size={15}/> Remove node</button>
+          <IconButton label="Close subject details" onClick={onClose}><X size={19}/></IconButton>
+        </div>
       </div>
       <div className={`subject-banner ${subject.color}`}>
         <span><Folder size={24}/></span>
         <div><strong>{subject.name}</strong><small>{notes.length} {notes.length === 1 ? 'note' : 'notes'} in this subject</small></div>
       </div>
       {editingSubject ? (
-        <form className="note-editor" onSubmit={saveSubject}>
+        <form id="subject-editor" className="note-editor" onSubmit={saveSubject}>
           <label>Subject name<input ref={subjectNameRef} value={subjectName} onChange={event => onDrawerChange({ subjectName: event.target.value })} maxLength="256"/></label>
           <label>Description<textarea value={subjectDescription} onChange={event => onDrawerChange({ subjectDescription: event.target.value })} placeholder="What are you studying?" rows="3"/></label>
           <label>Parent subject<select value={parentSubjectId} onChange={event => onDrawerChange({ parentSubjectId: event.target.value })}><option value="">Top-level subject</option>{parentOptions.map(candidate => <option key={candidate.id} value={candidate.id}>{candidate.label}</option>)}</select><small className="hierarchy-hint">Descendants and fifth-level parents are unavailable.</small></label>
-          <div><button type="button" className="ghost-button" onClick={() => onDrawerChange({ editingSubject: false })}>Cancel</button><button className="primary-button">Save subject</button></div>
+          <div><button type="button" className="ghost-button" onClick={() => onDrawerChange({ editingSubject: false })}>Cancel</button></div>
         </form>
       ) : null}
+      <SubjectGoals goals={goals} notes={notes} metricDefinitions={metricDefinitions} onCreate={goal => onCreateGoal(subject.id, goal)} onRemove={onRemoveGoal} onComplete={onCompleteGoal}/>
       <div className="drawer-section-title">
         <div><span>Ideas in this subject</span><small>Capture thoughts while the context is fresh.</small></div>
         <button className="text-button" onClick={() => beginEditing(null)}><Plus size={15}/> Add note</button>
@@ -181,11 +196,14 @@ function SubjectDrawer({ subject, subjects, notes, metricDefinitions, drawer, on
       ) : null}
       <div className="drawer-notes">
         {notes.map(note => (
-          <article className="drawer-note" key={note.id}>
-            <span className={`file-box ${subject.color}`}><FileText size={17}/></span>
-            <div><strong>{note.title}</strong><p>{note.excerpt || 'No excerpt yet.'}</p><small>{note.date}</small></div>
-            <IconButton label={`Edit ${note.title}`} onClick={() => beginEditing(note)}><MoreHorizontal size={18}/></IconButton>
-          </article>
+          <div className="drawer-note-item" key={note.id}>
+            <article className="drawer-note">
+              <span className={`file-box ${subject.color}`}><FileText size={17}/></span>
+              <button type="button" className="drawer-note-preview" onClick={() => openNote(note)}><strong>{note.title}</strong><p>{note.excerpt || 'No excerpt yet.'}</p><small>{note.date}</small></button>
+              <IconButton label={`Edit ${note.title}`} onClick={() => beginEditing(note)}><MoreHorizontal size={18}/></IconButton>
+            </article>
+            {viewingNote?.id === note.id ? <NoteViewer note={note} onClose={() => setViewingNoteId(null)} onEdit={() => beginEditing(note)}/> : null}
+          </div>
         ))}
         {notes.length === 0 && editingId === null ? (
           <div className="empty-state"><FileText size={26}/><strong>No notes here yet</strong><p>Add the first idea to start shaping this subject.</p></div>
@@ -206,12 +224,16 @@ export function KnowledgeGraph({
   onConnect,
   onAddNote,
   metricDefinitions,
+  goalsBySubject,
   onCreateMetricDefinition,
   onUpdateNote,
   onUpdateSubject,
   onCreateSubject,
   onRemoveSubject,
   onRemoveConnection,
+  onCreateGoal,
+  onRemoveGoal,
+  onCompleteGoal,
 }) {
   const { pan, zoom, connectMode, connectionStart, openSubjectId, connectionsOpen, drawer } = canvasContext;
   const canvasRef = useRef(null);
@@ -386,9 +408,10 @@ export function KnowledgeGraph({
         ) : null}
         {openSubject ? (
           <SubjectDrawer
-            subject={openSubject}
-            subjects={subjects}
-            notes={notesBySubject.get(openSubject.id) ?? []}
+              subject={openSubject}
+              subjects={subjects}
+              notes={notesBySubject.get(openSubject.id) ?? []}
+              goals={goalsBySubject.get(openSubject.id) ?? []}
             metricDefinitions={metricDefinitions}
             drawer={drawer}
             onDrawerChange={updateDrawer}
@@ -397,7 +420,10 @@ export function KnowledgeGraph({
             onUpdateNote={onUpdateNote}
             onCreateMetricDefinition={onCreateMetricDefinition}
             onUpdateSubject={onUpdateSubject}
-            onRemoveSubject={removeOpenSubject}
+              onRemoveSubject={removeOpenSubject}
+              onCreateGoal={onCreateGoal}
+              onRemoveGoal={onRemoveGoal}
+              onCompleteGoal={onCompleteGoal}
           />
         ) : null}
       </div>

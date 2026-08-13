@@ -25,12 +25,13 @@ async function request(accessToken, path, { method = 'GET', body } = {}) {
 export const knowledgeClient = {
   async load(accessToken) {
     const summaries = await request(accessToken, '/api/subjects');
-    const [subjects, connectionGroups, metricDefinitions] = await Promise.all([
+    const [subjects, connectionGroups, goalGroups, metricDefinitions] = await Promise.all([
       Promise.all(summaries.map(subject => request(accessToken, `/api/subjects/${subject.id}`))),
       Promise.all(summaries.map(subject => request(accessToken, `/api/subjects/${subject.id}/connections`))),
+      Promise.all(summaries.map(subject => request(accessToken, `/api/subjects/${subject.id}/goals`))),
       request(accessToken, '/api/study-metric-definitions'),
     ]);
-    return { subjects, metricDefinitions, connections: [...new Map(connectionGroups.flat().map(item => [item.id, item])).values()] };
+    return { subjects, metricDefinitions, goals: goalGroups.flat(), connections: [...new Map(connectionGroups.flat().map(item => [item.id, item])).values()] };
   },
   createSubject: (accessToken, name, parentSubjectId) => request(accessToken, '/api/subjects', { method: 'POST', body: { name, parentSubjectId: parentSubjectId || null } }),
   updateSubject: (accessToken, id, name, description, parentSubjectId) => request(accessToken, `/api/subjects/${id}`, {
@@ -50,4 +51,7 @@ export const knowledgeClient = {
     method: 'POST', body: { subjectId: source, connectedSubjectId: target },
   }),
   deleteConnection: (accessToken, id) => request(accessToken, `/api/subject-connections/${id}`, { method: 'DELETE' }),
+  createSubjectGoal: (accessToken, subjectId, goal) => request(accessToken, `/api/subjects/${subjectId}/goals`, { method: 'POST', body: goal }),
+  deleteSubjectGoal: (accessToken, id) => request(accessToken, `/api/subject-goals/${id}`, { method: 'DELETE' }),
+  completeSubjectGoal: (accessToken, id) => request(accessToken, `/api/subject-goals/${id}/complete`, { method: 'POST' }),
 };

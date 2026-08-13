@@ -37,6 +37,7 @@ builder.Services.AddScoped<ISubjectRepository, SqlServerSubjectRepository>();
 builder.Services.AddScoped<IStudyNoteRepository, SqlServerStudyNoteRepository>();
 builder.Services.AddScoped<IStudyMetricDefinitionRepository, SqlServerStudyMetricDefinitionRepository>();
 builder.Services.AddScoped<ISubjectConnectionRepository, SqlServerSubjectConnectionRepository>();
+builder.Services.AddScoped<ISubjectGoalRepository, SqlServerSubjectGoalRepository>();
 builder.Services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
 builder.Services.AddSingleton<IAccessTokenService>(_ =>
     new HmacAccessTokenService(accessTokenKey, authenticationOptions)
@@ -45,10 +46,12 @@ builder.Services.AddSingleton<IRefreshTokenService>(_ =>
     new OpaqueRefreshTokenService(refreshTokenPepper)
 );
 builder.Services.AddScoped<KnowledgeTracker.Application.Authentication.IAuthenticationService, KnowledgeTracker.Application.Authentication.AuthenticationService>();
+builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<ISubjectService, SubjectService>();
 builder.Services.AddScoped<IStudyNoteService, StudyNoteService>();
 builder.Services.AddScoped<IStudyMetricDefinitionService, StudyMetricDefinitionService>();
 builder.Services.AddScoped<ISubjectConnectionService, SubjectConnectionService>();
+builder.Services.AddScoped<ISubjectGoalService, SubjectGoalService>();
 builder.Services
     .AddAuthentication(AccessTokenAuthenticationHandler.AuthenticationScheme)
     .AddScheme<AuthenticationSchemeOptions, AccessTokenAuthenticationHandler>(

@@ -1,17 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { authenticationClient } from '../api/authenticationClient';
 
-const unauthenticatedState = { status: 'unauthenticated', accessToken: null, expiresIn: 0 };
+const unauthenticatedState = { status: 'unauthenticated', accessToken: null, expiresIn: 0, user: null };
 
 export function useAuthentication() {
-  const [session, setSession] = useState({ status: 'restoring', accessToken: null, expiresIn: 0 });
+  const [session, setSession] = useState({ status: 'restoring', accessToken: null, expiresIn: 0, user: null });
   const refreshPromiseRef = useRef(null);
 
-  const applySession = useCallback(response => {
+  const applySession = useCallback(async response => {
+    const user = await authenticationClient.currentUser(response.accessToken);
     setSession({
       status: 'authenticated',
       accessToken: response.accessToken,
       expiresIn: response.expiresIn,
+      user,
     });
     return response;
   }, []);
@@ -53,6 +55,13 @@ export function useAuthentication() {
     credentials => authenticationClient.register(credentials).then(applySession),
     [applySession]
   );
+  const logout = useCallback(async () => {
+    try {
+      if (session.accessToken) await authenticationClient.logout(session.accessToken);
+    } finally {
+      setSession(unauthenticatedState);
+    }
+  }, [session.accessToken]);
 
-  return { ...session, login, register };
+  return { ...session, login, register, logout };
 }

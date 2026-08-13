@@ -3,17 +3,18 @@ using KnowledgeTracker.Domain.Authentication;
 using KnowledgeTracker.Web.Authentication.Contracts;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace KnowledgeTracker.Web.Authentication.Controllers;
 
 [ApiController]
-[AllowAnonymous]
 [Route("api/authentication")]
 public sealed class AuthenticationController(IAuthenticationService authentication) : ControllerBase
 {
     private const string RefreshTokenCookieName = "knowledge_tracker_refresh";
 
     [HttpPost("register")]
+    [AllowAnonymous]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> RegisterAsync(RegisterRequest request, CancellationToken ct)
@@ -30,6 +31,7 @@ public sealed class AuthenticationController(IAuthenticationService authenticati
     }
 
     [HttpPost("login")]
+    [AllowAnonymous]
     [ProducesResponseType(typeof(AuthenticationResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<AuthenticationResponse>> LoginAsync(
@@ -55,6 +57,7 @@ public sealed class AuthenticationController(IAuthenticationService authenticati
     }
 
     [HttpPost("refresh")]
+    [AllowAnonymous]
     [ProducesResponseType(typeof(AuthenticationResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<AuthenticationResponse>> RefreshAsync(
@@ -82,6 +85,18 @@ public sealed class AuthenticationController(IAuthenticationService authenticati
             Response.Cookies.Delete(RefreshTokenCookieName, CookieOptions());
             return Unauthorized();
         }
+    }
+
+    [HttpPost("logout")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> LogoutAsync(CancellationToken ct)
+    {
+        if (Guid.TryParse(User.FindFirstValue("session_id"), out var sessionId))
+            await authentication.LogoutAsync(sessionId, ct);
+
+        Response.Cookies.Delete(RefreshTokenCookieName, CookieOptions());
+        return NoContent();
     }
 
     private string UserAgent()

@@ -25,3 +25,5 @@ public sealed record StudyMetricDefinitionResponse(Guid Id, string Name, Knowled
 public sealed record StudyNoteMetricResponse(StudyMetricDefinitionResponse Definition, decimal Value);
 
 public sealed record SubjectConnectionResponse(Guid Id, Guid SubjectId, Guid ConnectedSubjectId);
+
+public sealed record SubjectGoalResponse(Guid Id, Guid SubjectId, string Title, KnowledgeTracker.Domain.Knowledge.GoalKind Kind, StudyMetricDefinitionResponse? MetricDefinition, decimal? TargetValue, decimal? CurrentValue, DateOnly? TargetDate, KnowledgeTracker.Domain.Knowledge.GoalPeriod Period, DateOnly? PeriodStartDate, DateOnly? PeriodEndDate, bool IsCompleted, DateTimeOffset? CompletedAtUtc, DateTimeOffset CreatedAtUtc);

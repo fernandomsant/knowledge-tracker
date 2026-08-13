@@ -33,4 +33,7 @@ internal static class KnowledgeResponseMapper
 
     public static SubjectConnectionResponse ToResponse(SubjectConnectionDetails connection) =>
         new(connection.Id, connection.SubjectId, connection.ConnectedSubjectId);
+
+    public static SubjectGoalResponse ToResponse(SubjectGoalDetails goal) =>
+        new(goal.Id, goal.SubjectId, goal.Title, goal.Kind, goal.MetricDefinition is null ? null : ToResponse(goal.MetricDefinition), goal.TargetValue, goal.CurrentValue, goal.TargetDate, goal.Period, goal.PeriodStartDate, goal.PeriodEndDate, goal.IsCompleted, goal.CompletedAtUtc, goal.CreatedAtUtc);
 }

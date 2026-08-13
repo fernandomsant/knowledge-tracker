@@ -8,6 +8,9 @@ public sealed class InMemoryUserRepository : IUserRepository
 {
     private readonly ConcurrentDictionary<string, User> users = new();
 
+    public Task<User?> FindByIdAsync(Guid id, CancellationToken ct) =>
+        Task.FromResult(users.Values.SingleOrDefault(user => user.Id == id));
+
     public Task<User?> FindAsync(string normalizedLogin, CancellationToken ct) =>
         Task.FromResult(users.TryGetValue(normalizedLogin, out var user) ? user : null);
 

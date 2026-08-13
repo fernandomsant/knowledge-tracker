@@ -12,4 +12,5 @@ public interface IAuthenticationService
         CancellationToken ct
     );
     Task<TokenPair?> RefreshAsync(RefreshToken refreshToken, CancellationToken ct);
+    Task LogoutAsync(Guid sessionId, CancellationToken ct);
 }

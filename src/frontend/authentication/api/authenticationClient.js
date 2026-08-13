@@ -27,9 +27,29 @@ async function request(path, body) {
   return response.status === 204 ? null : response.json();
 }
 
+async function authenticatedRequest(path, accessToken) {
+  const response = await fetch(`${apiBaseUrl}${path}`, {
+    credentials: 'include',
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!response.ok) throw new AuthenticationError('Authentication is unavailable. Try again.', response.status);
+  return response.json();
+}
+
+async function authenticatedPost(path, accessToken) {
+  const response = await fetch(`${apiBaseUrl}${path}`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!response.ok) throw new AuthenticationError('Authentication is unavailable. Try again.', response.status);
+}
+
 export const authenticationClient = {
   login: credentials => request('/api/authentication/login', credentials),
   refresh: () => request('/api/authentication/refresh'),
+  logout: accessToken => authenticatedPost('/api/authentication/logout', accessToken),
+  currentUser: accessToken => authenticatedRequest('/api/current-user', accessToken),
   async register(credentials) {
     await request('/api/authentication/register', credentials);
     return request('/api/authentication/login', credentials);

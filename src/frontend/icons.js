@@ -1,6 +1,7 @@
 ﻿export { default as ArrowRight } from 'lucide-react/dist/esm/icons/arrow-right.mjs';
 export { default as Bell } from 'lucide-react/dist/esm/icons/bell.mjs';
 export { default as Brain } from 'lucide-react/dist/esm/icons/brain.mjs';
+export { default as CalendarDays } from 'lucide-react/dist/esm/icons/calendar-days.mjs';
 export { default as Check } from 'lucide-react/dist/esm/icons/check.mjs';
 export { default as ChevronDown } from 'lucide-react/dist/esm/icons/chevron-down.mjs';
 export { default as Clock3 } from 'lucide-react/dist/esm/icons/clock-3.mjs';
@@ -12,6 +13,7 @@ export { default as HelpCircle } from 'lucide-react/dist/esm/icons/circle-help.m
 export { default as LayoutDashboard } from 'lucide-react/dist/esm/icons/layout-dashboard.mjs';
 export { default as Library } from 'lucide-react/dist/esm/icons/library.mjs';
 export { default as List } from 'lucide-react/dist/esm/icons/list.mjs';
+export { default as LogOut } from 'lucide-react/dist/esm/icons/log-out.mjs';
 export { default as Menu } from 'lucide-react/dist/esm/icons/menu.mjs';
 export { default as Maximize2 } from 'lucide-react/dist/esm/icons/maximize-2.mjs';
 export { default as MoreHorizontal } from 'lucide-react/dist/esm/icons/ellipsis.mjs';
@@ -24,6 +26,7 @@ export { default as Settings } from 'lucide-react/dist/esm/icons/settings.mjs';
 export { default as Share2 } from 'lucide-react/dist/esm/icons/share-2.mjs';
 export { default as Sparkles } from 'lucide-react/dist/esm/icons/sparkles.mjs';
 export { default as Tag } from 'lucide-react/dist/esm/icons/tag.mjs';
+export { default as Target } from 'lucide-react/dist/esm/icons/target.mjs';
 export { default as Trash2 } from 'lucide-react/dist/esm/icons/trash-2.mjs';
 export { default as X } from 'lucide-react/dist/esm/icons/x.mjs';
 export { default as Zap } from 'lucide-react/dist/esm/icons/zap.mjs';

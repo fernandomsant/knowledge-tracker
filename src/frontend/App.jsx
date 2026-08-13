@@ -1,14 +1,14 @@
 ﻿import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowRight, Bell, Brain, Check, ChevronDown, Clock3, FileText, Folder,
-  GitBranch, Hash, HelpCircle, LayoutDashboard, Library, List, Menu,
-  Maximize2, MoreHorizontal, Network, Plus, Search, Settings, Share2, Sparkles, Tag, X, Zap,
+  GitBranch, Hash, HelpCircle, LayoutDashboard, Library, List, LogOut, Menu,
+  Maximize2, MoreHorizontal, Network, Plus, Search, Settings, Share2, Sparkles, X, Zap,
 } from './icons';
-import { NOTE_STATUSES } from './data/seed';
 import { useAuthenticationSession } from './authentication/context/AuthenticationContext';
 import { useKnowledgeStore } from './hooks/useKnowledgeStore';
 import { IconButton } from './components/IconButton';
 import { KnowledgeGraph } from './components/KnowledgeGraph';
+import { StudyInsights } from './components/insights/StudyInsights';
 import { getSubjectParentOptions } from './knowledge/utils/subjectHierarchy';
 
 const NAV_ITEMS = [
@@ -41,8 +41,8 @@ const initialCanvasContext = {
 };
 
 const Sidebar = memo(function Sidebar({
-  subjects, notesBySubject, noteCount, activeNav, activeSubject,
-  onNavigate, onSelectSubject, onCreateSubject, open, onClose,
+  user, subjects, notesBySubject, noteCount, activeNav, activeSubject,
+  onNavigate, onSelectSubject, onCreateSubject, onLogout, open, onClose,
 }) {
   return (
     <>
@@ -50,7 +50,7 @@ const Sidebar = memo(function Sidebar({
       <aside className={`sidebar ${open ? 'is-open' : ''}`}>
         <div className="brand"><span className="brand-mark"><Brain size={20}/></span><strong>knowly</strong><span className="beta">BETA</span></div>
         <button className="workspace-switcher">
-          <span className="avatar">AM</span><span><strong>Alex Morgan</strong><small>Personal workspace</small></span><ChevronDown size={16}/>
+          <span className="avatar">{user.login.slice(0, 2).toUpperCase()}</span><span><strong>{user.login}</strong><small>Personal workspace</small></span><ChevronDown size={16}/>
         </button>
         <nav className="primary-nav" aria-label="Primary navigation">
           {NAV_ITEMS.map(({ label, Icon }) => (
@@ -71,7 +71,7 @@ const Sidebar = memo(function Sidebar({
           ))}
         </section>
         <div className="sidebar-bottom">
-          <button><Settings size={17}/>Settings</button><button><HelpCircle size={17}/>Help center</button>
+          <button><Settings size={17}/>Settings</button><button><HelpCircle size={17}/>Help center</button><button className="logout-button" onClick={onLogout}><LogOut size={17}/>Log out</button>
           <div className="upgrade"><span><Zap size={16}/></span><strong>Unlock more space</strong><p>Unlimited notes, exports and advanced connections.</p><button>Upgrade plan <ArrowRight size={14}/></button></div>
         </div>
       </aside>
@@ -79,13 +79,13 @@ const Sidebar = memo(function Sidebar({
   );
 });
 
-const Topbar = memo(function Topbar({ activeNav, query, onQueryChange, onOpenMenu }) {
+const Topbar = memo(function Topbar({ user, activeNav, query, onQueryChange, onOpenMenu }) {
   return (
     <header className="topbar">
       <div className="crumbs"><IconButton label="Open menu" className="menu-button" onClick={onOpenMenu}><Menu size={20}/></IconButton><span>Workspace</span><b>/</b><strong>{activeNav}</strong></div>
       <div className="top-actions">
         <label className="search"><Search size={17}/><input value={query} onChange={event => onQueryChange(event.target.value)} placeholder="Search notes..."/><kbd>âŒ˜ K</kbd></label>
-        <IconButton label="Notifications" className="notification"><Bell size={18}/><i/></IconButton><span className="avatar">AM</span>
+        <IconButton label="Notifications" className="notification"><Bell size={18}/><i/></IconButton><span className="avatar">{user.login.slice(0, 2).toUpperCase()}</span>
       </div>
     </header>
   );
@@ -100,12 +100,11 @@ const NotesList = memo(function NotesList({ notes, subjectsById }) {
     <div className="notes-list">
       {notes.map(note => {
         const subject = subjectsById.get(note.subjectId) ?? { name: 'Unsorted', color: 'purple' };
-        const statusClass = note.status.toLowerCase().replace(' ', '-');
         return (
           <article className="note-row" key={note.id}>
             <span className={`file-box ${subject.color}`}><FileText size={19}/></span>
             <div className="note-copy"><strong>{note.title}</strong><p>{note.excerpt}</p></div>
-            <span className={`status ${statusClass}`}><i/>{note.status}</span><time>{note.date}</time>
+            <time>{note.date}</time>
             <span className={`subject-tag ${subject.color}`}>{subject.name}</span>
             <IconButton label={`Options for ${note.title}`}><MoreHorizontal size={18}/></IconButton>
           </article>
@@ -165,14 +164,13 @@ const CanvasOverlay = memo(function CanvasOverlay({ open, onClose, graphProps })
   );
 });
 export default function App() {
-  const { accessToken } = useAuthenticationSession();
+  const { accessToken, user, logout } = useAuthenticationSession();
   const {
-    subjects, notes, connections, metricDefinitions, subjectsById, notesBySubject, status: knowledgeStatus, error: knowledgeError,
-    addSubject, updateSubject, removeSubject, moveSubject, addNote, updateNote, createMetricDefinition, connectSubjects, removeConnection,
+    subjects, notes, connections, metricDefinitions, subjectsById, notesBySubject, goalsBySubject, status: knowledgeStatus, error: knowledgeError,
+    addSubject, updateSubject, removeSubject, moveSubject, addNote, updateNote, createMetricDefinition, connectSubjects, removeConnection, addSubjectGoal, removeSubjectGoal, completeSubjectGoal,
   } = useKnowledgeStore(accessToken);
   const [activeNav, setActiveNav] = useState('Overview');
   const [activeSubject, setActiveSubject] = useState('all');
-  const [activeFilter, setActiveFilter] = useState('All notes');
   const [view, setView] = useState('canvas');
   const [query, setQuery] = useState('');
   const [copied, setCopied] = useState(false);
@@ -201,10 +199,9 @@ export default function App() {
     const normalizedQuery = query.trim().toLowerCase();
     return notes.filter(note => {
       if (activeSubject !== 'all' && note.subjectId !== activeSubject) return false;
-      if (activeFilter !== 'All notes' && note.status !== activeFilter) return false;
       return !normalizedQuery || `${note.title} ${note.excerpt}`.toLowerCase().includes(normalizedQuery);
     });
-  }, [notes, activeSubject, activeFilter, query]);
+  }, [notes, activeSubject, query]);
 
   const recentNotes = useMemo(() => notes.slice(-3).reverse(), [notes]);
   const parentOptions = useMemo(() => getSubjectParentOptions(subjects), [subjects]);
@@ -221,6 +218,11 @@ export default function App() {
   const closeMenu = useCallback(() => setMenuOpen(false), []);
   const expandCanvas = useCallback(() => setCanvasExpanded(true), []);
   const minimizeCanvas = useCallback(() => setCanvasExpanded(false), []);
+  const inspectSubject = useCallback(id => {
+    setActiveSubject(id);
+    setView('canvas');
+    setCanvasContext(context => ({ ...context, openSubjectId: id }));
+  }, []);
 
   const handleNavigate = useCallback(label => {
     setActiveNav(label);
@@ -247,6 +249,7 @@ export default function App() {
   return (
     <div className="app-shell">
       <Sidebar
+        user={user}
         subjects={subjects}
         notesBySubject={notesBySubject}
         noteCount={notes.length}
@@ -255,14 +258,15 @@ export default function App() {
         onNavigate={handleNavigate}
         onSelectSubject={setActiveSubject}
         onCreateSubject={openModal}
+        onLogout={logout}
         open={menuOpen}
         onClose={closeMenu}
       />
       <div className="page-wrap">
-        <Topbar activeNav={activeNav} query={query} onQueryChange={setQuery} onOpenMenu={openMenu}/>
+        <Topbar user={user} activeNav={activeNav} query={query} onQueryChange={setQuery} onOpenMenu={openMenu}/>
         <main>
           <section className="page-intro">
-            <div><span className="eyebrow"><Sparkles size={14}/> YOUR KNOWLEDGE SPACE</span><h1>Good morning, Alex.</h1><p>{selectedSubject ? `Exploring ${selectedSubject.name}.` : 'Gather your ideas, find the patterns, and keep learning.'}</p></div>
+            <div><span className="eyebrow"><Sparkles size={14}/> YOUR KNOWLEDGE SPACE</span><h1>Good morning, {user.login}.</h1><p>{selectedSubject ? `Exploring ${selectedSubject.name}.` : 'Gather your ideas, find the patterns, and keep learning.'}</p></div>
             <button className={`share-button ${copied ? 'success' : ''}`} onClick={handleShare}>{copied ? <Check size={17}/> : <Share2 size={17}/>} {copied ? 'Link copied' : 'Share space'}</button>
           </section>
           <section className="stats-grid">
@@ -271,20 +275,16 @@ export default function App() {
             <StatCard Icon={Clock3} color="amber" label="Study streak" value="7 days" detail="Best: 14 days"/>
             <StatCard Icon={Hash} color="purple" label="Topics covered" value={subjects.length} detail="In your knowledge space"/>
           </section>
+          <StudyInsights subjects={subjects} notes={notes} goals={[...goalsBySubject.values()].flat()} notesBySubject={notesBySubject} onInspectSubject={inspectSubject}/>
           <section className="workspace-panel">
             <header className="panel-head">
               <div><span>SUBJECT MAP</span><h2>Your knowledge space</h2><p>Arrange subjects, connect related thinking, then open a node to work with its notes.</p></div>
               <div className="panel-actions">
-                <button className="primary-button" onClick={openModal}><Plus size={16}/> New node</button>
                 <div className="view-toggle"><button className={view === 'canvas' ? 'active' : ''} onClick={() => setView('canvas')}><Network size={15}/>Canvas</button><button className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}><List size={15}/>Notes list</button></div>
                 <button className="expand-canvas-button" onClick={expandCanvas} disabled={view !== 'canvas'}><Maximize2 size={16}/> Expand canvas</button>
                 <IconButton label="Workspace options"><MoreHorizontal size={19}/></IconButton>
               </div>
             </header>
-            <div className="filter-row">
-              <div>{['All notes', ...NOTE_STATUSES].map(filter => <button key={filter} className={activeFilter === filter ? 'active' : ''} onClick={() => setActiveFilter(filter)}>{filter}{filter === 'All notes' ? <small>{notes.length}</small> : null}</button>)}</div>
-              <button className="filter-button"><Tag size={15}/>Filter<ChevronDown size={14}/></button>
-            </div>
             {knowledgeStatus === 'loading' ? <p role="status">Loading your knowledge space…</p> : null}
             {knowledgeError ? <p role="alert">{knowledgeError}</p> : null}
             {view === 'canvas' ? (
@@ -300,11 +300,15 @@ export default function App() {
                 onAddNote={addNote}
                 onUpdateNote={updateNote}
                 metricDefinitions={metricDefinitions}
+                goalsBySubject={goalsBySubject}
                 onCreateMetricDefinition={createMetricDefinition}
                 onUpdateSubject={updateSubject}
                 onCreateSubject={openModal}
                 onRemoveSubject={removeSubject}
                 onRemoveConnection={removeConnection}
+                onCreateGoal={addSubjectGoal}
+                onRemoveGoal={removeSubjectGoal}
+                onCompleteGoal={completeSubjectGoal}
               />
             ) : <NotesList notes={filteredNotes} subjectsById={subjectsById}/>}
           </section>
@@ -332,11 +336,15 @@ export default function App() {
           onAddNote: addNote,
           onUpdateNote: updateNote,
           metricDefinitions,
+          goalsBySubject,
           onCreateMetricDefinition: createMetricDefinition,
           onUpdateSubject: updateSubject,
           onCreateSubject: openModal,
           onRemoveSubject: removeSubject,
           onRemoveConnection: removeConnection,
+          onCreateGoal: addSubjectGoal,
+          onRemoveGoal: removeSubjectGoal,
+          onCompleteGoal: completeSubjectGoal,
         }}
       />      <SubjectModal open={modalOpen} name={newSubjectName} parentSubjectId={newSubjectParentId} parentOptions={parentOptions} onNameChange={setNewSubjectName} onParentChange={setNewSubjectParentId} onClose={closeModal} onCreate={handleCreateSubject}/>
     </div>

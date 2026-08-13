@@ -218,11 +218,6 @@ export default function App() {
   const closeMenu = useCallback(() => setMenuOpen(false), []);
   const expandCanvas = useCallback(() => setCanvasExpanded(true), []);
   const minimizeCanvas = useCallback(() => setCanvasExpanded(false), []);
-  const inspectSubject = useCallback(id => {
-    setActiveSubject(id);
-    setView('canvas');
-    setCanvasContext(context => ({ ...context, openSubjectId: id }));
-  }, []);
 
   const handleNavigate = useCallback(label => {
     setActiveNav(label);
@@ -275,7 +270,7 @@ export default function App() {
             <StatCard Icon={Clock3} color="amber" label="Study streak" value="7 days" detail="Best: 14 days"/>
             <StatCard Icon={Hash} color="purple" label="Topics covered" value={subjects.length} detail="In your knowledge space"/>
           </section>
-          <StudyInsights subjects={subjects} notes={notes} goals={[...goalsBySubject.values()].flat()} notesBySubject={notesBySubject} onInspectSubject={inspectSubject}/>
+          <StudyInsights subjects={subjects} notes={notes} goals={[...goalsBySubject.values()].flat()} notesBySubject={notesBySubject} onSelectSubject={setActiveSubject}/>
           <section className="workspace-panel">
             <header className="panel-head">
               <div><span>SUBJECT MAP</span><h2>Your knowledge space</h2><p>Arrange subjects, connect related thinking, then open a node to work with its notes.</p></div>

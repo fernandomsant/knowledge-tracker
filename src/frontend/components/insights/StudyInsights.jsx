@@ -1,37 +1,27 @@
-import { lazy, Suspense, useMemo, useState } from 'react';
-import { CalendarDays, Check, Clock3, FileText, Target, Zap } from '../../icons';
-import { formatDuration, getDashboardData } from './dashboardData';
+import { Clock3, FileText, Target } from '../../icons';
 
-const Charts = lazy(() => import('./DashboardCharts'));
+const day = 86_400_000;
+const dateFormatter = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' });
+const startOfDay = value => new Date(value.getFullYear(), value.getMonth(), value.getDate());
+const startOfWeek = value => { const start = startOfDay(value); start.setDate(start.getDate() - ((start.getDay() + 6) % 7)); return start; };
+const minutes = value => { const parts = String(value ?? '').split(':').map(Number); return parts.length === 3 && parts.every(Number.isFinite) ? parts[0] * 60 + parts[1] + parts[2] / 60 : 0; };
+const duration = value => value >= 60 ? `${Math.floor(value / 60)}h ${Math.round(value % 60)}m` : `${Math.round(value)}m`;
 
-const ranges = [{ value: 7, label: 'Week' }, { value: 30, label: 'Month' }, { value: 90, label: '90 days' }];
-const shortDate = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' });
-
-function PaceBadge({ pace }) {
-  const className = pace.toLowerCase().replace(' ', '-');
-  return <span className={`pace-badge ${className}`}>{pace}</span>;
+function Allocation({ title, allocations, subjects, notesBySubject }) {
+  const maximum = Math.max(...allocations.map(item => item.minutes), 1);
+  return <section className="insight-card allocation-card"><div className="insight-heading"><div><span>{title}</span><h3>Time by subject</h3></div><Clock3 size={18}/></div><div className="allocation-list">{allocations.length ? allocations.slice(0, 5).map(item => { const subject = subjects.get(item.subjectId); return <div className="allocation-row" key={item.subjectId}><div><strong>{subject?.name ?? 'Deleted subject'}</strong><small>{notesBySubject.get(item.subjectId)?.length ?? 0} notes</small></div><div className="allocation-meter"><i style={{ width: `${item.minutes / maximum * 100}%` }}/></div><b>{duration(item.minutes)}</b></div>; }) : <p className="insight-empty">No study time has been recorded for this period yet.</p>}</div></section>;
 }
 
-export function StudyInsights({ subjects, notes, goals, notesBySubject, onInspectSubject }) {
-  const [range, setRange] = useState(30);
-  const dashboard = useMemo(() => getDashboardData({ subjects, notes, goals, notesBySubject, range }), [subjects, notes, goals, notesBySubject, range]);
-  return <section className="analytics-dashboard" aria-label="Study dashboard">
-    <header className="analytics-heading">
-      <div><span>WORKSPACE ANALYTICS</span><h2>Your study rhythm</h2><p>See what needs attention, where your time is going, and whether your goals are keeping pace.</p></div>
-      <div className="analytics-range" role="tablist" aria-label="Dashboard time range">{ranges.map(option => <button key={option.value} type="button" role="tab" aria-selected={range === option.value} className={range === option.value ? 'active' : ''} onClick={() => setRange(option.value)}>{option.label}</button>)}</div>
-    </header>
-    <div className="analytics-kpis">
-      <div><Clock3 size={18}/><span>Study time<strong>{formatDuration(dashboard.totalMinutes)}</strong></span></div>
-      <div><FileText size={18}/><span>Notes captured<strong>{dashboard.notesInRange}</strong></span></div>
-      <div><Target size={18}/><span>Active goals<strong>{dashboard.activeGoals.length}</strong></span></div>
-    </div>
-    <div className="analytics-grid">
-      <article className="analytics-card activity-card"><header><div><span>STUDY ACTIVITY</span><h3>Daily study time</h3></div><b>{formatDuration(dashboard.totalMinutes)}</b></header><Suspense fallback={<p className="analytics-empty">Loading activity chart…</p>}><Charts kind="activity" data={dashboard.timeline}/></Suspense></article>
-      <article className="analytics-card attention-card"><header><div><span>ATTENTION QUEUE</span><h3>Where to focus next</h3></div><Zap size={17}/></header><div className="attention-list">{dashboard.attention.slice(0, 5).map((subject, index) => <button type="button" key={subject.id} onClick={() => onInspectSubject(subject.id)}><em>{index + 1}</em><i className={`color-dot ${subject.color}`}/><span><strong>{subject.name}</strong><small>{subject.daysSinceStudy === null ? 'No study notes yet' : `${subject.daysSinceStudy} days since studying`} · {subject.goals} active goals</small></span><b style={{ '--attention': `${subject.score}%` }}/></button>)}</div></article>
-      <article className="analytics-card"><header><div><span>TIME BY SUBJECT</span><h3>Study allocation</h3></div><Clock3 size={17}/></header><Suspense fallback={<p className="analytics-empty">Loading subject chart…</p>}><Charts kind="subject" data={dashboard.subjectTime} dataKey="minutes" name="Study time" onInspect={onInspectSubject}/></Suspense></article>
-      <article className="analytics-card"><header><div><span>NOTES BY SUBJECT</span><h3>Knowledge captured</h3></div><FileText size={17}/></header><Suspense fallback={<p className="analytics-empty">Loading note chart…</p>}><Charts kind="subject" data={dashboard.noteCounts} dataKey="notes" name="Notes" onInspect={onInspectSubject}/></Suspense></article>
-    </div>
-    <section className="goal-control-room"><header><div><span>GOAL CONTROL ROOM</span><h3>Progress and pace</h3></div><small>Click a goal to inspect its subject</small></header><div className="goal-dashboard-list">{dashboard.activeGoals.length ? dashboard.activeGoals.map(goal => <button type="button" className="goal-dashboard-item" key={goal.id} onClick={() => onInspectSubject(goal.subjectId)}><div className="goal-dashboard-top"><span><strong>{goal.title}</strong><small>{goal.metricDefinition?.name ?? 'Manual completion goal'} · {goal.deadline ? `due ${shortDate.format(new Date(`${goal.deadline}T00:00:00`))}` : 'no deadline'}</small></span><PaceBadge pace={goal.pace}/></div><div className="goal-progress"><i style={{ width: `${goal.progress}%` }}/>{goal.expected !== null ? <b style={{ left: `${goal.expected}%` }} title={`Expected pace: ${Math.round(goal.expected)}%`}/> : null}</div><div className="goal-dashboard-meta"><span>{goal.kind === 1 ? `${Math.round(goal.progress)}% complete · ${goal.currentValue} / ${goal.targetValue}` : 'Mark done when complete'}</span><strong>{goal.daysLeft === null ? 'No deadline' : goal.daysLeft < 0 ? `${Math.abs(goal.daysLeft)} days overdue` : `${goal.daysLeft} days left`}</strong></div><Suspense fallback={<p className="analytics-empty">Loading pace chart…</p>}><Charts kind="goal" goal={goal} notes={notes}/></Suspense></button>) : <p className="analytics-empty">Create a goal to see progress and pace here.</p>}</div></section>
-    <section className="deadline-overview"><header><div><span>DEADLINE OVERVIEW</span><h3>Upcoming commitments</h3></div><CalendarDays size={17}/></header><div>{dashboard.activeGoals.filter(goal => goal.deadline).slice(0, 6).map(goal => <button type="button" key={goal.id} className={goal.daysLeft < 0 ? 'overdue' : goal.daysLeft <= 7 ? 'urgent' : ''} onClick={() => onInspectSubject(goal.subjectId)}><i style={{ width: `${Math.max(12, goal.expected ?? 12)}%` }}/><span>{goal.title}<small>{goal.daysLeft < 0 ? `${Math.abs(goal.daysLeft)} days overdue` : `${goal.daysLeft} days remaining`}</small></span>{goal.daysLeft < 0 ? <Zap size={14}/> : <Check size={14}/>}</button>)}{dashboard.activeGoals.every(goal => !goal.deadline) ? <p className="analytics-empty">Goals with a due date appear here.</p> : null}</div></section>
-  </section>;
+export function StudyInsights({ subjects, notes, goals, notesBySubject, onSelectSubject }) {
+  const now = new Date();
+  const today = startOfDay(now);
+  const subjectsById = new Map(subjects.map(subject => [subject.id, subject]));
+  const totalsFor = start => subjects.map(subject => ({ subjectId: subject.id, minutes: (notesBySubject.get(subject.id) ?? []).filter(note => new Date(note.studyStartedAtUtc) >= start).reduce((total, note) => total + minutes(note.studyDuration), 0) })).filter(item => item.minutes > 0).toSorted((left, right) => right.minutes - left.minutes);
+  const weekly = totalsFor(startOfWeek(now));
+  const monthly = totalsFor(new Date(now.getFullYear(), now.getMonth(), 1));
+  const stale = subjects.map(subject => { const latest = (notesBySubject.get(subject.id) ?? []).toSorted((left, right) => new Date(right.studyStartedAtUtc) - new Date(left.studyStartedAtUtc))[0]; return { subject, daysSince: latest ? Math.floor((today - startOfDay(new Date(latest.studyStartedAtUtc))) / day) : null }; }).filter(item => item.daysSince === null || item.daysSince >= 14).toSorted((left, right) => (right.daysSince ?? Infinity) - (left.daysSince ?? Infinity));
+  const upcoming = goals.map(goal => ({ ...goal, deadline: goal.kind === 2 ? goal.targetDate : goal.periodEndDate })).filter(goal => goal.deadline).map(goal => ({ ...goal, daysLeft: Math.ceil((new Date(`${goal.deadline}T00:00:00`) - today) / day) })).filter(goal => goal.daysLeft <= 21).toSorted((left, right) => left.daysLeft - right.daysLeft);
+  const weeklyTotal = weekly.reduce((total, item) => total + item.minutes, 0);
+  const monthlyTotal = monthly.reduce((total, item) => total + item.minutes, 0);
+  return <section className="study-insights" aria-label="Study insights"><div className="insight-overview"><div><span>STUDY PULSE</span><h2>Where your attention matters next.</h2><p>Live signals from your notes and goals, across the whole workspace.</p></div><div className="pulse-totals"><div><Clock3 size={17}/><span>This week<strong>{duration(weeklyTotal)}</strong></span></div><div><FileText size={17}/><span>This month<strong>{duration(monthlyTotal)}</strong></span></div></div></div><div className="insights-grid"><section className="insight-card attention-card"><div className="insight-heading"><div><span>ATTENTION QUEUE</span><h3>Subjects to revisit</h3></div><b>{stale.length}</b></div><div className="attention-list">{stale.length ? stale.slice(0, 4).map(({ subject, daysSince }) => <button key={subject.id} onClick={() => onSelectSubject(subject.id)}><i className={`color-dot ${subject.color}`}/><span><strong>{subject.name}</strong><small>{daysSince === null ? 'No notes recorded yet' : `${daysSince} days since your last note`}</small></span><b>{notesBySubject.get(subject.id)?.length ?? 0} notes</b></button>) : <p className="insight-empty">Every subject has been active in the last two weeks.</p>}</div></section><section className="insight-card deadline-card"><div className="insight-heading"><div><span>UPCOMING DEADLINES</span><h3>Goals on the horizon</h3></div><Target size={18}/></div><div className="deadline-list">{upcoming.length ? upcoming.slice(0, 4).map(goal => <div key={goal.id}><span><strong>{goal.title}</strong><small>{subjectsById.get(goal.subjectId)?.name ?? 'Subject goal'} · due {dateFormatter.format(new Date(`${goal.deadline}T00:00:00`))}</small></span><b className={goal.daysLeft < 0 ? 'late' : goal.daysLeft <= 7 ? 'soon' : ''}>{goal.daysLeft < 0 ? `${Math.abs(goal.daysLeft)}d late` : `${goal.daysLeft}d left`}</b></div>) : <p className="insight-empty">No date or custom-period goals are due in the next 21 days.</p>}</div></section><Allocation title="THIS WEEK" allocations={weekly} subjects={subjectsById} notesBySubject={notesBySubject}/><Allocation title="THIS MONTH" allocations={monthly} subjects={subjectsById} notesBySubject={notesBySubject}/></div></section>;
 }

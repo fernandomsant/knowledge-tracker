@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using Microsoft.Data.SqlClient;
 
@@ -37,6 +39,13 @@ file static class StudentWorkspaceSeed
             new SubjectSeed("4DDC929A-5B93-4DB0-BEE0-274F5302EF75", "Computer Science", "Core concepts for software design and problem solving.", null),
             new SubjectSeed("D9674C7B-D6AC-44A2-9531-E22972518F10", "C# Fundamentals", "Language features, types, and object-oriented programming.", "4DDC929A-5B93-4DB0-BEE0-274F5302EF75"),
             new SubjectSeed("7C9C7D9A-A772-4A96-B374-A3B4750FA0F2", "Databases", "Relational modeling and practical SQL queries.", "4DDC929A-5B93-4DB0-BEE0-274F5302EF75"),
+            new SubjectSeed(SeedId("subject-algorithms"), "Algorithms", "Problem solving, complexity, and core data structures.", "4DDC929A-5B93-4DB0-BEE0-274F5302EF75"),
+            new SubjectSeed(SeedId("subject-sql-server"), "SQL Server", "Query design, indexing, and SQL Server operations.", "7C9C7D9A-A772-4A96-B374-A3B4750FA0F2"),
+            new SubjectSeed(SeedId("subject-data-modeling"), "Data Modeling", "Entities, relationships, normalization, and constraints.", "7C9C7D9A-A772-4A96-B374-A3B4750FA0F2"),
+            new SubjectSeed(SeedId("subject-networking"), "Networking", "Protocols, addressing, and reliable communication.", null),
+            new SubjectSeed(SeedId("subject-mathematics"), "Mathematics", "Mathematical tools for computing and analysis.", null),
+            new SubjectSeed(SeedId("subject-linear-algebra"), "Linear Algebra", "Vectors, matrices, and transformations.", SeedId("subject-mathematics")),
+            new SubjectSeed(SeedId("subject-german"), "German", "Vocabulary, grammar, and listening practice.", null),
             new SubjectSeed("67010711-B6F1-452B-9D6B-21F7FCE8C00D", "Learning Systems", "Practice methods for retaining and applying new knowledge.", null),
         };
         foreach (var subject in subjects)
@@ -56,6 +65,32 @@ file static class StudentWorkspaceSeed
             new NoteSeed("9C59F504-BFE7-4BA8-A961-312090294BFD", "D9674C7B-D6AC-44A2-9531-E22972518F10", "Composition over inheritance", "Use composition when a type needs capabilities that can vary independently. Inheritance is best reserved for a stable is-a relationship.", 45000000000, "2026-08-06T18:30:00+00:00"),
             new NoteSeed("D1935CF8-F5AD-4A26-AD67-61FAD368BB12", "7C9C7D9A-A772-4A96-B374-A3B4750FA0F2", "Primary keys and foreign keys", "A primary key identifies each row. A foreign key preserves a relationship by referencing a valid row in another table.", 21000000000, "2026-08-07T17:15:00+00:00"),
             new NoteSeed("4839FE22-01C6-48A9-941D-AE21BE89C71D", "67010711-B6F1-452B-9D6B-21F7FCE8C00D", "Active recall session", "Close the notes and explain the idea from memory before checking what was missed. The missed pieces become the next review prompt.", 33000000000, "2026-08-09T14:00:00+00:00"),
+            Note("csharp-interfaces", "D9674C7B-D6AC-44A2-9531-E22972518F10", "Interfaces define contracts", "Interfaces describe the behavior a type promises to provide. They keep callers independent from a concrete implementation.", 42, "2026-06-18T18:00:00+00:00"),
+            Note("csharp-async", "D9674C7B-D6AC-44A2-9531-E22972518F10", "Async work and cancellation", "Async methods should expose cancellation where work can be abandoned and avoid blocking a thread while I/O is pending.", 55, "2026-06-25T18:15:00+00:00"),
+            Note("csharp-linq", "D9674C7B-D6AC-44A2-9531-E22972518F10", "LINQ query boundaries", "Keep queryable database expressions separate from in-memory transformations so expensive work remains visible.", 48, "2026-07-03T17:45:00+00:00"),
+            Note("csharp-testing", "D9674C7B-D6AC-44A2-9531-E22972518F10", "Arrange act assert", "A focused test sets up one scenario, exercises one behavior, and verifies the observable result.", 35, "2026-07-21T18:30:00+00:00"),
+            Note("database-normalization", "7C9C7D9A-A772-4A96-B374-A3B4750FA0F2", "Why normalize data", "Normalization reduces duplicated facts and prevents update anomalies by separating independent concepts.", 50, "2026-06-20T17:30:00+00:00"),
+            Note("database-transactions", "7C9C7D9A-A772-4A96-B374-A3B4750FA0F2", "Transactions protect invariants", "A transaction groups related writes so a failure cannot leave a business operation half complete.", 46, "2026-07-01T17:30:00+00:00"),
+            Note("database-isolation", "7C9C7D9A-A772-4A96-B374-A3B4750FA0F2", "Isolation levels trade consistency and concurrency", "The selected isolation level determines which concurrent changes a query can observe.", 44, "2026-07-29T18:00:00+00:00"),
+            Note("algorithms-big-o", SeedId("subject-algorithms"), "Big O describes growth", "Complexity compares how resource use grows as input size increases, not the exact runtime of one machine.", 40, "2026-06-16T16:30:00+00:00"),
+            Note("algorithms-binary-search", SeedId("subject-algorithms"), "Binary search needs sorted input", "Each comparison discards half of a sorted search space, producing logarithmic lookup time.", 36, "2026-06-30T16:00:00+00:00"),
+            Note("algorithms-graphs", SeedId("subject-algorithms"), "Breadth-first search explores by distance", "A queue lets breadth-first search visit every node one edge farther away before moving deeper.", 58, "2026-07-16T16:00:00+00:00"),
+            Note("sql-indexes", SeedId("subject-sql-server"), "Indexes accelerate selective lookups", "An index is most valuable when it avoids reading a large portion of the table and matches the query predicate.", 52, "2026-06-23T19:00:00+00:00"),
+            Note("sql-query-plans", SeedId("subject-sql-server"), "Read execution plans as evidence", "An execution plan shows the operators selected by the optimizer and helps locate high-cost scans and joins.", 47, "2026-07-08T19:00:00+00:00"),
+            Note("sql-window-functions", SeedId("subject-sql-server"), "Window functions keep row detail", "Window functions calculate aggregates across a related set while preserving the individual rows in the result.", 41, "2026-08-02T19:00:00+00:00"),
+            Note("model-relationships", SeedId("subject-data-modeling"), "Model cardinality explicitly", "A relationship should state whether each side is optional and how many related records are valid.", 45, "2026-06-27T17:00:00+00:00"),
+            Note("model-constraints", SeedId("subject-data-modeling"), "Constraints are executable rules", "Database constraints keep invalid states out even when several applications write to the same data.", 38, "2026-07-11T17:00:00+00:00"),
+            Note("networking-tcp", SeedId("subject-networking"), "TCP provides ordered delivery", "TCP establishes a connection and uses acknowledgements and retransmission to provide ordered reliable delivery.", 49, "2026-06-19T15:30:00+00:00"),
+            Note("networking-dns", SeedId("subject-networking"), "DNS resolves names through delegation", "Resolvers follow referrals through the hierarchy until an authoritative answer is found or cached.", 33, "2026-07-05T15:30:00+00:00"),
+            Note("networking-http", SeedId("subject-networking"), "HTTP methods communicate intent", "GET retrieves representations, POST submits work, and idempotent methods can be safely retried.", 43, "2026-07-24T15:30:00+00:00"),
+            Note("math-vectors", SeedId("subject-linear-algebra"), "Vectors represent direction and magnitude", "A vector can be scaled, added, and projected to describe geometric and computational relationships.", 39, "2026-06-22T14:00:00+00:00"),
+            Note("math-matrices", SeedId("subject-linear-algebra"), "Matrices represent transformations", "Matrix multiplication composes linear transformations and the order of multiplication matters.", 51, "2026-07-13T14:00:00+00:00"),
+            Note("german-greetings", SeedId("subject-german"), "German greetings vary by formality", "Guten Morgen and Guten Tag work in formal contexts, while Hallo is a flexible informal greeting.", 25, "2026-06-17T20:00:00+00:00"),
+            Note("german-cases", SeedId("subject-german"), "Articles signal grammatical case", "German articles change with gender, number, and case, so learning noun phrases together is useful.", 37, "2026-07-06T20:00:00+00:00"),
+            Note("german-listening", SeedId("subject-german"), "Listen for familiar chunks", "Short repeated listening sessions help identify frequent phrases before every word is understood.", 30, "2026-08-05T20:00:00+00:00"),
+            Note("learning-spaced-repetition", "67010711-B6F1-452B-9D6B-21F7FCE8C00D", "Spacing creates useful difficulty", "Reviewing after partial forgetting requires retrieval effort and strengthens long-term memory more than immediate rereading.", 32, "2026-06-21T13:00:00+00:00"),
+            Note("learning-interleaving", "67010711-B6F1-452B-9D6B-21F7FCE8C00D", "Interleaving improves discrimination", "Mixing related problem types requires deciding which method applies instead of repeating one routine.", 34, "2026-07-18T13:00:00+00:00"),
+            Note("learning-review-plan", "67010711-B6F1-452B-9D6B-21F7FCE8C00D", "Build a weekly review plan", "Schedule a short review block for each active subject and adjust it using missed retrieval prompts.", 29, "2026-08-10T13:00:00+00:00"),
         };
         foreach (var note in notes)
             await ExecuteAsync(connection, transaction, """
@@ -74,6 +109,10 @@ file static class StudentWorkspaceSeed
         {
             new ConnectionSeed("F7DBD938-11D5-47F1-BC22-3DA692E16BE2", "D9674C7B-D6AC-44A2-9531-E22972518F10", "7C9C7D9A-A772-4A96-B374-A3B4750FA0F2"),
             new ConnectionSeed("75DFF247-855C-42AB-A72F-2EBEFAF62C89", "67010711-B6F1-452B-9D6B-21F7FCE8C00D", "D9674C7B-D6AC-44A2-9531-E22972518F10"),
+            new ConnectionSeed(SeedId("connection-algorithms-csharp"), SeedId("subject-algorithms"), "D9674C7B-D6AC-44A2-9531-E22972518F10"),
+            new ConnectionSeed(SeedId("connection-sql-modeling"), SeedId("subject-sql-server"), SeedId("subject-data-modeling")),
+            new ConnectionSeed(SeedId("connection-networking-databases"), SeedId("subject-networking"), "7C9C7D9A-A772-4A96-B374-A3B4750FA0F2"),
+            new ConnectionSeed(SeedId("connection-german-learning"), SeedId("subject-german"), "67010711-B6F1-452B-9D6B-21F7FCE8C00D"),
         })
             await ExecuteAsync(connection, transaction, """
                 IF NOT EXISTS (SELECT 1 FROM dbo.SubjectConnections WHERE Id = @id)
@@ -84,12 +123,14 @@ file static class StudentWorkspaceSeed
                 ("@subjectId", Guid.Parse(connectionSeed.SubjectId)),
                 ("@connectedSubjectId", Guid.Parse(connectionSeed.ConnectedSubjectId)));
 
-        foreach (var metric in new[]
+        var metrics = new List<MetricSeed>
         {
             new MetricSeed("B3B8371A-5F7D-4D0C-BA4E-BC8FC5D2D406", "B2B182D0-8709-4328-BDA1-0A73B51D0E82", 18),
             new MetricSeed("9C59F504-BFE7-4BA8-A961-312090294BFD", "6D584D3A-6D8E-4B7A-A9AF-2C52C90DAA5E", 12),
             new MetricSeed("D1935CF8-F5AD-4A26-AD67-61FAD368BB12", "B2B182D0-8709-4328-BDA1-0A73B51D0E82", 14),
-        })
+        };
+        metrics.AddRange(notes.Skip(4).Select((note, index) => new MetricSeed(note.Id, index % 3 == 0 ? "6D584D3A-6D8E-4B7A-A9AF-2C52C90DAA5E" : "B2B182D0-8709-4328-BDA1-0A73B51D0E82", index % 3 == 0 ? 8 + index % 7 : 10 + index % 12)));
+        foreach (var metric in metrics)
             await ExecuteAsync(connection, transaction, """
                 IF NOT EXISTS (SELECT 1 FROM dbo.StudyNoteMetrics WHERE StudyNoteId = @studyNoteId AND MetricDefinitionId = @metricDefinitionId)
                 INSERT INTO dbo.StudyNoteMetrics (StudyNoteId, MetricDefinitionId, MetricValue)
@@ -98,6 +139,8 @@ file static class StudentWorkspaceSeed
                 ("@studyNoteId", Guid.Parse(metric.StudyNoteId)),
                 ("@metricDefinitionId", Guid.Parse(metric.MetricDefinitionId)),
                 ("@metricValue", metric.Value));
+
+        await SeedGoalsAsync(connection, transaction);
     }
 
     private static async Task ExecuteAsync(SqlConnection connection, SqlTransaction transaction, string sql, params (string Name, object Value)[] parameters)
@@ -113,6 +156,37 @@ file static class StudentWorkspaceSeed
     private sealed record NoteSeed(string Id, string SubjectId, string Title, string Content, long StudyDurationTicks, string StudyStartedAtUtc);
     private sealed record ConnectionSeed(string Id, string SubjectId, string ConnectedSubjectId);
     private sealed record MetricSeed(string StudyNoteId, string MetricDefinitionId, decimal Value);
+    private sealed record GoalSeed(string Id, string SubjectId, string Title, byte Kind, string? MetricDefinitionId, decimal? TargetValue, DateOnly? TargetDate, byte Period, DateOnly? PeriodStartDate, DateOnly? PeriodEndDate, bool IsCompleted, DateTimeOffset? CompletedAtUtc, DateTimeOffset CreatedAtUtc);
+
+    private static NoteSeed Note(string key, string subjectId, string title, string content, int minutes, string studyStartedAtUtc) => new(SeedId($"note-{key}"), subjectId, title, content, TimeSpan.FromMinutes(minutes).Ticks, studyStartedAtUtc);
+    private static string SeedId(string key) => new Guid(MD5.HashData(Encoding.UTF8.GetBytes($"knowledge-tracker-seed:{key}"))).ToString();
+
+    private static async Task SeedGoalsAsync(SqlConnection connection, SqlTransaction transaction)
+    {
+        var goals = new[]
+        {
+            new GoalSeed(SeedId("goal-csharp-weekly"), "D9674C7B-D6AC-44A2-9531-E22972518F10", "Read 30 pages of C# each week", 1, "B2B182D0-8709-4328-BDA1-0A73B51D0E82", 30, null, 2, null, null, false, null, DateTimeOffset.Parse("2026-06-15T00:00:00+00:00")),
+            new GoalSeed(SeedId("goal-sql-daily"), SeedId("subject-sql-server"), "Complete 10 SQL exercises daily", 1, "6D584D3A-6D8E-4B7A-A9AF-2C52C90DAA5E", 10, null, 1, null, null, false, null, DateTimeOffset.Parse("2026-07-01T00:00:00+00:00")),
+            new GoalSeed(SeedId("goal-german-monthly"), SeedId("subject-german"), "Read 80 German vocabulary pages monthly", 1, "B2B182D0-8709-4328-BDA1-0A73B51D0E82", 80, null, 3, null, null, false, null, DateTimeOffset.Parse("2026-06-01T00:00:00+00:00")),
+            new GoalSeed(SeedId("goal-algorithms-project"), SeedId("subject-algorithms"), "Finish the algorithms practice set", 2, null, null, new DateOnly(2026, 8, 22), 0, null, null, false, null, DateTimeOffset.Parse("2026-07-20T00:00:00+00:00")),
+            new GoalSeed(SeedId("goal-networking-review"), SeedId("subject-networking"), "Prepare the networking revision notes", 2, null, null, new DateOnly(2026, 8, 9), 0, null, null, false, null, DateTimeOffset.Parse("2026-07-10T00:00:00+00:00")),
+        };
+        foreach (var goal in goals)
+            await ExecuteAsync(connection, transaction, """
+                IF NOT EXISTS (SELECT 1 FROM dbo.SubjectGoals WHERE Id = @id)
+                INSERT INTO dbo.SubjectGoals (Id, SubjectId, Title, GoalKind, MetricDefinitionId, TargetValue, TargetDate, GoalPeriod, CustomPeriodStartDate, CustomPeriodEndDate, IsCompleted, CompletedAtUtc, CreatedAtUtc)
+                VALUES (@id, @subjectId, @title, @kind, @metricDefinitionId, @targetValue, @targetDate, @period, @periodStartDate, @periodEndDate, @isCompleted, @completedAtUtc, @createdAtUtc);
+                """,
+                ("@id", Guid.Parse(goal.Id)), ("@subjectId", Guid.Parse(goal.SubjectId)), ("@title", goal.Title), ("@kind", goal.Kind), ("@metricDefinitionId", (object?)(goal.MetricDefinitionId is null ? null : Guid.Parse(goal.MetricDefinitionId)) ?? DBNull.Value), ("@targetValue", (object?)goal.TargetValue ?? DBNull.Value), ("@targetDate", (object?)(goal.TargetDate?.ToDateTime(TimeOnly.MinValue)) ?? DBNull.Value), ("@period", goal.Period), ("@periodStartDate", (object?)(goal.PeriodStartDate?.ToDateTime(TimeOnly.MinValue)) ?? DBNull.Value), ("@periodEndDate", (object?)(goal.PeriodEndDate?.ToDateTime(TimeOnly.MinValue)) ?? DBNull.Value), ("@isCompleted", goal.IsCompleted), ("@completedAtUtc", (object?)goal.CompletedAtUtc ?? DBNull.Value), ("@createdAtUtc", goal.CreatedAtUtc));
+
+        foreach (var (title, isCompleted) in new[] { ("Implement sorting exercises", true), ("Solve graph traversal exercises", true), ("Review dynamic programming", false), ("Write solution notes", false) })
+            await ExecuteAsync(connection, transaction, """
+                IF NOT EXISTS (SELECT 1 FROM dbo.SubjectSubGoals WHERE Id = @id)
+                INSERT INTO dbo.SubjectSubGoals (Id, SubjectGoalId, Title, IsCompleted, CompletedAtUtc, CreatedAtUtc)
+                VALUES (@id, @subjectGoalId, @title, @isCompleted, @completedAtUtc, @createdAtUtc);
+                """,
+                ("@id", Guid.Parse(SeedId($"sub-goal-{title}"))), ("@subjectGoalId", Guid.Parse(SeedId("goal-algorithms-project"))), ("@title", title), ("@isCompleted", isCompleted), ("@completedAtUtc", isCompleted ? DateTimeOffset.Parse("2026-08-06T18:00:00+00:00") : DBNull.Value), ("@createdAtUtc", DateTimeOffset.Parse("2026-07-20T00:00:00+00:00")));
+    }
 }
 
 file static class ConnectionStringResolver

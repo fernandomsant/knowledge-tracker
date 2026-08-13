@@ -1,0 +1,35 @@
+.consistency-status {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+}
+
+.consistency-status > b {
+  color: #456455;
+  font-size: 10px;
+}
+
+.behavior-priority {
+  justify-self: start;
+  border-radius: 99px;
+  padding: 3px 5px;
+  background: #eef2ef;
+  color: #708077;
+  font-size: 8px;
+  font-weight: 800;
+}
+
+.behavior-priority.needs-attention {
+  background: #fbe8e1;
+  color: #a34d3e;
+}
+
+.behavior-priority.review {
+  background: #fff1d9;
+  color: #a26e17;
+}
+
+.behavior-priority.on-track {
+  background: #e5f3eb;
+  color: #287160;
+}

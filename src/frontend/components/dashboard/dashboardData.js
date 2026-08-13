@@ -93,6 +93,13 @@ function trendFor(occurrences) {
   return recentRate > beforeRate ? 'Improving' : recentRate < beforeRate ? 'Declining' : 'Steady';
 }
 
+function recurringGoalPriority({ consistency, missed, expected, trend }) {
+  if (!expected) return { priority: 'No activity', priorityRank: 3, priorityReason: 'No expected occurrences in this range' };
+  if (consistency < 50) return { priority: 'Needs attention', priorityRank: 0, priorityReason: `${missed} missed occurrence${missed === 1 ? '' : 's'}` };
+  if (missed > 0 || trend === 'Declining') return { priority: 'Review', priorityRank: 1, priorityReason: trend === 'Declining' ? 'Completion trend is declining' : `${missed} missed occurrence${missed === 1 ? '' : 's'}` };
+  return { priority: 'On track', priorityRank: 2, priorityReason: 'All expected occurrences completed' };
+}
+
 export function buildStudyBehaviorData({ subjects, notes, goals, range, now = new Date() }) {
   const from = rangeStart(range, now);
   const visibleNotes = notes.filter(note => !from || new Date(note.studyStartedAtUtc) >= from);
@@ -105,8 +112,11 @@ export function buildStudyBehaviorData({ subjects, notes, goals, range, now = ne
     const occurrences = goalOccurrences(goal, notes, from, now) ?? [];
     const completed = occurrences.filter(occurrence => occurrence.completed).length;
     const expected = occurrences.length;
-    return { ...goal, periodLabel: PERIOD_LABELS[goal.period], completed, expected, missed: expected - completed, consistency: expected ? completed / expected * 100 : 0, streak: currentStreak(occurrences), trend: trendFor(occurrences) };
-  }).toSorted((left, right) => left.consistency - right.consistency || right.expected - left.expected);
+    const missed = expected - completed;
+    const consistency = expected ? completed / expected * 100 : 0;
+    const trend = trendFor(occurrences);
+    return { ...goal, periodLabel: PERIOD_LABELS[goal.period], completed, expected, missed, consistency, streak: currentStreak(occurrences), trend, ...recurringGoalPriority({ consistency, missed, expected, trend }) };
+  }).toSorted((left, right) => left.priorityRank - right.priorityRank || left.consistency - right.consistency || right.expected - left.expected);
   const unsupportedPeriodicGoals = goals.filter(goal => !goal.isCompleted && goal.kind !== 1 && goal.period >= 1 && goal.period <= 3);
   return { subjectActivity, totalNotes, periodicGoals, unsupportedPeriodicGoals };
 }

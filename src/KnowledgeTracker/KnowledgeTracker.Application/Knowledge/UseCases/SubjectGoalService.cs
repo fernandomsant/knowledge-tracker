@@ -2,7 +2,7 @@ using KnowledgeTracker.Domain.Knowledge;
 
 namespace KnowledgeTracker.Application.Knowledge;
 
-public sealed class SubjectGoalService(ISubjectGoalRepository goals, ISubjectRepository subjects, IStudyNoteRepository notes, IStudyMetricDefinitionRepository definitions) : ISubjectGoalService
+public sealed class SubjectGoalService(ISubjectGoalRepository goals, ISubjectRepository subjects, ITopicRepository topics, IStudyNoteRepository notes, IStudyMetricDefinitionRepository definitions) : ISubjectGoalService
 {
     public async Task<IReadOnlyCollection<SubjectGoalDetails>> ListBySubjectAsync(Guid subjectId, CancellationToken ct)
     {
@@ -16,11 +16,13 @@ public sealed class SubjectGoalService(ISubjectGoalRepository goals, ISubjectRep
     public async Task<SubjectGoalDetails?> CreateAsync(Guid subjectId, CreateSubjectGoalRequest request, CancellationToken ct)
     {
         if (await subjects.FindAsync(subjectId, ct) is null) return null;
+        var topicId = request.TopicId == Guid.Empty ? subjectId : request.TopicId;
+        if (await topics.FindAsync(topicId, ct) is null) throw new ArgumentException("The selected topic does not exist.");
         if (request.Kind == GoalKind.MetricTarget && (request.MetricDefinitionId is null || await definitions.FindAsync(request.MetricDefinitionId.Value, ct) is null))
             throw new ArgumentException("The selected study metric does not exist.");
 
         if (request.Kind == GoalKind.MetricTarget && request.SubGoals.Count > 0) throw new ArgumentException("Metric goals cannot have sub-goals.");
-        var goal = new SubjectGoal(Guid.NewGuid(), subjectId, request.Title, request.Kind, request.MetricDefinitionId, request.TargetValue, request.TargetDate, request.Period, request.PeriodStartDate, request.PeriodEndDate, long.MaxValue, false, null, DateTimeOffset.UtcNow);
+        var goal = new SubjectGoal(Guid.NewGuid(), subjectId, topicId, request.Title, request.Kind, request.MetricDefinitionId, request.TargetValue, request.TargetDate, request.Period, request.PeriodStartDate, request.PeriodEndDate, long.MaxValue, false, null, DateTimeOffset.UtcNow);
         await goals.AddAsync(goal, ct);
         var subGoals = request.SubGoals.Where(title => !string.IsNullOrWhiteSpace(title)).Select(title => new SubjectSubGoal(Guid.NewGuid(), goal.Id, title, false, null, DateTimeOffset.UtcNow)).ToArray();
         await goals.AddSubGoalsAsync(subGoals, ct);
@@ -38,9 +40,9 @@ public sealed class SubjectGoalService(ISubjectGoalRepository goals, ISubjectRep
         definitions.TryGetValue(goal.MetricDefinitionId ?? Guid.Empty, out var definition);
         var (periodStartDate, periodEndDate) = ResolvePeriod(goal, DateOnly.FromDateTime(DateTime.UtcNow));
         decimal? currentValue = goal.Kind == GoalKind.MetricTarget
-            ? notes.Where(note => IsWithinPeriod(note, periodStartDate, periodEndDate)).SelectMany(note => note.Metrics).Where(metric => metric.Definition.Id == goal.MetricDefinitionId).Sum(metric => metric.Value)
+            ? notes.Where(note => note.TopicId == goal.TopicId && IsWithinPeriod(note, periodStartDate, periodEndDate)).SelectMany(note => note.Metrics).Where(metric => metric.Definition.Id == goal.MetricDefinitionId).Sum(metric => metric.Value)
             : null;
-        return new(goal.Id, goal.SubjectId, goal.Title, goal.Kind, definition is null ? null : new(definition.Id, definition.Name, definition.NumberKind), goal.TargetValue, currentValue, goal.TargetDate, goal.Period, periodStartDate, periodEndDate, goal.PriorityPosition, goal.IsCompleted, goal.CompletedAtUtc, goal.CreatedAtUtc, subGoals.Select(item => new SubjectSubGoalDetails(item.Id, item.Title, item.IsCompleted, item.CompletedAtUtc)).ToArray());
+        return new(goal.Id, goal.SubjectId, goal.TopicId, goal.Title, goal.Kind, definition is null ? null : new(definition.Id, definition.Name, definition.NumberKind), goal.TargetValue, currentValue, goal.TargetDate, goal.Period, periodStartDate, periodEndDate, goal.PriorityPosition, goal.IsCompleted, goal.CompletedAtUtc, goal.CreatedAtUtc, subGoals.Select(item => new SubjectSubGoalDetails(item.Id, item.Title, item.IsCompleted, item.CompletedAtUtc)).ToArray());
     }
 
     private static bool IsWithinPeriod(StudyNote note, DateOnly? startDate, DateOnly? endDate)

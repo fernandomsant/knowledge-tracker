@@ -1,6 +1,7 @@
 namespace KnowledgeTracker.Application.Knowledge;
 
 public sealed record CreateStudyNoteRequest(
+    Guid TopicId,
     string Title,
     string Content,
     TimeSpan StudyDuration,
@@ -9,6 +10,7 @@ public sealed record CreateStudyNoteRequest(
 );
 
 public sealed record UpdateStudyNoteRequest(
+    Guid TopicId,
     string Title,
     string Content,
     TimeSpan StudyDuration,
@@ -21,6 +23,7 @@ public sealed record StudyNoteMetricRequest(Guid DefinitionId, decimal Value);
 public sealed record StudyNoteDetails(
     Guid Id,
     Guid SubjectId,
+    Guid TopicId,
     string Title,
     string Content,
     TimeSpan StudyDuration,

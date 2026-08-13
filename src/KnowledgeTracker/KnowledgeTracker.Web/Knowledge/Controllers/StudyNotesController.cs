@@ -44,6 +44,7 @@ public sealed class StudyNotesController(ISubjectService subjects, IStudyNoteSer
             var note = await studyNotes.CreateAsync(
                 subjectId,
                 new KnowledgeTracker.Application.Knowledge.CreateStudyNoteRequest(
+                    request.TopicId,
                     request.Title,
                     request.Content,
                     request.StudyDuration,
@@ -79,6 +80,7 @@ public sealed class StudyNotesController(ISubjectService subjects, IStudyNoteSer
             var note = await studyNotes.UpdateAsync(
                 id,
                 new KnowledgeTracker.Application.Knowledge.UpdateStudyNoteRequest(
+                    request.TopicId,
                     request.Title,
                     request.Content,
                     request.StudyDuration,

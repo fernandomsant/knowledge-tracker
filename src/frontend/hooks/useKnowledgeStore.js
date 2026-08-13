@@ -49,7 +49,7 @@ function knowledgeReducer(state, action) {
   }
 }
 
-const initialState = { subjects: [], notes: [], connections: [], goals: [], metricDefinitions: [], status: 'loading', error: null };
+const initialState = { subjects: [], notes: [], connections: [], goals: [], topics: [], metricDefinitions: [], status: 'loading', error: null };
 const noteDateFormatter = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' });
 const errorMessage = reason => reason instanceof Error ? reason.message : 'Your knowledge space could not be updated. Try again.';
 
@@ -58,7 +58,7 @@ function toSubject(subject, index) {
 }
 
 function toNote(note) {
-  return { id: note.id, subjectId: note.subjectId, title: note.title, excerpt: note.content, metrics: note.metrics ?? [], studyDuration: note.studyDuration, studyStartedAtUtc: note.studyStartedAtUtc, date: noteDateFormatter.format(new Date(note.studyStartedAtUtc)) };
+  return { id: note.id, subjectId: note.subjectId, topicId: note.topicId, title: note.title, excerpt: note.content, metrics: note.metrics ?? [], studyDuration: note.studyDuration, studyStartedAtUtc: note.studyStartedAtUtc, date: noteDateFormatter.format(new Date(note.studyStartedAtUtc)) };
 }
 
 const toConnection = connection => ({ id: connection.id, source: connection.subjectId, target: connection.connectedSubjectId });
@@ -67,6 +67,7 @@ function toKnowledgeState(knowledge) {
   return {
     subjects: knowledge.subjects.map(toSubject),
     metricDefinitions: knowledge.metricDefinitions,
+    topics: knowledge.topics,
     notes: knowledge.subjects.flatMap(subject => subject.studyNotes.map(toNote)),
     goals: knowledge.goals,
     connections: knowledge.connections.map(toConnection),
@@ -134,9 +135,9 @@ export function useKnowledgeStore(accessToken) {
   }, [accessToken]);
 
 
-  const addNote = useCallback(async (subjectId, title, excerpt, studyDuration, studyStartedAtUtc, metrics) => {
+  const addNote = useCallback(async (subjectId, topicId, title, excerpt, studyDuration, studyStartedAtUtc, metrics) => {
     try {
-      const note = await knowledgeClient.createStudyNote(accessToken, subjectId, title, excerpt, studyDuration, studyStartedAtUtc, metrics);
+      const note = await knowledgeClient.createStudyNote(accessToken, subjectId, topicId, title, excerpt, studyDuration, studyStartedAtUtc, metrics);
       dispatch({ type: 'note/add', note: toNote(note) });
       dispatch({ type: 'request/clear' });
       return note;

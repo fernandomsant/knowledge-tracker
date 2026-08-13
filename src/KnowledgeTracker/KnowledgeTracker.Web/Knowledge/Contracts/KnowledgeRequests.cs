@@ -26,6 +26,7 @@ public sealed record UpdateSubjectRequest
 
 public sealed record CreateStudyNoteRequest
 {
+    public Guid TopicId { get; init; }
     [Required]
     [StringLength(512)]
     public required string Title { get; init; }
@@ -42,6 +43,7 @@ public sealed record CreateStudyNoteRequest
 
 public sealed record UpdateStudyNoteRequest
 {
+    public Guid TopicId { get; init; }
     [Required]
     [StringLength(512)]
     public required string Title { get; init; }
@@ -86,6 +88,7 @@ public sealed record CreateSubjectConnectionRequest
 
 public sealed record CreateSubjectGoalRequest
 {
+    public Guid TopicId { get; init; }
     [Required]
     [StringLength(256)]
     public required string Title { get; init; }
@@ -108,3 +111,4 @@ public sealed record CreateSubjectGoalRequest
 
 public sealed record SetSubGoalCompletionRequest(bool IsCompleted);
 public sealed record SwapSubjectGoalPriorityRequest(Guid SwapWithId);
+public sealed record CreateTopicRequest { [Required, StringLength(256)] public required string Name { get; init; } }

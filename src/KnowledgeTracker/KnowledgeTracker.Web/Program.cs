@@ -34,6 +34,7 @@ builder.Services.AddSingleton<Func<DbConnection>>(_ => () => new SqlConnection(c
 builder.Services.AddScoped<IUserRepository, SqlServerUserRepository>();
 builder.Services.AddScoped<ISessionRepository, SqlServerSessionRepository>();
 builder.Services.AddScoped<ISubjectRepository, SqlServerSubjectRepository>();
+builder.Services.AddScoped<ITopicRepository, SqlServerTopicRepository>();
 builder.Services.AddScoped<IStudyNoteRepository, SqlServerStudyNoteRepository>();
 builder.Services.AddScoped<IStudyMetricDefinitionRepository, SqlServerStudyMetricDefinitionRepository>();
 builder.Services.AddScoped<ISubjectConnectionRepository, SqlServerSubjectConnectionRepository>();
@@ -48,6 +49,7 @@ builder.Services.AddSingleton<IRefreshTokenService>(_ =>
 builder.Services.AddScoped<KnowledgeTracker.Application.Authentication.IAuthenticationService, KnowledgeTracker.Application.Authentication.AuthenticationService>();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<ISubjectService, SubjectService>();
+builder.Services.AddScoped<ITopicService, TopicService>();
 builder.Services.AddScoped<IStudyNoteService, StudyNoteService>();
 builder.Services.AddScoped<IStudyMetricDefinitionService, StudyMetricDefinitionService>();
 builder.Services.AddScoped<ISubjectConnectionService, SubjectConnectionService>();

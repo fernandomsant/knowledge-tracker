@@ -11,6 +11,7 @@ internal static class KnowledgeContractMapper
         new(
             studyNote.Id,
             studyNote.SubjectId,
+            studyNote.TopicId,
             studyNote.Title,
             studyNote.Content,
             studyNote.StudyDuration,

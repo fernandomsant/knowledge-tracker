@@ -20,7 +20,7 @@ public sealed class SubjectGoalsController(ISubjectGoalService goals) : Controll
     {
         try
         {
-            var goal = await goals.CreateAsync(subjectId, new KnowledgeTracker.Application.Knowledge.CreateSubjectGoalRequest(request.Title, request.Kind, request.MetricDefinitionId, request.TargetValue, request.TargetDate, request.Period, request.PeriodStartDate, request.PeriodEndDate, request.SubGoals), ct);
+            var goal = await goals.CreateAsync(subjectId, new KnowledgeTracker.Application.Knowledge.CreateSubjectGoalRequest(request.TopicId, request.Title, request.Kind, request.MetricDefinitionId, request.TargetValue, request.TargetDate, request.Period, request.PeriodStartDate, request.PeriodEndDate, request.SubGoals), ct);
             return goal is null ? NotFound() : Created($"/api/subject-goals/{goal.Id}", KnowledgeResponseMapper.ToResponse(goal));
         }
         catch (ArgumentException exception) { return BadRequest(new ProblemDetails { Detail = exception.Message }); }

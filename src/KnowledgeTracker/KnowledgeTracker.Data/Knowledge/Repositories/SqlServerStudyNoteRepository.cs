@@ -14,7 +14,7 @@ public sealed class SqlServerStudyNoteRepository(Func<DbConnection> connectionFa
         await connection.OpenAsync(ct);
         await using var command = connection.CreateCommand();
         command.CommandText = """
-            SELECT note.Id, note.SubjectId, note.Title, note.Content, note.StudyDurationTicks, note.StudyStartedAtUtc,
+            SELECT note.Id, note.SubjectId, note.TopicId, note.Title, note.Content, note.StudyDurationTicks, note.StudyStartedAtUtc,
                    definition.Id, definition.Name, definition.NumberKind, metric.MetricValue
             FROM dbo.StudyNotes AS note
             LEFT JOIN dbo.StudyNoteMetrics AS metric ON metric.StudyNoteId = note.Id
@@ -35,7 +35,7 @@ public sealed class SqlServerStudyNoteRepository(Func<DbConnection> connectionFa
         await connection.OpenAsync(ct);
         await using var command = connection.CreateCommand();
         command.CommandText = """
-            SELECT note.Id, note.SubjectId, note.Title, note.Content, note.StudyDurationTicks, note.StudyStartedAtUtc,
+            SELECT note.Id, note.SubjectId, note.TopicId, note.Title, note.Content, note.StudyDurationTicks, note.StudyStartedAtUtc,
                    definition.Id, definition.Name, definition.NumberKind, metric.MetricValue
             FROM dbo.StudyNotes AS note
             LEFT JOIN dbo.StudyNoteMetrics AS metric ON metric.StudyNoteId = note.Id
@@ -58,9 +58,9 @@ public sealed class SqlServerStudyNoteRepository(Func<DbConnection> connectionFa
         command.Transaction = transaction;
         command.CommandText = """
             INSERT INTO dbo.StudyNotes
-                (Id, SubjectId, Title, Content, StudyDurationTicks, StudyStartedAtUtc)
+                (Id, SubjectId, TopicId, Title, Content, StudyDurationTicks, StudyStartedAtUtc)
             VALUES
-                (@Id, @SubjectId, @Title, @Content, @StudyDurationTicks, @StudyStartedAtUtc);
+                (@Id, @SubjectId, @TopicId, @Title, @Content, @StudyDurationTicks, @StudyStartedAtUtc);
             """;
         AddStudyNoteParameters(command, studyNote);
         await command.ExecuteNonQueryAsync(ct);
@@ -78,6 +78,7 @@ public sealed class SqlServerStudyNoteRepository(Func<DbConnection> connectionFa
         command.CommandText = """
             UPDATE dbo.StudyNotes
             SET Title = @Title,
+                TopicId = @TopicId,
                 Content = @Content,
                 StudyDurationTicks = @StudyDurationTicks,
                 StudyStartedAtUtc = @StudyStartedAtUtc
@@ -107,6 +108,7 @@ public sealed class SqlServerStudyNoteRepository(Func<DbConnection> connectionFa
     {
         command.AddParameter("@Id", DbType.Guid, studyNote.Id);
         command.AddParameter("@SubjectId", DbType.Guid, studyNote.SubjectId);
+        command.AddParameter("@TopicId", DbType.Guid, studyNote.TopicId);
         command.AddParameter("@Title", DbType.String, studyNote.Title);
         command.AddParameter("@Content", DbType.String, studyNote.Content);
         command.AddParameter("@StudyDurationTicks", DbType.Int64, studyNote.StudyDuration.Ticks);
@@ -127,23 +129,20 @@ public sealed class SqlServerStudyNoteRepository(Func<DbConnection> connectionFa
                 row = new StudyNoteRow(
                     id,
                     reader.GetGuid(1),
-                    reader.GetString(2),
-                    reader.GetString(3),
-                    TimeSpan.FromTicks(reader.GetInt64(4)),
-                    reader.GetFieldValue<DateTimeOffset>(5)
+                    reader.GetGuid(2), reader.GetString(3), reader.GetString(4),
+                    TimeSpan.FromTicks(reader.GetInt64(5)), reader.GetFieldValue<DateTimeOffset>(6)
                 );
                 rows.Add(id, row);
             }
 
-            if (!reader.IsDBNull(6))
+            if (!reader.IsDBNull(7))
                 row.Metrics.Add(new StudyNoteMetric(
-                    new StudyMetricDefinition(reader.GetGuid(6), reader.GetString(7), (MetricNumberKind)reader.GetByte(8)),
-                    reader.GetDecimal(9)
+                    new StudyMetricDefinition(reader.GetGuid(7), reader.GetString(8), (MetricNumberKind)reader.GetByte(9)), reader.GetDecimal(10)
                 ));
         }
 
         return rows.Values.Select(row => new StudyNote(
-            row.Id, row.SubjectId, row.Title, row.Content, row.StudyDuration, row.StudyStartedAtUtc, row.Metrics
+            row.Id, row.SubjectId, row.TopicId, row.Title, row.Content, row.StudyDuration, row.StudyStartedAtUtc, row.Metrics
         )).ToArray();
     }
 
@@ -172,6 +171,7 @@ public sealed class SqlServerStudyNoteRepository(Func<DbConnection> connectionFa
     private sealed class StudyNoteRow(
         Guid id,
         Guid subjectId,
+        Guid topicId,
         string title,
         string content,
         TimeSpan studyDuration,
@@ -180,6 +180,7 @@ public sealed class SqlServerStudyNoteRepository(Func<DbConnection> connectionFa
     {
         public Guid Id { get; } = id;
         public Guid SubjectId { get; } = subjectId;
+        public Guid TopicId { get; } = topicId;
         public string Title { get; } = title;
         public string Content { get; } = content;
         public TimeSpan StudyDuration { get; } = studyDuration;

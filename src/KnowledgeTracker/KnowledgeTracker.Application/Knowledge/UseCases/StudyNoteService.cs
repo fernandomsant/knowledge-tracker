@@ -4,6 +4,7 @@ namespace KnowledgeTracker.Application.Knowledge;
 
 public sealed class StudyNoteService(
     ISubjectRepository subjects,
+    ITopicRepository topics,
     IStudyNoteRepository studyNotes,
     IStudyMetricDefinitionRepository metricDefinitions
 )
@@ -27,8 +28,11 @@ public sealed class StudyNoteService(
         var subject = await subjects.FindAsync(subjectId, ct);
         if (subject is null)
             return null;
+        var topicId = request.TopicId == Guid.Empty ? subjectId : request.TopicId;
+        if (await topics.FindAsync(topicId, ct) is null) throw new ArgumentException("The selected topic does not exist.");
 
         var studyNote = subject.AddStudyNote(
+            topicId,
             request.Title,
             request.Content,
             request.StudyDuration,
@@ -49,16 +53,18 @@ public sealed class StudyNoteService(
         var studyNote = await studyNotes.FindAsync(id, ct);
         if (studyNote is null)
             return null;
+        var topicId = request.TopicId == Guid.Empty ? studyNote.TopicId : request.TopicId;
+        if (await topics.FindAsync(topicId, ct) is null) throw new ArgumentException("The selected topic does not exist.");
 
-        studyNote.Update(
+        var updated = new StudyNote(studyNote.Id, studyNote.SubjectId, topicId,
             request.Title,
             request.Content,
             request.StudyDuration,
+            request.StudyStartedAtUtc,
             await CreateMetricsAsync(request.Metrics, ct)
         );
-        studyNote.SetStudyStartedAtUtc(request.StudyStartedAtUtc);
-        await studyNotes.UpdateAsync(studyNote, ct);
-        return KnowledgeContractMapper.ToDetails(studyNote);
+        await studyNotes.UpdateAsync(updated, ct);
+        return KnowledgeContractMapper.ToDetails(updated);
     }
 
     public async Task<bool> DeleteAsync(Guid id, CancellationToken ct)

@@ -139,16 +139,29 @@ function SubjectDrawer({ subject, subjects, notes, goals, metricDefinitions, dra
     if (await onUpdateSubject(subject.id, name, subjectDescription.trim() || null, parentSubjectId || null)) onDrawerChange({ editingSubject: false });
   };
 
+  const startSubjectEditing = event => {
+    event.preventDefault();
+    event.stopPropagation();
+    setViewingNoteId(null);
+    onDrawerChange({
+      editingSubject: true,
+      subjectName: subject.name,
+      subjectDescription: subject.description ?? '',
+      parentSubjectId: subject.parentSubjectId ?? '',
+    });
+  };
+
   return (
     <aside
       className="subject-drawer"
       onPointerDown={event => event.stopPropagation()}
+      onPointerUp={event => event.stopPropagation()}
       onWheel={event => event.stopPropagation()}
     >
       <div className="drawer-head">
         <div><span>SUBJECT DETAILS</span><h3>{subject.name}</h3></div>
         <div className="drawer-actions">
-          {editingSubject ? <button type="submit" form="subject-editor" className="primary-button">Save changes</button> : <button className="text-button" onClick={() => onDrawerChange({ editingSubject: true })}><Pencil size={15}/> Edit</button>}
+          {editingSubject ? <button type="submit" form="subject-editor" className="primary-button">Save changes</button> : <button type="button" className="text-button" onClick={startSubjectEditing}><Pencil size={15}/> Edit</button>}
           <button className="remove-node-button" onClick={() => { const childNotice = directChildCount ? ` ${directChildCount} child ${directChildCount === 1 ? 'subject will' : 'subjects will'} become top-level.` : ''; if (window.confirm(`Remove ${subject.name} and its notes?${childNotice}`)) onRemoveSubject(); }}><Trash2 size={15}/> Remove node</button>
           <IconButton label="Close subject details" onClick={onClose}><X size={19}/></IconButton>
         </div>

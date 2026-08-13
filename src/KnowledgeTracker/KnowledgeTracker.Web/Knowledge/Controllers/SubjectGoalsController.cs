@@ -20,7 +20,7 @@ public sealed class SubjectGoalsController(ISubjectGoalService goals) : Controll
     {
         try
         {
-            var goal = await goals.CreateAsync(subjectId, new KnowledgeTracker.Application.Knowledge.CreateSubjectGoalRequest(request.Title, request.Kind, request.MetricDefinitionId, request.TargetValue, request.TargetDate, request.Period, request.PeriodStartDate, request.PeriodEndDate), ct);
+            var goal = await goals.CreateAsync(subjectId, new KnowledgeTracker.Application.Knowledge.CreateSubjectGoalRequest(request.Title, request.Kind, request.MetricDefinitionId, request.TargetValue, request.TargetDate, request.Period, request.PeriodStartDate, request.PeriodEndDate, request.SubGoals), ct);
             return goal is null ? NotFound() : Created($"/api/subject-goals/{goal.Id}", KnowledgeResponseMapper.ToResponse(goal));
         }
         catch (ArgumentException exception) { return BadRequest(new ProblemDetails { Detail = exception.Message }); }
@@ -31,4 +31,7 @@ public sealed class SubjectGoalsController(ISubjectGoalService goals) : Controll
 
     [HttpPost("subject-goals/{id:guid}/complete")]
     public async Task<IActionResult> CompleteAsync(Guid id, CancellationToken ct) => await goals.CompleteAsync(id, ct) ? NoContent() : BadRequest();
+
+    [HttpPut("subject-sub-goals/{id:guid}/completion")]
+    public async Task<IActionResult> SetSubGoalCompletionAsync(Guid id, [FromBody] SetSubGoalCompletionRequest request, CancellationToken ct) => await goals.SetSubGoalCompletionAsync(id, request.IsCompleted, ct) ? NoContent() : BadRequest();
 }

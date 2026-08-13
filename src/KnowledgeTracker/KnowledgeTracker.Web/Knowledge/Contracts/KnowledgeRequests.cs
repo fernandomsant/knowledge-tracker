@@ -103,4 +103,7 @@ public sealed record CreateSubjectGoalRequest
     public KnowledgeTracker.Domain.Knowledge.GoalPeriod Period { get; init; }
     public DateOnly? PeriodStartDate { get; init; }
     public DateOnly? PeriodEndDate { get; init; }
+    public IReadOnlyCollection<string> SubGoals { get; init; } = [];
 }
+
+public sealed record SetSubGoalCompletionRequest(bool IsCompleted);

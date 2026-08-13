@@ -6,4 +6,5 @@ public interface ISubjectGoalService
     Task<SubjectGoalDetails?> CreateAsync(Guid subjectId, CreateSubjectGoalRequest request, CancellationToken ct);
     Task<bool> DeleteAsync(Guid id, CancellationToken ct);
     Task<bool> CompleteAsync(Guid id, CancellationToken ct);
+    Task<bool> SetSubGoalCompletionAsync(Guid id, bool isCompleted, CancellationToken ct);
 }

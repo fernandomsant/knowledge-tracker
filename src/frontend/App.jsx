@@ -169,7 +169,7 @@ export default function App() {
   const { accessToken, user, logout } = useAuthenticationSession();
   const {
     subjects, notes, connections, goals, metricDefinitions, subjectsById, notesBySubject, goalsBySubject, status: knowledgeStatus, error: knowledgeError,
-    addSubject, updateSubject, removeSubject, moveSubject, addNote, updateNote, createMetricDefinition, connectSubjects, removeConnection, addSubjectGoal, removeSubjectGoal, completeSubjectGoal,
+    addSubject, updateSubject, removeSubject, moveSubject, addNote, updateNote, createMetricDefinition, connectSubjects, removeConnection, addSubjectGoal, removeSubjectGoal, completeSubjectGoal, setSubGoalCompletion,
   } = useKnowledgeStore(accessToken);
   const [activeNav, setActiveNav] = useState('Overview');
   const [activeSubject, setActiveSubject] = useState('all');
@@ -311,6 +311,7 @@ export default function App() {
                 onCreateGoal={addSubjectGoal}
                 onRemoveGoal={removeSubjectGoal}
                 onCompleteGoal={completeSubjectGoal}
+                onSetSubGoalCompletion={setSubGoalCompletion}
               />
             ) : <NotesList notes={filteredNotes} subjectsById={subjectsById}/>}
           </section>
@@ -347,6 +348,7 @@ export default function App() {
           onCreateGoal: addSubjectGoal,
           onRemoveGoal: removeSubjectGoal,
           onCompleteGoal: completeSubjectGoal,
+          onSetSubGoalCompletion: setSubGoalCompletion,
         }}
       />      <SubjectModal open={modalOpen} name={newSubjectName} parentSubjectId={newSubjectParentId} parentOptions={parentOptions} onNameChange={setNewSubjectName} onParentChange={setNewSubjectParentId} onClose={closeModal} onCreate={handleCreateSubject}/>
     </div>

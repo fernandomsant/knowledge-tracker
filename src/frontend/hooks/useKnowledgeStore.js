@@ -34,6 +34,7 @@ function knowledgeReducer(state, action) {
     case 'goal/add': return { ...state, goals: [...state.goals, action.goal] };
     case 'goal/remove': return { ...state, goals: state.goals.filter(goal => goal.id !== action.id) };
     case 'goal/complete': return { ...state, goals: state.goals.map(goal => goal.id === action.id ? { ...goal, isCompleted: true, completedAtUtc: action.completedAtUtc } : goal) };
+    case 'sub-goal/complete': return { ...state, goals: state.goals.map(goal => ({ ...goal, subGoals: goal.subGoals?.map(subGoal => subGoal.id === action.id ? { ...subGoal, isCompleted: action.isCompleted, completedAtUtc: action.isCompleted ? action.completedAtUtc : null } : subGoal) ?? [] })) };
     default: return state;
   }
 }
@@ -219,6 +220,17 @@ export function useKnowledgeStore(accessToken) {
       return false;
     }
   }, [accessToken]);
+  const setSubGoalCompletion = useCallback(async (id, isCompleted) => {
+    try {
+      await knowledgeClient.setSubGoalCompletion(accessToken, id, isCompleted);
+      dispatch({ type: 'sub-goal/complete', id, isCompleted, completedAtUtc: new Date().toISOString() });
+      dispatch({ type: 'request/clear' });
+      return true;
+    } catch (reason) {
+      dispatch({ type: 'request/failed', error: errorMessage(reason) });
+      return false;
+    }
+  }, [accessToken]);
 
-  return { ...state, subjectsById, notesBySubject, goalsBySubject, addSubject, updateSubject, removeSubject, moveSubject, addNote, updateNote, createMetricDefinition, connectSubjects, removeConnection, addSubjectGoal, removeSubjectGoal, completeSubjectGoal };
+  return { ...state, subjectsById, notesBySubject, goalsBySubject, addSubject, updateSubject, removeSubject, moveSubject, addNote, updateNote, createMetricDefinition, connectSubjects, removeConnection, addSubjectGoal, removeSubjectGoal, completeSubjectGoal, setSubGoalCompletion };
 }

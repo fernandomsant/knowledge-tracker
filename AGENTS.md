@@ -44,6 +44,49 @@ This project is indexed by GitNexus as **knowledge-tracker** (390 symbols, 700 r
 
 <!-- gitnexus:end -->
 
+## GitNexus and Serena
+
+Use **GitNexus** and **Serena** as complementary codebase-navigation and analysis tools whenever they can reduce unnecessary file reading or improve understanding of the repository.
+
+### GitNexus
+
+Use GitNexus primarily for **repository-wide structural and dependency analysis**.
+
+Prefer GitNexus when you need to:
+
+* Understand the overall architecture of the repository.
+* Locate relevant modules, classes, functions, interfaces, or symbols.
+* Identify dependencies and relationships between components.
+* Trace how a feature or concept is distributed across the codebase.
+* Determine the potential impact of a change before modifying code.
+* Find likely entry points before performing more detailed inspection.
+
+Do not manually scan large portions of the repository when GitNexus can identify the relevant code more efficiently.
+
+### Serena
+
+Use Serena primarily for **symbol-level inspection, navigation, and modification**.
+
+Prefer Serena when you need to:
+
+* Inspect a specific class, method, function, interface, or other symbol.
+* Find references or usages of a symbol.
+* Navigate between related definitions and implementations.
+* Understand the local context surrounding code that will be modified.
+* Perform precise code modifications without unnecessarily reading or rewriting entire files.
+
+### Recommended Workflow
+
+For non-trivial changes:
+
+1. Use **GitNexus** to understand the affected architecture, dependencies, and relevant areas of the repository.
+2. Use **Serena** to inspect the specific symbols and implementations identified during that analysis.
+3. Make the required changes only after understanding their callers, dependencies, and expected impact.
+4. Reuse GitNexus or Serena as necessary to verify that related code has not been overlooked.
+
+Avoid exhaustive repository exploration when either tool can answer the question more directly. The objective is to gather enough context to make a correct change while minimizing unnecessary file reads and token usage.
+
+
 # Basic Instructions
 
 ## Projects and `AGENTS.md`

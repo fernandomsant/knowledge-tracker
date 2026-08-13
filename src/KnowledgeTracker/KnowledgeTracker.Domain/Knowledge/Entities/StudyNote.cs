@@ -7,6 +7,7 @@ public sealed class StudyNote
     public StudyNote(
         Guid id,
         Guid subjectId,
+        Guid topicId,
         string title,
         string content,
         TimeSpan studyDuration,
@@ -18,20 +19,29 @@ public sealed class StudyNote
             throw new ArgumentException("Study-note identifier is required.", nameof(id));
         if (subjectId == Guid.Empty)
             throw new ArgumentException("Subject identifier is required.", nameof(subjectId));
+        if (topicId == Guid.Empty)
+            throw new ArgumentException("Topic identifier is required.", nameof(topicId));
 
         Id = id;
         SubjectId = subjectId;
+        TopicId = topicId;
         Update(title, content, studyDuration, metrics);
         StudyStartedAtUtc = studyStartedAtUtc;
     }
 
     public Guid Id { get; }
     public Guid SubjectId { get; }
+    public Guid TopicId { get; }
     public string Title { get; private set; } = string.Empty;
     public string Content { get; private set; } = string.Empty;
     public TimeSpan StudyDuration { get; private set; }
     public DateTimeOffset StudyStartedAtUtc { get; private set; }
     public IReadOnlyCollection<StudyNoteMetric> Metrics => metrics.AsReadOnly();
+
+    public StudyNote(Guid id, Guid subjectId, string title, string content, TimeSpan studyDuration, DateTimeOffset studyStartedAtUtc, IEnumerable<StudyNoteMetric>? metrics = null)
+        : this(id, subjectId, subjectId, title, content, studyDuration, studyStartedAtUtc, metrics)
+    {
+    }
 
     public void Update(
         string title,

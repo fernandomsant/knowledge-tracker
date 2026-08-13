@@ -48,6 +48,7 @@ public sealed class Subject
     }
 
     public StudyNote AddStudyNote(
+        Guid topicId,
         string title,
         string content,
         TimeSpan studyDuration,
@@ -58,6 +59,7 @@ public sealed class Subject
         var note = new StudyNote(
             Guid.NewGuid(),
             Id,
+            topicId,
             title,
             content,
             studyDuration,
@@ -67,4 +69,7 @@ public sealed class Subject
         studyNotes.Add(note);
         return note;
     }
+
+    public StudyNote AddStudyNote(string title, string content, TimeSpan studyDuration, DateTimeOffset studyStartedAtUtc, IEnumerable<StudyNoteMetric>? metrics = null) =>
+        AddStudyNote(Id, title, content, studyDuration, studyStartedAtUtc, metrics);
 }

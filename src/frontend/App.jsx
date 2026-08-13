@@ -97,17 +97,18 @@ const StatCard = memo(function StatCard({ Icon, color, label, value, detail }) {
   return <article className="stat-card"><span className={`stat-icon ${color}`}><Icon size={20}/></span><div><small>{label}</small><strong>{value}</strong><p>{detail}</p></div></article>;
 });
 
-const NotesList = memo(function NotesList({ notes, subjectsById }) {
+const NotesList = memo(function NotesList({ notes, subjectsById, topicsById }) {
   return (
     <div className="notes-list">
       {notes.map(note => {
         const subject = subjectsById.get(note.subjectId) ?? { name: 'Unsorted', color: 'purple' };
+        const topic = topicsById.get(note.topicId);
         return (
           <article className="note-row" key={note.id}>
             <span className={`file-box ${subject.color}`}><FileText size={19}/></span>
             <div className="note-copy"><strong>{note.title}</strong><p>{note.excerpt}</p></div>
             <time>{note.date}</time>
-            <span className={`subject-tag ${subject.color}`}>{subject.name}</span>
+            <span className={`subject-tag ${subject.color}`}>{topic?.name ?? subject.name}</span>
             <IconButton label={`Options for ${note.title}`}><MoreHorizontal size={18}/></IconButton>
           </article>
         );
@@ -168,11 +169,12 @@ const CanvasOverlay = memo(function CanvasOverlay({ open, onClose, graphProps })
 export default function App() {
   const { accessToken, user, logout } = useAuthenticationSession();
   const {
-    subjects, notes, connections, goals, metricDefinitions, subjectsById, notesBySubject, goalsBySubject, status: knowledgeStatus, error: knowledgeError,
+    subjects, notes, connections, goals, topics, metricDefinitions, subjectsById, notesBySubject, goalsBySubject, status: knowledgeStatus, error: knowledgeError,
     addSubject, updateSubject, removeSubject, addNote, updateNote, createMetricDefinition, connectSubjects, removeConnection, addSubjectGoal, removeSubjectGoal, completeSubjectGoal, prioritizeSubjectGoal, setSubGoalCompletion,
   } = useKnowledgeStore(accessToken);
   const [activeNav, setActiveNav] = useState('Overview');
   const [activeSubject, setActiveSubject] = useState('all');
+  const [activeTopic, setActiveTopic] = useState('all');
   const [view, setView] = useState('canvas');
   const [query, setQuery] = useState('');
   const [copied, setCopied] = useState(false);
@@ -201,9 +203,11 @@ export default function App() {
     const normalizedQuery = query.trim().toLowerCase();
     return notes.filter(note => {
       if (activeSubject !== 'all' && note.subjectId !== activeSubject) return false;
+      if (activeTopic !== 'all' && note.topicId !== activeTopic) return false;
       return !normalizedQuery || `${note.title} ${note.excerpt}`.toLowerCase().includes(normalizedQuery);
     });
-  }, [notes, activeSubject, query]);
+  }, [notes, activeSubject, activeTopic, query]);
+  const topicsById = useMemo(() => new Map(topics.map(topic => [topic.id, topic])), [topics]);
 
   const recentNotes = useMemo(() => notes.slice(-3).reverse(), [notes]);
   const parentOptions = useMemo(() => getSubjectParentOptions(subjects), [subjects]);
@@ -275,13 +279,14 @@ export default function App() {
             <StatCard Icon={FileText} color="teal" label="Total notes" value={notes.length} detail="Saved to your space"/>
             <StatCard Icon={GitBranch} color="blue" label="Connections" value={connections.length} detail="Saved to your space"/>
             <StatCard Icon={Clock3} color="amber" label="Study streak" value="7 days" detail="Best: 14 days"/>
-            <StatCard Icon={Hash} color="purple" label="Topics covered" value={subjects.length} detail="In your knowledge space"/>
+            <StatCard Icon={Hash} color="purple" label="Topics covered" value={topics.length} detail="In your knowledge space"/>
           </section>
           <Suspense fallback={null}><StudyDashboard subjects={subjects} notes={notes} goals={goals} onInspectSubject={inspectSubject} onPrioritizeGoal={prioritizeSubjectGoal}/></Suspense>
           <section className="workspace-panel">
             <header className="panel-head">
               <div><span>SUBJECT MAP</span><h2>Your knowledge space</h2><p>Arrange subjects, connect related thinking, then open a node to work with its notes.</p></div>
               <div className="panel-actions">
+                {view === 'list' ? <select className="topic-filter" value={activeTopic} onChange={event => setActiveTopic(event.target.value)}><option value="all">All topics</option>{topics.map(topic => <option key={topic.id} value={topic.id}>{topic.name}</option>)}</select> : null}
                 <div className="view-toggle"><button className={view === 'canvas' ? 'active' : ''} onClick={() => setView('canvas')}><Network size={15}/>Canvas</button><button className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}><List size={15}/>Notes list</button></div>
                 <button className="expand-canvas-button" onClick={expandCanvas} disabled={view !== 'canvas'}><Maximize2 size={16}/> Expand canvas</button>
                 <IconButton label="Workspace options"><MoreHorizontal size={19}/></IconButton>
@@ -292,6 +297,7 @@ export default function App() {
             {view === 'canvas' ? (
               <KnowledgeGraph
                 subjects={subjects}
+                topics={topics}
                 subjectsById={subjectsById}
                 notesBySubject={notesBySubject}
                 connections={connections}
@@ -312,7 +318,7 @@ export default function App() {
                 onCompleteGoal={completeSubjectGoal}
                 onSetSubGoalCompletion={setSubGoalCompletion}
               />
-            ) : <NotesList notes={filteredNotes} subjectsById={subjectsById}/>}
+            ) : <NotesList notes={filteredNotes} subjectsById={subjectsById} topicsById={topicsById}/>}
           </section>
           <section className="bottom-grid">
             <article className="activity-card">
@@ -328,6 +334,7 @@ export default function App() {
         onClose={minimizeCanvas}
         graphProps={{
           subjects,
+          topics,
           subjectsById,
           notesBySubject,
           connections,

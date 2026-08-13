@@ -147,9 +147,9 @@ export function useKnowledgeStore(accessToken) {
     }
   }, [accessToken]);
 
-  const updateNote = useCallback(async (id, title, excerpt, studyDuration, studyStartedAtUtc, metrics) => {
+  const updateNote = useCallback(async (id, topicId, title, excerpt, studyDuration, studyStartedAtUtc, metrics) => {
     try {
-      const note = await knowledgeClient.updateStudyNote(accessToken, id, title, excerpt, studyDuration, studyStartedAtUtc, metrics);
+      const note = await knowledgeClient.updateStudyNote(accessToken, id, topicId, title, excerpt, studyDuration, studyStartedAtUtc, metrics);
       dispatch({ type: 'note/update', note: toNote(note) });
       dispatch({ type: 'request/clear' });
       return note;

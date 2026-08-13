@@ -87,8 +87,8 @@ const SubjectNode = memo(function SubjectNode({
   );
 });
 
-function SubjectDrawer({ subject, subjects, notes, goals, metricDefinitions, drawer, onDrawerChange, onClose, onAddNote, onUpdateNote, onCreateMetricDefinition, onUpdateSubject, onRemoveSubject, onCreateGoal, onRemoveGoal, onCompleteGoal, onSetSubGoalCompletion }) {
-  const { editingId, title, excerpt, studyStartedAt, studyDuration, metrics, editingSubject, subjectName, subjectDescription, parentSubjectId } = drawer;
+function SubjectDrawer({ subject, subjects, topics, notes, goals, metricDefinitions, drawer, onDrawerChange, onClose, onAddNote, onUpdateNote, onCreateMetricDefinition, onUpdateSubject, onRemoveSubject, onCreateGoal, onRemoveGoal, onCompleteGoal, onSetSubGoalCompletion }) {
+  const { editingId, title, excerpt, topicId, studyStartedAt, studyDuration, metrics, editingSubject, subjectName, subjectDescription, parentSubjectId } = drawer;
   const titleRef = useRef(null);
   const subjectNameRef = useRef(null);
   const [viewingNoteId, setViewingNoteId] = useState(null);
@@ -110,6 +110,7 @@ function SubjectDrawer({ subject, subjects, notes, goals, metricDefinitions, dra
       editingId: note?.id ?? 'new',
       title: note?.title ?? '',
       excerpt: note?.excerpt ?? '',
+      topicId: note?.topicId ?? topics.find(topic => topic.id === subject.id)?.id ?? topics[0]?.id ?? '',
       studyStartedAt: toDateTimeLocalValue(note?.studyStartedAtUtc),
       studyDuration: note?.studyDuration?.slice(0, 5) ?? '00:00',
       metrics: note?.metrics?.map(metric => ({ definitionId: metric.definition.id, value: String(metric.value) })) ?? [],
@@ -134,8 +135,8 @@ function SubjectDrawer({ subject, subjects, notes, goals, metricDefinitions, dra
       .map(metric => ({ definitionId: metric.definitionId, value: Number(metric.value) }));
     if (nextMetrics.some(metric => !metric.definitionId || !Number.isFinite(metric.value) || metric.value < 0)) return;
     const note = editingId === 'new'
-      ? await onAddNote(subject.id, nextTitle, excerpt.trim(), nextStudyDuration, nextStudyStartedAtUtc, nextMetrics)
-      : await onUpdateNote(editingId, nextTitle, excerpt.trim(), nextStudyDuration, nextStudyStartedAtUtc, nextMetrics);
+      ? await onAddNote(subject.id, topicId, nextTitle, excerpt.trim(), nextStudyDuration, nextStudyStartedAtUtc, nextMetrics)
+      : await onUpdateNote(editingId, topicId, nextTitle, excerpt.trim(), nextStudyDuration, nextStudyStartedAtUtc, nextMetrics);
     if (note) onDrawerChange({ editingId: null });
   };
 
@@ -185,7 +186,7 @@ function SubjectDrawer({ subject, subjects, notes, goals, metricDefinitions, dra
           <div><button type="button" className="ghost-button" onClick={() => onDrawerChange({ editingSubject: false })}>Cancel</button></div>
         </form>
       ) : null}
-      <SubjectGoals goals={goals} notes={notes} metricDefinitions={metricDefinitions} onCreate={goal => onCreateGoal(subject.id, goal)} onRemove={onRemoveGoal} onComplete={onCompleteGoal} onSetSubGoalCompletion={onSetSubGoalCompletion}/>
+      <SubjectGoals goals={goals} notes={notes} topics={topics} metricDefinitions={metricDefinitions} onCreate={goal => onCreateGoal(subject.id, goal)} onRemove={onRemoveGoal} onComplete={onCompleteGoal} onSetSubGoalCompletion={onSetSubGoalCompletion}/>
       <div className="drawer-section-title">
         <div><span>Ideas in this subject</span><small>Capture thoughts while the context is fresh.</small></div>
         <button className="text-button" onClick={() => beginEditing(null)}><Plus size={15}/> Add note</button>
@@ -194,6 +195,7 @@ function SubjectDrawer({ subject, subjects, notes, goals, metricDefinitions, dra
         <form className="note-editor" onSubmit={handleSave}>
           <label>Note title<input ref={titleRef} value={title} onChange={event => onDrawerChange({ title: event.target.value })} placeholder="Name this idea"/></label>
           <label>Excerpt<textarea value={excerpt} onChange={event => onDrawerChange({ excerpt: event.target.value })} placeholder="Add the key thought..." rows="4"/></label>
+          <label>Topic<select value={topicId} onChange={event => onDrawerChange({ topicId: event.target.value })} required><option value="">Choose a topic</option>{topics.map(topic => <option key={topic.id} value={topic.id}>{topic.name}</option>)}</select></label>
           <label>Study date and time<input type="datetime-local" value={studyStartedAt} onChange={event => onDrawerChange({ studyStartedAt: event.target.value })} required/></label>
           <label>Time spent studying<input type="time" value={studyDuration} onChange={event => onDrawerChange({ studyDuration: event.target.value })} step="60" required/></label>
           <section className="note-metrics" aria-label="Study metrics">
@@ -235,6 +237,7 @@ function SubjectDrawer({ subject, subjects, notes, goals, metricDefinitions, dra
 
 export function KnowledgeGraph({
   subjects,
+  topics,
   subjectsById,
   notesBySubject,
   connections,
@@ -443,6 +446,7 @@ export function KnowledgeGraph({
           <SubjectDrawer
               subject={openSubject}
               subjects={subjects}
+              topics={topics}
               notes={notesBySubject.get(openSubject.id) ?? []}
               goals={goalsBySubject.get(openSubject.id) ?? []}
             metricDefinitions={metricDefinitions}

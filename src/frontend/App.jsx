@@ -8,7 +8,6 @@ import { useAuthenticationSession } from './authentication/context/Authenticatio
 import { useKnowledgeStore } from './hooks/useKnowledgeStore';
 import { IconButton } from './components/IconButton';
 import { KnowledgeGraph } from './components/KnowledgeGraph';
-import { StudyInsights } from './components/insights/StudyInsights';
 import { getSubjectParentOptions } from './knowledge/utils/subjectHierarchy';
 
 const NAV_ITEMS = [
@@ -270,7 +269,6 @@ export default function App() {
             <StatCard Icon={Clock3} color="amber" label="Study streak" value="7 days" detail="Best: 14 days"/>
             <StatCard Icon={Hash} color="purple" label="Topics covered" value={subjects.length} detail="In your knowledge space"/>
           </section>
-          <StudyInsights subjects={subjects} notes={notes} goals={[...goalsBySubject.values()].flat()} notesBySubject={notesBySubject} onSelectSubject={setActiveSubject}/>
           <section className="workspace-panel">
             <header className="panel-head">
               <div><span>SUBJECT MAP</span><h2>Your knowledge space</h2><p>Arrange subjects, connect related thinking, then open a node to work with its notes.</p></div>

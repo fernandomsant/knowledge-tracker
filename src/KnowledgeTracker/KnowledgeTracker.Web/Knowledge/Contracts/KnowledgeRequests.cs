@@ -24,6 +24,23 @@ public sealed record UpdateSubjectRequest
     public Guid? ParentSubjectId { get; init; }
 }
 
+public sealed record SaveSubjectLayoutRequest
+{
+    [Required]
+    public IReadOnlyCollection<SubjectLayoutPositionRequest> Positions { get; init; } = [];
+}
+
+public sealed record SubjectLayoutPositionRequest
+{
+    public Guid SubjectId { get; init; }
+
+    [Range(typeof(decimal), "0", "1", ParseLimitsInInvariantCulture = true, ConvertValueInInvariantCulture = true)]
+    public decimal NormalizedX { get; init; }
+
+    [Range(typeof(decimal), "0", "1", ParseLimitsInInvariantCulture = true, ConvertValueInInvariantCulture = true)]
+    public decimal NormalizedY { get; init; }
+}
+
 public sealed record CreateStudyNoteRequest
 {
     public Guid TopicId { get; init; }

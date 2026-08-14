@@ -1,14 +1,17 @@
 namespace KnowledgeTracker.Web.Knowledge.Contracts;
 
-public sealed record SubjectSummaryResponse(Guid Id, string Name, string? Description, Guid? ParentSubjectId);
+public sealed record SubjectSummaryResponse(Guid Id, string Name, string? Description, Guid? ParentSubjectId, SubjectLayoutPositionResponse? LayoutPosition);
 
 public sealed record SubjectDetailsResponse(
     Guid Id,
     string Name,
     string? Description,
     Guid? ParentSubjectId,
-    IReadOnlyCollection<StudyNoteResponse> StudyNotes
+    IReadOnlyCollection<StudyNoteResponse> StudyNotes,
+    SubjectLayoutPositionResponse? LayoutPosition
 );
+
+public sealed record SubjectLayoutPositionResponse(Guid SubjectId, decimal NormalizedX, decimal NormalizedY);
 
 public sealed record StudyNoteResponse(
     Guid Id,

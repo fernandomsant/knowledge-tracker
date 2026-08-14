@@ -4,8 +4,11 @@ namespace KnowledgeTracker.Application.Knowledge;
 
 internal static class KnowledgeContractMapper
 {
-    public static SubjectSummary ToSummary(Subject subject) =>
-        new(subject.Id, subject.Name, subject.Description, subject.ParentSubjectId);
+    public static SubjectSummary ToSummary(Subject subject, SubjectLayoutPosition? layoutPosition = null) =>
+        new(subject.Id, subject.Name, subject.Description, subject.ParentSubjectId, layoutPosition is null ? null : ToDetails(layoutPosition));
+
+    public static SubjectLayoutPositionDetails ToDetails(SubjectLayoutPosition layoutPosition) =>
+        new(layoutPosition.SubjectId, layoutPosition.NormalizedX, layoutPosition.NormalizedY);
 
     public static StudyNoteDetails ToDetails(StudyNote studyNote) =>
         new(

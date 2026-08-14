@@ -2,7 +2,7 @@ using KnowledgeTracker.Domain.Knowledge;
 
 namespace KnowledgeTracker.Application.Knowledge;
 
-public sealed class SubjectService(ISubjectRepository subjects, IStudyNoteRepository studyNotes)
+public sealed class SubjectService(ISubjectRepository subjects, IStudyNoteRepository studyNotes, ISubjectLayoutRepository layouts)
     : ISubjectService
 {
     public async Task<SubjectDetails?> GetAsync(Guid id, CancellationToken ct)
@@ -12,17 +12,24 @@ public sealed class SubjectService(ISubjectRepository subjects, IStudyNoteReposi
             return null;
 
         var notes = await studyNotes.ListBySubjectAsync(id, ct);
+        var layoutPosition = (await layouts.ListAsync(ct)).FirstOrDefault(position => position.SubjectId == id);
         return new SubjectDetails(
             subject.Id,
             subject.Name,
             subject.Description,
             subject.ParentSubjectId,
-            notes.Select(KnowledgeContractMapper.ToDetails).ToArray()
+            notes.Select(KnowledgeContractMapper.ToDetails).ToArray(),
+            layoutPosition is null ? null : KnowledgeContractMapper.ToDetails(layoutPosition)
         );
     }
 
-    public async Task<IReadOnlyCollection<SubjectSummary>> ListAsync(CancellationToken ct) =>
-        (await subjects.ListAsync(ct)).Select(KnowledgeContractMapper.ToSummary).ToArray();
+    public async Task<IReadOnlyCollection<SubjectSummary>> ListAsync(CancellationToken ct)
+    {
+        var layoutBySubjectId = (await layouts.ListAsync(ct)).ToDictionary(position => position.SubjectId);
+        return (await subjects.ListAsync(ct))
+            .Select(subject => KnowledgeContractMapper.ToSummary(subject, layoutBySubjectId.GetValueOrDefault(subject.Id)))
+            .ToArray();
+    }
 
     public async Task<SubjectSummary> CreateAsync(CreateSubjectRequest request, CancellationToken ct)
     {

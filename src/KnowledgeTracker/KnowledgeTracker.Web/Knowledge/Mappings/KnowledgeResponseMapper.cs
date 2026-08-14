@@ -6,7 +6,7 @@ namespace KnowledgeTracker.Web.Knowledge.Mappings;
 internal static class KnowledgeResponseMapper
 {
     public static SubjectSummaryResponse ToResponse(SubjectSummary subject) =>
-        new(subject.Id, subject.Name, subject.Description, subject.ParentSubjectId);
+        new(subject.Id, subject.Name, subject.Description, subject.ParentSubjectId, subject.LayoutPosition is null ? null : ToResponse(subject.LayoutPosition));
 
     public static SubjectDetailsResponse ToResponse(SubjectDetails subject) =>
         new(
@@ -14,8 +14,12 @@ internal static class KnowledgeResponseMapper
             subject.Name,
             subject.Description,
             subject.ParentSubjectId,
-            subject.StudyNotes.Select(ToResponse).ToArray()
+            subject.StudyNotes.Select(ToResponse).ToArray(),
+            subject.LayoutPosition is null ? null : ToResponse(subject.LayoutPosition)
         );
+
+    public static SubjectLayoutPositionResponse ToResponse(SubjectLayoutPositionDetails layoutPosition) =>
+        new(layoutPosition.SubjectId, layoutPosition.NormalizedX, layoutPosition.NormalizedY);
 
     public static StudyNoteResponse ToResponse(StudyNoteDetails studyNote) =>
         new(

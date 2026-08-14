@@ -11,7 +11,7 @@ namespace KnowledgeTracker.Web.Knowledge.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/subjects")]
-public sealed class SubjectsController(ISubjectService subjects) : ControllerBase
+public sealed class SubjectsController(ISubjectService subjects, ISubjectLayoutService layouts) : ControllerBase
 {
     private const string GetSubjectByIdRoute = "get-subject-by-id";
 
@@ -78,6 +78,34 @@ public sealed class SubjectsController(ISubjectService subjects) : ControllerBas
                 ct
             );
             return subject is null ? NotFound() : Ok(KnowledgeResponseMapper.ToResponse(subject));
+        }
+        catch (ArgumentException exception)
+        {
+            return BadRequest(new ProblemDetails { Detail = exception.Message });
+        }
+    }
+
+    [HttpPut("layout")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> SaveLayoutAsync(
+        KnowledgeTracker.Web.Knowledge.Contracts.SaveSubjectLayoutRequest request,
+        CancellationToken ct
+    )
+    {
+        try
+        {
+            await layouts.SaveAsync(
+                new KnowledgeTracker.Application.Knowledge.SaveSubjectLayoutRequest(
+                    request.Positions.Select(position => new KnowledgeTracker.Application.Knowledge.SubjectLayoutPositionRequest(
+                        position.SubjectId,
+                        position.NormalizedX,
+                        position.NormalizedY
+                    )).ToArray()
+                ),
+                ct
+            );
+            return NoContent();
         }
         catch (ArgumentException exception)
         {

@@ -170,7 +170,7 @@ export default function App() {
   const { accessToken, user, logout } = useAuthenticationSession();
   const {
     subjects, notes, connections, goals, topics, metricDefinitions, subjectsById, notesBySubject, goalsBySubject, status: knowledgeStatus, error: knowledgeError,
-    addSubject, updateSubject, removeSubject, addNote, updateNote, createMetricDefinition, connectSubjects, removeConnection, addSubjectGoal, removeSubjectGoal, completeSubjectGoal, prioritizeSubjectGoal, setSubGoalCompletion,
+    addSubject, updateSubject, removeSubject, addNote, updateNote, createMetricDefinition, createTopic, connectSubjects, removeConnection, addSubjectGoal, removeSubjectGoal, completeSubjectGoal, prioritizeSubjectGoal, setSubGoalCompletion,
   } = useKnowledgeStore(accessToken);
   const [activeNav, setActiveNav] = useState('Overview');
   const [activeSubject, setActiveSubject] = useState('all');
@@ -309,6 +309,7 @@ export default function App() {
                 metricDefinitions={metricDefinitions}
                 goalsBySubject={goalsBySubject}
                 onCreateMetricDefinition={createMetricDefinition}
+                onCreateTopic={createTopic}
                 onUpdateSubject={updateSubject}
                 onCreateSubject={openModal}
                 onRemoveSubject={removeSubject}

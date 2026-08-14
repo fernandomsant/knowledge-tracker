@@ -17,6 +17,7 @@ function knowledgeReducer(state, action) {
     case 'knowledge/failed': return { ...state, status: 'error', error: action.error };
     case 'request/failed': return { ...state, error: action.error };
     case 'request/clear': return { ...state, error: null };
+    case 'topic/add': return { ...state, topics: [...state.topics, action.topic] };
     case 'subject/add': return { ...state, subjects: [...state.subjects, action.subject] };
     case 'subject/update': return { ...state, subjects: state.subjects.map(subject => subject.id === action.subject.id ? { ...subject, ...action.subject } : subject) };
     case 'subject/remove': return {
@@ -171,6 +172,18 @@ export function useKnowledgeStore(accessToken) {
     }
   }, [accessToken, state.metricDefinitions]);
 
+  const createTopic = useCallback(async name => {
+    try {
+      const topic = await knowledgeClient.createTopic(accessToken, name);
+      dispatch({ type: 'topic/add', topic });
+      dispatch({ type: 'request/clear' });
+      return topic;
+    } catch (reason) {
+      dispatch({ type: 'request/failed', error: errorMessage(reason) });
+      return null;
+    }
+  }, [accessToken]);
+
   const connectSubjects = useCallback(async (source, target) => {
     try {
       const connection = await knowledgeClient.createConnection(accessToken, source, target);
@@ -252,5 +265,5 @@ export function useKnowledgeStore(accessToken) {
     }
   }, [accessToken]);
 
-  return { ...state, subjectsById, notesBySubject, goalsBySubject, addSubject, updateSubject, removeSubject, addNote, updateNote, createMetricDefinition, connectSubjects, removeConnection, addSubjectGoal, removeSubjectGoal, completeSubjectGoal, prioritizeSubjectGoal, setSubGoalCompletion };
+  return { ...state, subjectsById, notesBySubject, goalsBySubject, addSubject, updateSubject, removeSubject, addNote, updateNote, createMetricDefinition, createTopic, connectSubjects, removeConnection, addSubjectGoal, removeSubjectGoal, completeSubjectGoal, prioritizeSubjectGoal, setSubGoalCompletion };
 }

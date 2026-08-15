@@ -8,13 +8,25 @@ export class AuthenticationError extends Error {
   }
 }
 
-async function request(path, body) {
-  const response = await fetch(`${apiBaseUrl}${path}`, {
-    method: 'POST',
-    credentials: 'include',
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-  });
+/** @param {string} path @param {unknown} body @param {number} [timeoutMs] */
+async function request(path, body, timeoutMs) {
+  const controller = timeoutMs ? new AbortController() : null;
+  const timeout = controller ? window.setTimeout(() => controller.abort(), timeoutMs) : null;
+  let response;
+  try {
+    response = await fetch(`${apiBaseUrl}${path}`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: body ? { 'Content-Type': 'application/json' } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+      signal: controller?.signal,
+    });
+  } catch (reason) {
+    if (reason?.name === 'AbortError') throw new AuthenticationError('Session refresh timed out. Please sign in again.', 408);
+    throw reason;
+  } finally {
+    if (timeout !== null) window.clearTimeout(timeout);
+  }
 
   if (!response.ok) {
     const messages = {
@@ -46,12 +58,12 @@ async function authenticatedPost(path, accessToken) {
 }
 
 export const authenticationClient = {
-  login: credentials => request('/api/authentication/login', credentials),
-  refresh: () => request('/api/authentication/refresh'),
+  login: credentials => request('/api/authentication/login', credentials, undefined),
+  refresh: () => request('/api/authentication/refresh', undefined, 10_000),
   logout: accessToken => authenticatedPost('/api/authentication/logout', accessToken),
   currentUser: accessToken => authenticatedRequest('/api/current-user', accessToken),
   async register(credentials) {
-    await request('/api/authentication/register', credentials);
-    return request('/api/authentication/login', credentials);
+    await request('/api/authentication/register', credentials, undefined);
+    return request('/api/authentication/login', credentials, undefined);
   },
 };

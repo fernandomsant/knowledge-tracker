@@ -26,6 +26,6 @@ export function TopicComposer({ onCreate, onCreated }) {
   return <div className="metric-definition-composer">
     <div className="metric-definition-composer-head"><span>New topic</span><button type="button" aria-label="Cancel topic creation" onClick={close}><X size={14}/></button></div>
     <input value={name} onChange={event => setName(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); void save(); } }} placeholder="e.g. Linux networking" maxLength="256" autoFocus/>
-    <div><button type="button" className="ghost-button" onClick={close}>Cancel</button><button type="button" className="primary-button" onClick={() => void save()} disabled={!name.trim() || saving}>{saving ? 'Creating…' : 'Create topic'}</button></div>
+    <div><button type="button" className="primary-button" onClick={() => void save()} disabled={!name.trim() || saving}>{saving ? 'Creating…' : 'Create topic'}</button></div>
   </div>;
 }

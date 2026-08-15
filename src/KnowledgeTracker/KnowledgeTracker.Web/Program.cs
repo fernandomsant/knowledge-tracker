@@ -1,4 +1,5 @@
 ﻿using System.Data.Common;
+using System.Diagnostics;
 using KnowledgeTracker.Application.Authentication;
 using KnowledgeTracker.Application.Knowledge;
 using KnowledgeTracker.Data.Authentication.Repositories;
@@ -67,6 +68,27 @@ builder.Services.AddAuthorization();
 var app = builder.Build();
 if (!app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
+if (app.Environment.IsDevelopment())
+{
+    app.Use(async (context, next) =>
+    {
+        var stopwatch = Stopwatch.StartNew();
+        try
+        {
+            await next(context);
+        }
+        finally
+        {
+            app.Logger.LogInformation(
+                "HTTP {Method} {Path} responded {StatusCode} in {ElapsedMilliseconds} ms",
+                context.Request.Method,
+                context.Request.Path,
+                context.Response.StatusCode,
+                stopwatch.ElapsedMilliseconds
+            );
+        }
+    });
+}
 app.UseCors("frontend");
 app.UseAuthentication();
 app.UseAuthorization();

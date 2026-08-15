@@ -11,8 +11,7 @@ export function TopicComposer({ onCreate, onCreated }) {
     setName('');
   };
 
-  const submit = async event => {
-    event.preventDefault();
+  const save = async () => {
     if (!name.trim() || saving) return;
     setSaving(true);
     const topic = await onCreate(name.trim());
@@ -24,9 +23,9 @@ export function TopicComposer({ onCreate, onCreated }) {
 
   if (!open) return <button type="button" className="metric-create-trigger" onClick={() => setOpen(true)}><Plus size={14}/> Create topic</button>;
 
-  return <form className="metric-definition-composer" onSubmit={submit}>
+  return <div className="metric-definition-composer">
     <div className="metric-definition-composer-head"><span>New topic</span><button type="button" aria-label="Cancel topic creation" onClick={close}><X size={14}/></button></div>
-    <input value={name} onChange={event => setName(event.target.value)} placeholder="e.g. Linux networking" maxLength="256" autoFocus/>
-    <div><button type="button" className="ghost-button" onClick={close}>Cancel</button><button className="primary-button" disabled={!name.trim() || saving}>{saving ? 'Creating…' : 'Create topic'}</button></div>
-  </form>;
+    <input value={name} onChange={event => setName(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); void save(); } }} placeholder="e.g. Linux networking" maxLength="256" autoFocus/>
+    <div><button type="button" className="ghost-button" onClick={close}>Cancel</button><button type="button" className="primary-button" onClick={() => void save()} disabled={!name.trim() || saving}>{saving ? 'Creating…' : 'Create topic'}</button></div>
+  </div>;
 }

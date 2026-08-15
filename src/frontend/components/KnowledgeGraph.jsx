@@ -90,6 +90,7 @@ const SubjectNode = memo(function SubjectNode({
 
 function SubjectDrawer({ subject, subjects, topics, notes, goals, metricDefinitions, drawer, onDrawerChange, onClose, onAddNote, onUpdateNote, onCreateMetricDefinition, onCreateTopic, onUpdateSubject, onRemoveSubject, onCreateGoal, onRemoveGoal, onCompleteGoal, onSetSubGoalCompletion }) {
   const { editingId, title, excerpt, topicId, studyStartedAt, studyDuration, metrics, editingSubject, subjectName, subjectDescription, parentSubjectId } = drawer;
+  const subjectTopics = topics.filter(topic => topic.subjectId === subject.id);
   const titleRef = useRef(null);
   const subjectNameRef = useRef(null);
   const [viewingNoteId, setViewingNoteId] = useState(null);
@@ -111,7 +112,7 @@ function SubjectDrawer({ subject, subjects, topics, notes, goals, metricDefiniti
       editingId: note?.id ?? 'new',
       title: note?.title ?? '',
       excerpt: note?.excerpt ?? '',
-      topicId: note?.topicId ?? topics.find(topic => topic.id === subject.id)?.id ?? topics[0]?.id ?? '',
+      topicId: note?.topicId ?? subjectTopics[0]?.id ?? '',
       studyStartedAt: toDateTimeLocalValue(note?.studyStartedAtUtc),
       studyDuration: note?.studyDuration?.slice(0, 5) ?? '00:00',
       metrics: note?.metrics?.map(metric => ({ definitionId: metric.definition.id, value: String(metric.value) })) ?? [],
@@ -187,7 +188,7 @@ function SubjectDrawer({ subject, subjects, topics, notes, goals, metricDefiniti
           <div><button type="button" className="ghost-button" onClick={() => onDrawerChange({ editingSubject: false })}>Cancel</button></div>
         </form>
       ) : null}
-      <SubjectGoals goals={goals} notes={notes} topics={topics} metricDefinitions={metricDefinitions} onCreateTopic={onCreateTopic} onCreate={goal => onCreateGoal(subject.id, goal)} onRemove={onRemoveGoal} onComplete={onCompleteGoal} onSetSubGoalCompletion={onSetSubGoalCompletion}/>
+      <SubjectGoals subjectId={subject.id} goals={goals} notes={notes} topics={subjectTopics} metricDefinitions={metricDefinitions} onCreateTopic={onCreateTopic} onCreate={goal => onCreateGoal(subject.id, goal)} onRemove={onRemoveGoal} onComplete={onCompleteGoal} onSetSubGoalCompletion={onSetSubGoalCompletion}/>
       <div className="drawer-section-title">
         <div><span>Ideas in this subject</span><small>Capture thoughts while the context is fresh.</small></div>
         <button className="text-button" onClick={() => beginEditing(null)}><Plus size={15}/> Add note</button>
@@ -196,8 +197,8 @@ function SubjectDrawer({ subject, subjects, topics, notes, goals, metricDefiniti
         <form className="note-editor" onSubmit={handleSave}>
           <label>Note title<input ref={titleRef} value={title} onChange={event => onDrawerChange({ title: event.target.value })} placeholder="Name this idea"/></label>
           <label>Excerpt<textarea value={excerpt} onChange={event => onDrawerChange({ excerpt: event.target.value })} placeholder="Add the key thought..." rows="4"/></label>
-          <label>Topic<select value={topicId} onChange={event => onDrawerChange({ topicId: event.target.value })} required><option value="">Choose a topic</option>{topics.map(topic => <option key={topic.id} value={topic.id}>{topic.name}</option>)}</select></label>
-          <TopicComposer onCreate={onCreateTopic} onCreated={topic => onDrawerChange({ topicId: topic.id })}/>
+          <label>Topic<select value={topicId} onChange={event => onDrawerChange({ topicId: event.target.value })} required><option value="">Choose a topic</option>{subjectTopics.map(topic => <option key={topic.id} value={topic.id}>{topic.name}</option>)}</select></label>
+          <TopicComposer subjectId={subject.id} onCreate={onCreateTopic} onCreated={topic => onDrawerChange({ topicId: topic.id })}/>
           <label>Study date and time<input type="datetime-local" value={studyStartedAt} onChange={event => onDrawerChange({ studyStartedAt: event.target.value })} required/></label>
           <label>Time spent studying<input type="time" value={studyDuration} onChange={event => onDrawerChange({ studyDuration: event.target.value })} step="60" required/></label>
           <section className="note-metrics" aria-label="Study metrics">

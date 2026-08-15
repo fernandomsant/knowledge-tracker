@@ -57,5 +57,5 @@ export const knowledgeClient = {
   completeSubjectGoal: (accessToken, id) => request(accessToken, `/api/subject-goals/${id}/complete`, { method: 'POST' }),
   swapSubjectGoalPriority: (accessToken, id, swapWithId) => request(accessToken, `/api/subject-goals/${id}/priority`, { method: 'PUT', body: { swapWithId } }),
   setSubGoalCompletion: (accessToken, id, isCompleted) => request(accessToken, `/api/subject-sub-goals/${id}/completion`, { method: 'PUT', body: { isCompleted } }),
-  createTopic: (accessToken, name) => request(accessToken, '/api/topics', { method: 'POST', body: { name } }),
+  createTopic: (accessToken, subjectId, name) => request(accessToken, `/api/subjects/${subjectId}/topics`, { method: 'POST', body: { name } }),
 };

@@ -16,8 +16,12 @@ public sealed class SubjectGoalService(ISubjectGoalRepository goals, ISubjectRep
     public async Task<SubjectGoalDetails?> CreateAsync(Guid subjectId, CreateSubjectGoalRequest request, CancellationToken ct)
     {
         if (await subjects.FindAsync(subjectId, ct) is null) return null;
-        var topicId = request.TopicId == Guid.Empty ? subjectId : request.TopicId;
-        if (await topics.FindAsync(topicId, ct) is null) throw new ArgumentException("The selected topic does not exist.");
+        if (request.TopicId == Guid.Empty)
+            throw new ArgumentException("A topic must be selected.", nameof(request));
+        var topicId = request.TopicId;
+        var topic = await topics.FindAsync(topicId, ct);
+        if (topic is null || topic.SubjectId != subjectId)
+            throw new ArgumentException("The selected topic does not belong to this subject.", nameof(request));
         if (request.Kind == GoalKind.MetricTarget && (request.MetricDefinitionId is null || await definitions.FindAsync(request.MetricDefinitionId.Value, ct) is null))
             throw new ArgumentException("The selected study metric does not exist.");
 

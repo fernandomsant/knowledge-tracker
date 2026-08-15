@@ -183,9 +183,9 @@ export function useKnowledgeStore(accessToken, refreshAccessToken) {
     }
   }, [execute, state.metricDefinitions]);
 
-  const createTopic = useCallback(async name => {
+  const createTopic = useCallback(async (subjectId, name) => {
     try {
-      const topic = await execute(token => knowledgeClient.createTopic(token, name));
+      const topic = await execute(token => knowledgeClient.createTopic(token, subjectId, name));
       dispatch({ type: 'topic/add', topic });
       dispatch({ type: 'request/clear' });
       return topic;

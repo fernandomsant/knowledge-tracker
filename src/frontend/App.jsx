@@ -347,6 +347,7 @@ export default function App() {
           metricDefinitions,
           goalsBySubject,
           onCreateMetricDefinition: createMetricDefinition,
+          onCreateTopic: createTopic,
           onUpdateSubject: updateSubject,
           onCreateSubject: openModal,
           onRemoveSubject: removeSubject,

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Plus, X } from '../../icons';
 
-export function TopicComposer({ onCreate, onCreated }) {
+export function TopicComposer({ subjectId, onCreate, onCreated }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [saving, setSaving] = useState(false);
@@ -14,7 +14,7 @@ export function TopicComposer({ onCreate, onCreated }) {
   const save = async () => {
     if (!name.trim() || saving) return;
     setSaving(true);
-    const topic = await onCreate(name.trim());
+    const topic = await onCreate(subjectId, name.trim());
     setSaving(false);
     if (!topic) return;
     onCreated(topic);

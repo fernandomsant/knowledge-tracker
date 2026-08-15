@@ -31,5 +31,5 @@ public sealed record StudyNoteMetricResponse(StudyMetricDefinitionResponse Defin
 public sealed record SubjectConnectionResponse(Guid Id, Guid SubjectId, Guid ConnectedSubjectId);
 
 public sealed record SubjectSubGoalResponse(Guid Id, string Title, bool IsCompleted, DateTimeOffset? CompletedAtUtc);
-public sealed record TopicResponse(Guid Id, string Name);
+public sealed record TopicResponse(Guid Id, Guid SubjectId, string Name);
 public sealed record SubjectGoalResponse(Guid Id, Guid SubjectId, Guid TopicId, string Title, KnowledgeTracker.Domain.Knowledge.GoalKind Kind, StudyMetricDefinitionResponse? MetricDefinition, decimal? TargetValue, decimal? CurrentValue, DateOnly? TargetDate, KnowledgeTracker.Domain.Knowledge.GoalPeriod Period, DateOnly? PeriodStartDate, DateOnly? PeriodEndDate, long PriorityPosition, bool IsCompleted, DateTimeOffset? CompletedAtUtc, DateTimeOffset CreatedAtUtc, IReadOnlyCollection<SubjectSubGoalResponse> SubGoals);

@@ -28,8 +28,12 @@ public sealed class StudyNoteService(
         var subject = await subjects.FindAsync(subjectId, ct);
         if (subject is null)
             return null;
-        var topicId = request.TopicId == Guid.Empty ? subjectId : request.TopicId;
-        if (await topics.FindAsync(topicId, ct) is null) throw new ArgumentException("The selected topic does not exist.");
+        if (request.TopicId == Guid.Empty)
+            throw new ArgumentException("A topic must be selected.", nameof(request));
+        var topicId = request.TopicId;
+        var topic = await topics.FindAsync(topicId, ct);
+        if (topic is null || topic.SubjectId != subjectId)
+            throw new ArgumentException("The selected topic does not belong to this subject.", nameof(request));
 
         var studyNote = subject.AddStudyNote(
             topicId,
@@ -53,8 +57,12 @@ public sealed class StudyNoteService(
         var studyNote = await studyNotes.FindAsync(id, ct);
         if (studyNote is null)
             return null;
-        var topicId = request.TopicId == Guid.Empty ? studyNote.TopicId : request.TopicId;
-        if (await topics.FindAsync(topicId, ct) is null) throw new ArgumentException("The selected topic does not exist.");
+        if (request.TopicId == Guid.Empty)
+            throw new ArgumentException("A topic must be selected.", nameof(request));
+        var topicId = request.TopicId;
+        var topic = await topics.FindAsync(topicId, ct);
+        if (topic is null || topic.SubjectId != studyNote.SubjectId)
+            throw new ArgumentException("The selected topic does not belong to this subject.", nameof(request));
 
         var updated = new StudyNote(studyNote.Id, studyNote.SubjectId, topicId,
             request.Title,

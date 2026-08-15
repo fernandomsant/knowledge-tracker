@@ -167,11 +167,11 @@ const CanvasOverlay = memo(function CanvasOverlay({ open, onClose, graphProps })
   );
 });
 export default function App() {
-  const { accessToken, user, logout } = useAuthenticationSession();
+  const { accessToken, user, logout, refreshAccessToken } = useAuthenticationSession();
   const {
     subjects, notes, connections, goals, topics, metricDefinitions, subjectsById, notesBySubject, goalsBySubject, status: knowledgeStatus, error: knowledgeError,
     addSubject, updateSubject, removeSubject, addNote, updateNote, createMetricDefinition, createTopic, connectSubjects, removeConnection, addSubjectGoal, removeSubjectGoal, completeSubjectGoal, prioritizeSubjectGoal, setSubGoalCompletion,
-  } = useKnowledgeStore(accessToken);
+  } = useKnowledgeStore(accessToken, refreshAccessToken);
   const [activeNav, setActiveNav] = useState('Overview');
   const [activeSubject, setActiveSubject] = useState('all');
   const [activeTopic, setActiveTopic] = useState('all');

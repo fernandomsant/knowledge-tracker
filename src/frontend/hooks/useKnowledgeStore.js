@@ -75,17 +75,28 @@ function toKnowledgeState(knowledge) {
   };
 }
 
-export function useKnowledgeStore(accessToken) {
+export function useKnowledgeStore(accessToken, refreshAccessToken) {
   const [state, dispatch] = useReducer(knowledgeReducer, initialState);
+
+  const execute = useCallback(async operation => {
+    try {
+      return await operation(accessToken);
+    } catch (reason) {
+      if (reason?.status !== 401) throw reason;
+      const refreshedSession = await refreshAccessToken();
+      if (!refreshedSession) throw reason;
+      return operation(refreshedSession.accessToken);
+    }
+  }, [accessToken, refreshAccessToken]);
 
   useEffect(() => {
     let current = true;
     dispatch({ type: 'knowledge/loading' });
-    void knowledgeClient.load(accessToken)
+    void execute(token => knowledgeClient.load(token))
       .then(knowledge => { if (current) dispatch({ type: 'knowledge/loaded', knowledge: toKnowledgeState(knowledge) }); })
       .catch(reason => { if (current) dispatch({ type: 'knowledge/failed', error: errorMessage(reason) }); });
     return () => { current = false; };
-  }, [accessToken]);
+  }, [execute]);
 
   const subjectsById = useMemo(() => new Map(state.subjects.map(subject => [subject.id, subject])), [state.subjects]);
   const notesBySubject = useMemo(() => {
@@ -101,7 +112,7 @@ export function useKnowledgeStore(accessToken) {
 
   const addSubject = useCallback(async (name, parentSubjectId) => {
     try {
-      const subject = await knowledgeClient.createSubject(accessToken, name, parentSubjectId);
+      const subject = await execute(token => knowledgeClient.createSubject(token, name, parentSubjectId));
       dispatch({ type: 'subject/add', subject: toSubject(subject, state.subjects.length) });
       dispatch({ type: 'request/clear' });
       return subject;
@@ -109,11 +120,11 @@ export function useKnowledgeStore(accessToken) {
       dispatch({ type: 'request/failed', error: errorMessage(reason) });
       return null;
     }
-  }, [accessToken, state.subjects.length]);
+  }, [execute, state.subjects.length]);
 
   const updateSubject = useCallback(async (id, name, description, parentSubjectId) => {
     try {
-      const subject = await knowledgeClient.updateSubject(accessToken, id, name, description, parentSubjectId);
+      const subject = await execute(token => knowledgeClient.updateSubject(token, id, name, description, parentSubjectId));
       dispatch({ type: 'subject/update', subject: { id, name: subject.name, description: subject.description, parentSubjectId: subject.parentSubjectId } });
       dispatch({ type: 'request/clear' });
       return subject;
@@ -121,11 +132,11 @@ export function useKnowledgeStore(accessToken) {
       dispatch({ type: 'request/failed', error: errorMessage(reason) });
       return null;
     }
-  }, [accessToken]);
+  }, [execute]);
 
   const removeSubject = useCallback(async id => {
     try {
-      await knowledgeClient.deleteSubject(accessToken, id);
+      await execute(token => knowledgeClient.deleteSubject(token, id));
       dispatch({ type: 'subject/remove', id });
       dispatch({ type: 'request/clear' });
       return true;
@@ -133,12 +144,12 @@ export function useKnowledgeStore(accessToken) {
       dispatch({ type: 'request/failed', error: errorMessage(reason) });
       return false;
     }
-  }, [accessToken]);
+  }, [execute]);
 
 
   const addNote = useCallback(async (subjectId, topicId, title, excerpt, studyDuration, studyStartedAtUtc, metrics) => {
     try {
-      const note = await knowledgeClient.createStudyNote(accessToken, subjectId, topicId, title, excerpt, studyDuration, studyStartedAtUtc, metrics);
+      const note = await execute(token => knowledgeClient.createStudyNote(token, subjectId, topicId, title, excerpt, studyDuration, studyStartedAtUtc, metrics));
       dispatch({ type: 'note/add', note: toNote(note) });
       dispatch({ type: 'request/clear' });
       return note;
@@ -146,11 +157,11 @@ export function useKnowledgeStore(accessToken) {
       dispatch({ type: 'request/failed', error: errorMessage(reason) });
       return null;
     }
-  }, [accessToken]);
+  }, [execute]);
 
   const updateNote = useCallback(async (id, topicId, title, excerpt, studyDuration, studyStartedAtUtc, metrics) => {
     try {
-      const note = await knowledgeClient.updateStudyNote(accessToken, id, topicId, title, excerpt, studyDuration, studyStartedAtUtc, metrics);
+      const note = await execute(token => knowledgeClient.updateStudyNote(token, id, topicId, title, excerpt, studyDuration, studyStartedAtUtc, metrics));
       dispatch({ type: 'note/update', note: toNote(note) });
       dispatch({ type: 'request/clear' });
       return note;
@@ -158,11 +169,11 @@ export function useKnowledgeStore(accessToken) {
       dispatch({ type: 'request/failed', error: errorMessage(reason) });
       return null;
     }
-  }, [accessToken]);
+  }, [execute]);
 
   const createMetricDefinition = useCallback(async (name, numberKind) => {
     try {
-      const definition = await knowledgeClient.createMetricDefinition(accessToken, name, numberKind);
+      const definition = await execute(token => knowledgeClient.createMetricDefinition(token, name, numberKind));
       dispatch({ type: 'knowledge/loaded', knowledge: { metricDefinitions: [...state.metricDefinitions, definition] } });
       dispatch({ type: 'request/clear' });
       return definition;
@@ -170,11 +181,11 @@ export function useKnowledgeStore(accessToken) {
       dispatch({ type: 'request/failed', error: errorMessage(reason) });
       return null;
     }
-  }, [accessToken, state.metricDefinitions]);
+  }, [execute, state.metricDefinitions]);
 
   const createTopic = useCallback(async name => {
     try {
-      const topic = await knowledgeClient.createTopic(accessToken, name);
+      const topic = await execute(token => knowledgeClient.createTopic(token, name));
       dispatch({ type: 'topic/add', topic });
       dispatch({ type: 'request/clear' });
       return topic;
@@ -182,11 +193,11 @@ export function useKnowledgeStore(accessToken) {
       dispatch({ type: 'request/failed', error: errorMessage(reason) });
       return null;
     }
-  }, [accessToken]);
+  }, [execute]);
 
   const connectSubjects = useCallback(async (source, target) => {
     try {
-      const connection = await knowledgeClient.createConnection(accessToken, source, target);
+      const connection = await execute(token => knowledgeClient.createConnection(token, source, target));
       dispatch({ type: 'connection/add', connection: toConnection(connection) });
       dispatch({ type: 'request/clear' });
       return connection;
@@ -194,11 +205,11 @@ export function useKnowledgeStore(accessToken) {
       dispatch({ type: 'request/failed', error: errorMessage(reason) });
       return null;
     }
-  }, [accessToken]);
+  }, [execute]);
 
   const removeConnection = useCallback(async id => {
     try {
-      await knowledgeClient.deleteConnection(accessToken, id);
+      await execute(token => knowledgeClient.deleteConnection(token, id));
       dispatch({ type: 'connection/remove', id });
       dispatch({ type: 'request/clear' });
       return true;
@@ -206,11 +217,11 @@ export function useKnowledgeStore(accessToken) {
       dispatch({ type: 'request/failed', error: errorMessage(reason) });
       return false;
     }
-  }, [accessToken]);
+  }, [execute]);
 
   const addSubjectGoal = useCallback(async (subjectId, goal) => {
     try {
-      const created = await knowledgeClient.createSubjectGoal(accessToken, subjectId, goal);
+      const created = await execute(token => knowledgeClient.createSubjectGoal(token, subjectId, goal));
       dispatch({ type: 'goal/add', goal: created });
       dispatch({ type: 'request/clear' });
       return created;
@@ -218,11 +229,11 @@ export function useKnowledgeStore(accessToken) {
       dispatch({ type: 'request/failed', error: errorMessage(reason) });
       return null;
     }
-  }, [accessToken]);
+  }, [execute]);
 
   const removeSubjectGoal = useCallback(async id => {
     try {
-      await knowledgeClient.deleteSubjectGoal(accessToken, id);
+      await execute(token => knowledgeClient.deleteSubjectGoal(token, id));
       dispatch({ type: 'goal/remove', id });
       dispatch({ type: 'request/clear' });
       return true;
@@ -230,11 +241,11 @@ export function useKnowledgeStore(accessToken) {
       dispatch({ type: 'request/failed', error: errorMessage(reason) });
       return false;
     }
-  }, [accessToken]);
+  }, [execute]);
 
   const completeSubjectGoal = useCallback(async id => {
     try {
-      await knowledgeClient.completeSubjectGoal(accessToken, id);
+      await execute(token => knowledgeClient.completeSubjectGoal(token, id));
       dispatch({ type: 'goal/complete', id, completedAtUtc: new Date().toISOString() });
       dispatch({ type: 'request/clear' });
       return true;
@@ -242,20 +253,20 @@ export function useKnowledgeStore(accessToken) {
       dispatch({ type: 'request/failed', error: errorMessage(reason) });
       return false;
     }
-  }, [accessToken]);
+  }, [execute]);
   const prioritizeSubjectGoal = useCallback(async (id, swapWithId) => {
     try {
-      await knowledgeClient.swapSubjectGoalPriority(accessToken, id, swapWithId);
+      await execute(token => knowledgeClient.swapSubjectGoalPriority(token, id, swapWithId));
       dispatch({ type: 'goal/prioritize', id, swapWithId });
       return true;
     } catch (reason) {
       dispatch({ type: 'request/failed', error: errorMessage(reason) });
       return false;
     }
-  }, [accessToken]);
+  }, [execute]);
   const setSubGoalCompletion = useCallback(async (id, isCompleted) => {
     try {
-      await knowledgeClient.setSubGoalCompletion(accessToken, id, isCompleted);
+      await execute(token => knowledgeClient.setSubGoalCompletion(token, id, isCompleted));
       dispatch({ type: 'sub-goal/complete', id, isCompleted, completedAtUtc: new Date().toISOString() });
       dispatch({ type: 'request/clear' });
       return true;
@@ -263,7 +274,7 @@ export function useKnowledgeStore(accessToken) {
       dispatch({ type: 'request/failed', error: errorMessage(reason) });
       return false;
     }
-  }, [accessToken]);
+  }, [execute]);
 
   return { ...state, subjectsById, notesBySubject, goalsBySubject, addSubject, updateSubject, removeSubject, addNote, updateNote, createMetricDefinition, createTopic, connectSubjects, removeConnection, addSubjectGoal, removeSubjectGoal, completeSubjectGoal, prioritizeSubjectGoal, setSubGoalCompletion };
 }

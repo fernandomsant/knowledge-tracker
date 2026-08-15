@@ -39,7 +39,7 @@ function AuthenticationForm({ onSubmit, pending, error }) {
 }
 
 export function AuthenticationGate({ children }) {
-  const { status, accessToken, user, login, register, logout } = useAuthentication();
+  const { status, accessToken, user, login, register, logout, refresh } = useAuthentication();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
 
@@ -60,6 +60,6 @@ export function AuthenticationGate({ children }) {
   }
 
   return status === 'authenticated'
-    ? <AuthenticationContext.Provider value={{ accessToken, user, logout }}>{children}</AuthenticationContext.Provider>
+    ? <AuthenticationContext.Provider value={{ accessToken, user, logout, refreshAccessToken: refresh }}>{children}</AuthenticationContext.Provider>
     : <AuthenticationForm onSubmit={submit} pending={pending} error={error}/>;
 }

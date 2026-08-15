@@ -63,5 +63,5 @@ export function useAuthentication() {
     }
   }, [session.accessToken]);
 
-  return { ...session, login, register, logout };
+  return { ...session, login, register, logout, refresh };
 }

@@ -22,7 +22,7 @@ export function DeadlinePriorities({ priorities, onInspectSubject }) {
         return <article className={`deadline-priority-row ${goal.urgency.toLowerCase().replace(' ', '-')}`} key={goal.id}>
           <button type="button" className="deadline-priority-summary" aria-expanded={expanded} onClick={() => setSelectedGoalId(expanded ? null : goal.id)}>
             <span className="deadline-priority-icon"><Target size={17}/></span>
-            <span className="deadline-priority-main"><strong>{goal.title}</strong><small>{goal.subject?.name ?? 'Unknown subject'} · {goal.hasDeadline ? dateLabel(goal.targetDate) : 'All time'}</small></span>
+            <span className="deadline-priority-main"><strong>{goal.title}</strong><small>{goal.subject?.name ?? 'Unknown subject'} · {goal.topic?.name ?? 'Unknown topic'} · {goal.hasDeadline ? dateLabel(goal.targetDate) : 'All time'}</small></span>
             <span className="deadline-priority-progress"><b>{Math.round(goal.progress)}%</b><i><span style={{ width: `${goal.progress}%` }}/></i></span>
             <span className="deadline-priority-deadline"><strong>{timeLabel(goal)}</strong><UrgencyBadge urgency={goal.urgency}/></span>
             <ChevronDown className={expanded ? 'is-expanded' : ''} size={16}/>

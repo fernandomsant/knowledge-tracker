@@ -6,7 +6,7 @@ export const clamp = value => Math.max(0, Math.min(100, value));
 export const dateLabel = value => new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(`${value}T00:00:00`));
 
 export function dashboardPropsEqual(previous, next) {
-  return previous.goals === next.goals && previous.subjects === next.subjects && previous.notes === next.notes;
+  return previous.goals === next.goals && previous.subjects === next.subjects && previous.topics === next.topics && previous.notes === next.notes;
 }
 
 function deadlineStatus(daysLeft, pace) {
@@ -22,8 +22,9 @@ function goalProgress(goal) {
   return subGoals.length ? clamp(subGoals.filter(subGoal => subGoal.isCompleted).length / subGoals.length * 100) : 0;
 }
 
-export function buildDeadlinePriorities({ goals, subjects }) {
+export function buildDeadlinePriorities({ goals, subjects, topics }) {
   const subjectsById = new Map(subjects.map(subject => [subject.id, subject]));
+  const topicsById = new Map(topics.map(topic => [topic.id, topic]));
   return goals
     .filter(goal => !goal.isCompleted && goal.period === 0)
     .map(goal => {
@@ -36,7 +37,7 @@ export function buildDeadlinePriorities({ goals, subjects }) {
       const pace = elapsed === null ? 'On track' : progress >= elapsed - 8 ? 'On track' : 'At risk';
       const urgency = daysLeft === null ? 'No deadline' : deadlineStatus(daysLeft, pace);
       const urgencyRank = daysLeft === null ? 4 : daysLeft < 0 ? 0 : daysLeft === 0 ? 1 : daysLeft <= 7 ? 2 : 3;
-      return { ...goal, subject: subjectsById.get(goal.subjectId), progress, elapsed, daysLeft, hasDeadline, urgency, urgencyRank, pace };
+      return { ...goal, subject: subjectsById.get(goal.subjectId), topic: topicsById.get(goal.topicId), progress, elapsed, daysLeft, hasDeadline, urgency, urgencyRank, pace };
     })
     .toSorted((left, right) => left.urgencyRank - right.urgencyRank || (left.daysLeft ?? Number.MAX_SAFE_INTEGER) - (right.daysLeft ?? Number.MAX_SAFE_INTEGER) || left.progress - right.progress);
 }
@@ -101,8 +102,10 @@ function recurringGoalPriority({ consistency, missed, expected, trend }) {
   return { priority: 'On track', priorityRank: 2, priorityReason: 'All expected occurrences completed' };
 }
 
-export function buildStudyBehaviorData({ subjects, notes, goals, range, now = new Date() }) {
+export function buildStudyBehaviorData({ subjects, notes, goals, topics, range, now = new Date() }) {
   const from = rangeStart(range, now);
+  const subjectsById = new Map(subjects.map(subject => [subject.id, subject]));
+  const topicsById = new Map(topics.map(topic => [topic.id, topic]));
   const visibleNotes = notes.filter(note => !from || new Date(note.studyStartedAtUtc) >= from);
   const totalNotes = visibleNotes.length;
   const subjectActivity = subjects.map(subject => {
@@ -115,7 +118,7 @@ export function buildStudyBehaviorData({ subjects, notes, goals, range, now = ne
       const completed = goal.subGoals?.filter(subGoal => subGoal.isCompleted).length ?? 0;
       const consistency = completed / expected * 100;
       const priority = consistency === 100 ? { priority: 'On track', priorityRank: 2, priorityReason: 'All completion criteria met' } : { priority: 'Needs attention', priorityRank: 0, priorityReason: `${completed} of ${expected} completion criteria met` };
-      return { ...goal, periodLabel: PERIOD_LABELS[goal.period], completed, expected, missed: expected - completed, consistency, streak: 0, trend: 'Current status', hasOccurrenceHistory: false, ...priority };
+      return { ...goal, subject: subjectsById.get(goal.subjectId), topic: topicsById.get(goal.topicId), periodLabel: PERIOD_LABELS[goal.period], completed, expected, missed: expected - completed, consistency, streak: 0, trend: 'Current status', hasOccurrenceHistory: false, ...priority };
     }
     const occurrences = goalOccurrences(goal, notes, from, now) ?? [];
     const completed = occurrences.filter(occurrence => occurrence.completed).length;
@@ -123,7 +126,7 @@ export function buildStudyBehaviorData({ subjects, notes, goals, range, now = ne
     const missed = expected - completed;
     const consistency = expected ? completed / expected * 100 : 0;
     const trend = trendFor(occurrences);
-    return { ...goal, periodLabel: PERIOD_LABELS[goal.period], completed, expected, missed, consistency, streak: currentStreak(occurrences), trend, hasOccurrenceHistory: true, ...recurringGoalPriority({ consistency, missed, expected, trend }) };
+    return { ...goal, subject: subjectsById.get(goal.subjectId), topic: topicsById.get(goal.topicId), periodLabel: PERIOD_LABELS[goal.period], completed, expected, missed, consistency, streak: currentStreak(occurrences), trend, hasOccurrenceHistory: true, ...recurringGoalPriority({ consistency, missed, expected, trend }) };
   }).toSorted((left, right) => (left.priorityOrder ?? Number.MAX_SAFE_INTEGER) - (right.priorityOrder ?? Number.MAX_SAFE_INTEGER) || left.priorityRank - right.priorityRank || left.consistency - right.consistency || right.expected - left.expected);
   return { subjectActivity, totalNotes, periodicGoals };
 }

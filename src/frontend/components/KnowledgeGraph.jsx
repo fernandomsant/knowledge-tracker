@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FileText, Folder, GitBranch, MoreHorizontal, Pencil, Plus, RotateCcw, Trash2, X } from '../icons';
+import { FileText, Folder, GitBranch, Pencil, Plus, RotateCcw, Trash2, X } from '../icons';
 import { IconButton } from './IconButton';
 import { MetricDefinitionComposer } from './context/MetricDefinitionComposer';
 import { NoteViewer } from './context/NoteViewer';
@@ -228,7 +228,8 @@ function SubjectDrawer({ subject, subjects, topics, notes, goals, metricDefiniti
             <article className="drawer-note">
               <span className={`file-box ${subject.color}`}><FileText size={17}/></span>
               <button type="button" className="drawer-note-preview" onClick={() => openNote(note)}><strong>{note.title}</strong><p>{note.excerpt || 'No excerpt yet.'}</p><small>{note.date}</small></button>
-              <IconButton label={`Edit ${note.title}`} onClick={() => beginEditing(note)}><MoreHorizontal size={18}/></IconButton>
+              <IconButton label={`Edit ${note.title}`} onClick={() => beginEditing(note)}><Pencil size={16}/></IconButton>
+              <IconButton label={`Delete ${note.title}`} onClick={() => { if (window.confirm(`Delete ${note.title}?`)) void onRemoveNote(note.id).then(deleted => { if (deleted && viewingNoteId === note.id) setViewingNoteId(null); }); }}><Trash2 size={16}/></IconButton>
             </article>
             {viewingNote?.id === note.id ? <NoteViewer note={note} onClose={() => setViewingNoteId(null)} onEdit={() => beginEditing(note)} onDelete={async () => { if (await onRemoveNote(note.id)) setViewingNoteId(null); }}/> : null}
           </div>

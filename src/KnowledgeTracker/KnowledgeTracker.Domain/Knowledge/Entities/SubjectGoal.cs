@@ -7,7 +7,7 @@ public sealed class SubjectGoal
         if (id == Guid.Empty || subjectId == Guid.Empty || topicId == Guid.Empty) throw new ArgumentException("Goal, subject, and topic identifiers are required.");
         if (string.IsNullOrWhiteSpace(title) || title.Trim().Length > 256) throw new ArgumentException("Goal title is required and must be 256 characters or fewer.", nameof(title));
         if (!Enum.IsDefined(kind)) throw new ArgumentOutOfRangeException(nameof(kind));
-        if (kind == GoalKind.MetricTarget && (metricDefinitionId is null || targetValue is null || targetValue <= 0)) throw new ArgumentException("A metric goal needs a metric and positive target.");
+        if (kind == GoalKind.MetricTarget && (metricDefinitionId is null || targetValue is null || targetValue <= 0 || targetDate is not null)) throw new ArgumentException("A metric goal needs a metric, positive target, and no due date.");
         if (kind == GoalKind.TargetDate && (metricDefinitionId is not null || targetValue is not null)) throw new ArgumentException("A completion goal cannot use a metric target.");
         if (!Enum.IsDefined(period)) throw new ArgumentOutOfRangeException(nameof(period));
         if (priorityPosition < 1) throw new ArgumentOutOfRangeException(nameof(priorityPosition));

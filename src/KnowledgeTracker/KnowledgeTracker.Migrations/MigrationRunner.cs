@@ -26,7 +26,7 @@ internal sealed class MigrationRunner(string connectionString)
         {
             if (appliedMigrations.TryGetValue(migration.Id, out var appliedChecksum))
             {
-                if (!string.Equals(appliedChecksum, migration.Checksum, StringComparison.Ordinal))
+                if (!migration.MatchesChecksum(appliedChecksum))
                 {
                     throw new InvalidOperationException(
                         $"Applied migration '{migration.Id}' was modified. Create a new migration instead.");
@@ -148,8 +148,15 @@ internal sealed class MigrationRunner(string connectionString)
         }
     }
 
-    private sealed record SqlMigration(string Id, string Sql, string Checksum)
+    private sealed record SqlMigration(
+        string Id,
+        string Sql,
+        string Checksum,
+        IReadOnlySet<string> AcceptedChecksums
+    )
     {
+        public bool MatchesChecksum(string checksum) => AcceptedChecksums.Contains(checksum);
+
         public static SqlMigration FromFile(string path)
         {
             var sql = File.ReadAllText(path, Encoding.UTF8);
@@ -164,8 +171,29 @@ internal sealed class MigrationRunner(string connectionString)
                     $"Migration '{Path.GetFileName(path)}' contains GO. Split it into executable SQL statements instead.");
             }
 
-            var checksum = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(sql)));
-            return new SqlMigration(Path.GetFileName(path), sql, checksum);
+            var checksums = CreateAcceptedChecksums(sql);
+            return new SqlMigration(
+                Path.GetFileName(path),
+                sql,
+                ComputeChecksum(sql),
+                checksums
+            );
         }
+
+        private static IReadOnlySet<string> CreateAcceptedChecksums(string sql)
+        {
+            var lineFeedSql = sql.Replace("\r\n", "\n").Replace("\r", "\n");
+            var carriageReturnLineFeedSql = lineFeedSql.Replace("\n", "\r\n");
+
+            return new HashSet<string>(StringComparer.Ordinal)
+            {
+                ComputeChecksum(sql),
+                ComputeChecksum(lineFeedSql),
+                ComputeChecksum(carriageReturnLineFeedSql)
+            };
+        }
+
+        private static string ComputeChecksum(string sql) =>
+            Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(sql)));
     }
 }

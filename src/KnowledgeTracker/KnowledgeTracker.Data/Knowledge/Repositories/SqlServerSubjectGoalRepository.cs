@@ -16,11 +16,39 @@ public sealed class SqlServerSubjectGoalRepository(Func<DbConnection> connection
         var goals = new List<SubjectGoal>(); while (await reader.ReadAsync(ct)) goals.Add(ReadGoal(reader)); return goals;
     }
 
+    public async Task<SubjectGoal?> FindAsync(Guid id, CancellationToken ct)
+    {
+        await using var connection = connectionFactory(); await connection.OpenAsync(ct); await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT Id, SubjectId, TopicId, Title, GoalKind, MetricDefinitionId, TargetValue, TargetDate, GoalPeriod, CustomPeriodStartDate, CustomPeriodEndDate, PriorityPosition, IsCompleted, CompletedAtUtc, CreatedAtUtc FROM dbo.SubjectGoals WHERE Id = @Id;";
+        command.AddParameter("@Id", DbType.Guid, id); await using var reader = await command.ExecuteReaderAsync(ct);
+        return await reader.ReadAsync(ct) ? ReadGoal(reader) : null;
+    }
+
     public async Task AddAsync(SubjectGoal goal, CancellationToken ct)
     {
         await using var connection = connectionFactory(); await connection.OpenAsync(ct); await using var command = connection.CreateCommand();
         command.CommandText = "INSERT INTO dbo.SubjectGoals (Id, SubjectId, TopicId, Title, GoalKind, MetricDefinitionId, TargetValue, TargetDate, GoalPeriod, CustomPeriodStartDate, CustomPeriodEndDate, PriorityPosition, IsCompleted, CompletedAtUtc, CreatedAtUtc) VALUES (@Id, @SubjectId, @TopicId, @Title, @GoalKind, @MetricDefinitionId, @TargetValue, @TargetDate, @GoalPeriod, @CustomPeriodStartDate, @CustomPeriodEndDate, (SELECT ISNULL(MAX(PriorityPosition), 0) + 1 FROM dbo.SubjectGoals WITH (TABLOCKX)), @IsCompleted, @CompletedAtUtc, @CreatedAtUtc);";
         command.AddParameter("@Id", DbType.Guid, goal.Id); command.AddParameter("@SubjectId", DbType.Guid, goal.SubjectId); command.AddParameter("@TopicId", DbType.Guid, goal.TopicId); command.AddParameter("@Title", DbType.String, goal.Title); command.AddParameter("@GoalKind", DbType.Byte, (byte)goal.Kind); command.AddParameter("@MetricDefinitionId", DbType.Guid, (object?)goal.MetricDefinitionId ?? DBNull.Value); command.AddParameter("@TargetValue", DbType.Decimal, (object?)goal.TargetValue ?? DBNull.Value); command.AddParameter("@TargetDate", DbType.Date, (object?)goal.TargetDate ?? DBNull.Value); command.AddParameter("@GoalPeriod", DbType.Byte, (byte)goal.Period); command.AddParameter("@CustomPeriodStartDate", DbType.Date, (object?)goal.CustomPeriodStartDate ?? DBNull.Value); command.AddParameter("@CustomPeriodEndDate", DbType.Date, (object?)goal.CustomPeriodEndDate ?? DBNull.Value); command.AddParameter("@IsCompleted", DbType.Boolean, goal.IsCompleted); command.AddParameter("@CompletedAtUtc", DbType.DateTimeOffset, (object?)goal.CompletedAtUtc ?? DBNull.Value); command.AddParameter("@CreatedAtUtc", DbType.DateTimeOffset, goal.CreatedAtUtc); await command.ExecuteNonQueryAsync(ct);
+    }
+
+    public async Task UpdateAsync(SubjectGoal goal, IReadOnlyCollection<SubjectSubGoal> subGoals, CancellationToken ct)
+    {
+        await using var connection = connectionFactory(); await connection.OpenAsync(ct); await using var transaction = await connection.BeginTransactionAsync(ct);
+        await using (var command = connection.CreateCommand())
+        {
+            command.Transaction = transaction;
+            command.CommandText = "UPDATE dbo.SubjectGoals SET TopicId = @TopicId, Title = @Title, GoalKind = @GoalKind, MetricDefinitionId = @MetricDefinitionId, TargetValue = @TargetValue, TargetDate = @TargetDate, GoalPeriod = @GoalPeriod, CustomPeriodStartDate = @CustomPeriodStartDate, CustomPeriodEndDate = @CustomPeriodEndDate, IsCompleted = @IsCompleted, CompletedAtUtc = @CompletedAtUtc WHERE Id = @Id; DELETE FROM dbo.SubjectSubGoals WHERE SubjectGoalId = @Id;";
+            command.AddParameter("@Id", DbType.Guid, goal.Id); command.AddParameter("@TopicId", DbType.Guid, goal.TopicId); command.AddParameter("@Title", DbType.String, goal.Title); command.AddParameter("@GoalKind", DbType.Byte, (byte)goal.Kind); command.AddParameter("@MetricDefinitionId", DbType.Guid, (object?)goal.MetricDefinitionId ?? DBNull.Value); command.AddParameter("@TargetValue", DbType.Decimal, (object?)goal.TargetValue ?? DBNull.Value); command.AddParameter("@TargetDate", DbType.Date, (object?)goal.TargetDate ?? DBNull.Value); command.AddParameter("@GoalPeriod", DbType.Byte, (byte)goal.Period); command.AddParameter("@CustomPeriodStartDate", DbType.Date, (object?)goal.CustomPeriodStartDate ?? DBNull.Value); command.AddParameter("@CustomPeriodEndDate", DbType.Date, (object?)goal.CustomPeriodEndDate ?? DBNull.Value); command.AddParameter("@IsCompleted", DbType.Boolean, goal.IsCompleted); command.AddParameter("@CompletedAtUtc", DbType.DateTimeOffset, (object?)goal.CompletedAtUtc ?? DBNull.Value);
+            await command.ExecuteNonQueryAsync(ct);
+        }
+        foreach (var subGoal in subGoals)
+        {
+            await using var command = connection.CreateCommand(); command.Transaction = transaction;
+            command.CommandText = "INSERT INTO dbo.SubjectSubGoals (Id, SubjectGoalId, Title, IsCompleted, CompletedAtUtc, CreatedAtUtc) VALUES (@Id, @SubjectGoalId, @Title, @IsCompleted, @CompletedAtUtc, @CreatedAtUtc);";
+            command.AddParameter("@Id", DbType.Guid, subGoal.Id); command.AddParameter("@SubjectGoalId", DbType.Guid, subGoal.SubjectGoalId); command.AddParameter("@Title", DbType.String, subGoal.Title); command.AddParameter("@IsCompleted", DbType.Boolean, subGoal.IsCompleted); command.AddParameter("@CompletedAtUtc", DbType.DateTimeOffset, (object?)subGoal.CompletedAtUtc ?? DBNull.Value); command.AddParameter("@CreatedAtUtc", DbType.DateTimeOffset, subGoal.CreatedAtUtc);
+            await command.ExecuteNonQueryAsync(ct);
+        }
+        await transaction.CommitAsync(ct);
     }
 
     public async Task<bool> DeleteAsync(Guid id, CancellationToken ct)

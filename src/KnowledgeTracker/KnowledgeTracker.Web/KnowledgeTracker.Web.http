@@ -10,3 +10,24 @@ Accept: application/json
 
 DELETE {{KnowledgeTracker.Web_HostAddress}}/api/topics/{{topicId}}
 Authorization: Bearer {{accessToken}}
+
+###
+
+@subjectGoalId = replace-with-a-subject-goal-id
+
+PUT {{KnowledgeTracker.Web_HostAddress}}/api/subject-goals/{{subjectGoalId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "topicId": "{{topicId}}",
+  "title": "Read 100 pages",
+  "kind": 1,
+  "metricDefinitionId": "replace-with-a-metric-definition-id",
+  "targetValue": 100,
+  "targetDate": null,
+  "period": 0,
+  "periodStartDate": null,
+  "periodEndDate": null,
+  "subGoals": []
+}

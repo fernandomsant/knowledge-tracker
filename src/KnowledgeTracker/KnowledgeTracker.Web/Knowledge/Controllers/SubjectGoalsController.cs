@@ -26,6 +26,17 @@ public sealed class SubjectGoalsController(ISubjectGoalService goals) : Controll
         catch (ArgumentException exception) { return BadRequest(new ProblemDetails { Detail = exception.Message }); }
     }
 
+    [HttpPut("subject-goals/{id:guid}")]
+    public async Task<ActionResult<SubjectGoalResponse>> UpdateAsync(Guid id, KnowledgeTracker.Web.Knowledge.Contracts.UpdateSubjectGoalRequest request, CancellationToken ct)
+    {
+        try
+        {
+            var goal = await goals.UpdateAsync(id, new KnowledgeTracker.Application.Knowledge.UpdateSubjectGoalRequest(request.TopicId, request.Title, request.Kind, request.MetricDefinitionId, request.TargetValue, request.TargetDate, request.Period, request.PeriodStartDate, request.PeriodEndDate, request.SubGoals), ct);
+            return goal is null ? NotFound() : Ok(KnowledgeResponseMapper.ToResponse(goal));
+        }
+        catch (ArgumentException exception) { return BadRequest(new ProblemDetails { Detail = exception.Message }); }
+    }
+
     [HttpDelete("subject-goals/{id:guid}")]
     public async Task<IActionResult> DeleteAsync(Guid id, CancellationToken ct) => await goals.DeleteAsync(id, ct) ? NoContent() : NotFound();
 

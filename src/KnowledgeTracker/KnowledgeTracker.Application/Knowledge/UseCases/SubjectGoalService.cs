@@ -34,10 +34,51 @@ public sealed class SubjectGoalService(ISubjectGoalRepository goals, ISubjectRep
         return ToDetails(goal, await notes.ListBySubjectAsync(subjectId, ct), definitionMap, subGoals);
     }
 
+    public async Task<SubjectGoalDetails?> UpdateAsync(Guid id, UpdateSubjectGoalRequest request, CancellationToken ct)
+    {
+        var existing = await goals.FindAsync(id, ct);
+        if (existing is null) return null;
+        if (request.TopicId == Guid.Empty) throw new ArgumentException("A topic must be selected.", nameof(request));
+        var topic = await topics.FindAsync(request.TopicId, ct);
+        if (topic is null || topic.SubjectId != existing.SubjectId)
+            throw new ArgumentException("The selected topic does not belong to this subject.", nameof(request));
+        if (request.Kind == GoalKind.MetricTarget && (request.MetricDefinitionId is null || await definitions.FindAsync(request.MetricDefinitionId.Value, ct) is null))
+            throw new ArgumentException("The selected study metric does not exist.");
+        if (request.Kind == GoalKind.MetricTarget && request.SubGoals.Count > 0)
+            throw new ArgumentException("Metric goals cannot have sub-goals.");
+
+        var kindChanged = existing.Kind != request.Kind;
+        var updated = new SubjectGoal(existing.Id, existing.SubjectId, request.TopicId, request.Title, request.Kind, request.MetricDefinitionId, request.TargetValue, request.TargetDate, request.Period, request.PeriodStartDate, request.PeriodEndDate, existing.PriorityPosition, kindChanged ? false : existing.IsCompleted, kindChanged ? null : existing.CompletedAtUtc, existing.CreatedAtUtc);
+        var existingSubGoals = await goals.ListSubGoalsAsync([id], ct);
+        var subGoals = request.Kind == GoalKind.TargetDate ? ReconcileSubGoals(id, request.SubGoals, existingSubGoals) : [];
+        await goals.UpdateAsync(updated, subGoals, ct);
+
+        var definitionMap = (await definitions.ListAsync(ct)).ToDictionary(definition => definition.Id);
+        return ToDetails(updated, await notes.ListBySubjectAsync(existing.SubjectId, ct), definitionMap, subGoals);
+    }
+
     public Task<bool> DeleteAsync(Guid id, CancellationToken ct) => goals.DeleteAsync(id, ct);
     public Task<bool> CompleteAsync(Guid id, CancellationToken ct) => goals.CompleteAsync(id, DateTimeOffset.UtcNow, ct);
     public Task<bool> SetSubGoalCompletionAsync(Guid id, bool isCompleted, CancellationToken ct) => goals.SetSubGoalCompletionAsync(id, isCompleted, DateTimeOffset.UtcNow, ct);
     public Task<bool> SwapPriorityAsync(Guid id, Guid swapWithId, CancellationToken ct) => goals.SwapPriorityAsync(id, swapWithId, ct);
+
+    private static IReadOnlyCollection<SubjectSubGoal> ReconcileSubGoals(Guid goalId, IReadOnlyCollection<string> requestedTitles, IReadOnlyCollection<SubjectSubGoal> existingSubGoals)
+    {
+        var reusable = existingSubGoals
+            .GroupBy(subGoal => subGoal.Title, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => new Queue<SubjectSubGoal>(group), StringComparer.Ordinal);
+
+        return requestedTitles
+            .Where(title => !string.IsNullOrWhiteSpace(title))
+            .Select(title =>
+            {
+                var normalizedTitle = title.Trim();
+                if (reusable.TryGetValue(normalizedTitle, out var matches) && matches.TryDequeue(out var existing))
+                    return new SubjectSubGoal(existing.Id, goalId, normalizedTitle, existing.IsCompleted, existing.CompletedAtUtc, existing.CreatedAtUtc);
+                return new SubjectSubGoal(Guid.NewGuid(), goalId, normalizedTitle, false, null, DateTimeOffset.UtcNow);
+            })
+            .ToArray();
+    }
 
     private static SubjectGoalDetails ToDetails(SubjectGoal goal, IReadOnlyCollection<StudyNote> notes, IReadOnlyDictionary<Guid, StudyMetricDefinition> definitions, IEnumerable<SubjectSubGoal> subGoals)
     {

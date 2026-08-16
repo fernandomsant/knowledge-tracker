@@ -1,7 +1,10 @@
-const NODE_WIDTH = 210;
-const NODE_HEIGHT = 146;
-const WORLD_WIDTH = 1200;
-const WORLD_HEIGHT = 720;
+export const NODE_WIDTH = 210;
+export const NODE_HEIGHT = 146;
+export const CANVAS_WORLD_WIDTH = 3600;
+export const CANVAS_WORLD_HEIGHT = 2400;
+
+const INITIAL_LAYOUT_WIDTH = 1200;
+const INITIAL_LAYOUT_HEIGHT = 720;
 
 export function layoutSubjects(subjects, connections) {
   const byId = new Map(subjects.map(subject => [subject.id, subject]));
@@ -63,10 +66,10 @@ export function layoutSubjects(subjects, connections) {
   subjects.filter(subject => !visited.has(subject.id)).forEach(subject => visit(subject, 0));
   const positioned = new Map();
   levels.forEach((level, depth) => {
-    const gap = Math.max(18, Math.min(68, (WORLD_WIDTH - level.length * NODE_WIDTH) / Math.max(1, level.length - 1)));
+    const gap = Math.max(18, Math.min(68, (INITIAL_LAYOUT_WIDTH - level.length * NODE_WIDTH) / Math.max(1, level.length - 1)));
     const usedWidth = level.length * NODE_WIDTH + Math.max(0, level.length - 1) * gap;
-    const startX = Math.max(20, (WORLD_WIDTH - usedWidth) / 2);
-    const y = Math.min(WORLD_HEIGHT - NODE_HEIGHT - 20, 48 + depth * 166);
+    const startX = Math.max(20, (INITIAL_LAYOUT_WIDTH - usedWidth) / 2);
+    const y = Math.min(INITIAL_LAYOUT_HEIGHT - NODE_HEIGHT - 20, 48 + depth * 166);
     level.forEach((subject, index) => positioned.set(subject.id, { ...subject, x: startX + index * (NODE_WIDTH + gap), y }));
   });
   return subjects.map(subject => positioned.get(subject.id) ?? { ...subject, x: 20, y: 20 });

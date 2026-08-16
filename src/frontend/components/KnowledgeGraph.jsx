@@ -6,14 +6,10 @@ import { NoteViewer } from './context/NoteViewer';
 import { SubjectGoals } from './context/SubjectGoals';
 import { TopicComposer } from './context/TopicComposer';
 import { getSubjectHierarchyEdges, getSubjectParentOptions } from '../knowledge/utils/subjectHierarchy';
-import { layoutSubjects } from '../knowledge/utils/subjectLayout';
+import { CANVAS_WORLD_HEIGHT, CANVAS_WORLD_WIDTH, NODE_HEIGHT, NODE_WIDTH, layoutSubjects } from '../knowledge/utils/subjectLayout';
 
-const MIN_ZOOM = 0.55;
-const MAX_ZOOM = 1.8;
-const WORLD_WIDTH = 1200;
-const WORLD_HEIGHT = 720;
-const NODE_WIDTH = 210;
-const NODE_HEIGHT = 146;
+const MIN_ZOOM = 0.18;
+const MAX_ZOOM = 2.2;
 
 const edgeKey = (source, target) => [source, target].sort().join(':');
 
@@ -296,8 +292,8 @@ export function KnowledgeGraph({
   const displaySubjects = useMemo(() => positionedSubjects.map(subject => {
     const persistedPosition = subject.layoutPosition
       ? {
-          x: subject.layoutPosition.normalizedX * (WORLD_WIDTH - NODE_WIDTH),
-          y: subject.layoutPosition.normalizedY * (WORLD_HEIGHT - NODE_HEIGHT),
+          x: subject.layoutPosition.normalizedX * (CANVAS_WORLD_WIDTH - NODE_WIDTH),
+          y: subject.layoutPosition.normalizedY * (CANVAS_WORLD_HEIGHT - NODE_HEIGHT),
         }
       : null;
     return { ...subject, ...persistedPosition, ...manualPositions[subject.id] };
@@ -360,16 +356,16 @@ export function KnowledgeGraph({
     onCanvasContextChange(current => ({ ...current, nodePositions: {} }));
     void onSaveLayout(positionedSubjects.map(subject => ({
       subjectId: subject.id,
-      normalizedX: subject.x / (WORLD_WIDTH - NODE_WIDTH),
-      normalizedY: subject.y / (WORLD_HEIGHT - NODE_HEIGHT),
+      normalizedX: subject.x / (CANVAS_WORLD_WIDTH - NODE_WIDTH),
+      normalizedY: subject.y / (CANVAS_WORLD_HEIGHT - NODE_HEIGHT),
     })));
     updateCanvasContext({ pan: { x: 0, y: 0 }, zoom: 1 });
   }, [onCanvasContextChange, onSaveLayout, positionedSubjects, updateCanvasContext]);
 
   const moveSubject = useCallback((id, x, y) => {
     const position = {
-      x: Math.min(WORLD_WIDTH - NODE_WIDTH, Math.max(0, x)),
-      y: Math.min(WORLD_HEIGHT - NODE_HEIGHT, Math.max(0, y)),
+      x: Math.min(CANVAS_WORLD_WIDTH - NODE_WIDTH, Math.max(0, x)),
+      y: Math.min(CANVAS_WORLD_HEIGHT - NODE_HEIGHT, Math.max(0, y)),
     };
     manualPositionsRef.current = { ...manualPositionsRef.current, [id]: position };
     onCanvasContextChange(current => ({
@@ -383,8 +379,8 @@ export function KnowledgeGraph({
     if (!position) return;
     void onSaveLayout([{
       subjectId: id,
-      normalizedX: position.x / (WORLD_WIDTH - NODE_WIDTH),
-      normalizedY: position.y / (WORLD_HEIGHT - NODE_HEIGHT),
+      normalizedX: position.x / (CANVAS_WORLD_WIDTH - NODE_WIDTH),
+      normalizedY: position.y / (CANVAS_WORLD_HEIGHT - NODE_HEIGHT),
     }]);
   }, [onSaveLayout]);
 
@@ -414,7 +410,7 @@ export function KnowledgeGraph({
           <div className="connect-banner"><GitBranch size={16}/>{connectionStart ? 'Now choose the second subject.' : 'Click two subjects to create a connection.'}</div>
         ) : null}
         <div className="graph-world" style={{ transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${zoom})` }}>
-          <svg className="connections" width="1200" height="720" aria-hidden="true">
+            <svg className="connections" width={CANVAS_WORLD_WIDTH} height={CANVAS_WORLD_HEIGHT} aria-hidden="true">
             <defs>
               <marker id="hierarchy-arrow-1" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#2e9483"/></marker>
               <marker id="hierarchy-arrow-2" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#547fc8"/></marker>

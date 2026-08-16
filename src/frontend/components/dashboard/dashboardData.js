@@ -25,19 +25,20 @@ function goalProgress(goal) {
 export function buildDeadlinePriorities({ goals, subjects }) {
   const subjectsById = new Map(subjects.map(subject => [subject.id, subject]));
   return goals
-    .filter(goal => !goal.isCompleted && goal.period === 0 && goal.targetDate)
+    .filter(goal => !goal.isCompleted && goal.period === 0)
     .map(goal => {
-      const deadlineTime = new Date(`${goal.targetDate}T00:00:00`).getTime();
-      const daysLeft = Math.ceil((deadlineTime - Date.now()) / DAY);
+      const hasDeadline = Boolean(goal.targetDate);
+      const deadlineTime = hasDeadline ? new Date(`${goal.targetDate}T00:00:00`).getTime() : null;
+      const daysLeft = deadlineTime === null ? null : Math.ceil((deadlineTime - Date.now()) / DAY);
       const progress = goalProgress(goal);
       const createdAt = goal.createdAtUtc ? new Date(goal.createdAtUtc).getTime() : null;
-      const elapsed = createdAt ? clamp((Date.now() - createdAt) / Math.max(1, deadlineTime - createdAt) * 100) : null;
+      const elapsed = createdAt && deadlineTime !== null ? clamp((Date.now() - createdAt) / Math.max(1, deadlineTime - createdAt) * 100) : null;
       const pace = elapsed === null ? 'On track' : progress >= elapsed - 8 ? 'On track' : 'At risk';
-      const urgency = deadlineStatus(daysLeft, pace);
-      const urgencyRank = daysLeft < 0 ? 0 : daysLeft === 0 ? 1 : daysLeft <= 7 ? 2 : 3;
-      return { ...goal, subject: subjectsById.get(goal.subjectId), progress, elapsed, daysLeft, urgency, urgencyRank, pace };
+      const urgency = daysLeft === null ? 'No deadline' : deadlineStatus(daysLeft, pace);
+      const urgencyRank = daysLeft === null ? 4 : daysLeft < 0 ? 0 : daysLeft === 0 ? 1 : daysLeft <= 7 ? 2 : 3;
+      return { ...goal, subject: subjectsById.get(goal.subjectId), progress, elapsed, daysLeft, hasDeadline, urgency, urgencyRank, pace };
     })
-    .toSorted((left, right) => left.urgencyRank - right.urgencyRank || left.daysLeft - right.daysLeft || left.progress - right.progress);
+    .toSorted((left, right) => left.urgencyRank - right.urgencyRank || (left.daysLeft ?? Number.MAX_SAFE_INTEGER) - (right.daysLeft ?? Number.MAX_SAFE_INTEGER) || left.progress - right.progress);
 }
 
 const atStartOfDay = value => new Date(value.getFullYear(), value.getMonth(), value.getDate());
@@ -108,15 +109,21 @@ export function buildStudyBehaviorData({ subjects, notes, goals, range, now = ne
     const count = visibleNotes.filter(note => note.subjectId === subject.id).length;
     return { ...subject, count, percentage: totalNotes ? count / totalNotes * 100 : 0 };
   }).toSorted((left, right) => right.count - left.count || left.name.localeCompare(right.name));
-  const periodicGoals = goals.filter(goal => !goal.isCompleted && goal.kind === 1 && goal.period >= 1 && goal.period <= 3).map(goal => {
+  const periodicGoals = goals.filter(goal => !goal.isCompleted && goal.period >= 1 && goal.period <= 3).map(goal => {
+    if (goal.kind !== 1) {
+      const expected = goal.subGoals?.length || 1;
+      const completed = goal.subGoals?.filter(subGoal => subGoal.isCompleted).length ?? 0;
+      const consistency = completed / expected * 100;
+      const priority = consistency === 100 ? { priority: 'On track', priorityRank: 2, priorityReason: 'All completion criteria met' } : { priority: 'Needs attention', priorityRank: 0, priorityReason: `${completed} of ${expected} completion criteria met` };
+      return { ...goal, periodLabel: PERIOD_LABELS[goal.period], completed, expected, missed: expected - completed, consistency, streak: 0, trend: 'Current status', hasOccurrenceHistory: false, ...priority };
+    }
     const occurrences = goalOccurrences(goal, notes, from, now) ?? [];
     const completed = occurrences.filter(occurrence => occurrence.completed).length;
     const expected = occurrences.length;
     const missed = expected - completed;
     const consistency = expected ? completed / expected * 100 : 0;
     const trend = trendFor(occurrences);
-    return { ...goal, periodLabel: PERIOD_LABELS[goal.period], completed, expected, missed, consistency, streak: currentStreak(occurrences), trend, ...recurringGoalPriority({ consistency, missed, expected, trend }) };
+    return { ...goal, periodLabel: PERIOD_LABELS[goal.period], completed, expected, missed, consistency, streak: currentStreak(occurrences), trend, hasOccurrenceHistory: true, ...recurringGoalPriority({ consistency, missed, expected, trend }) };
   }).toSorted((left, right) => (left.priorityOrder ?? Number.MAX_SAFE_INTEGER) - (right.priorityOrder ?? Number.MAX_SAFE_INTEGER) || left.priorityRank - right.priorityRank || left.consistency - right.consistency || right.expected - left.expected);
-  const unsupportedPeriodicGoals = goals.filter(goal => !goal.isCompleted && goal.kind !== 1 && goal.period >= 1 && goal.period <= 3);
-  return { subjectActivity, totalNotes, periodicGoals, unsupportedPeriodicGoals };
+  return { subjectActivity, totalNotes, periodicGoals };
 }

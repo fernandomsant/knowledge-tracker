@@ -43,8 +43,13 @@ public sealed class SubjectGoalService(ISubjectGoalRepository goals, ISubjectRep
     {
         definitions.TryGetValue(goal.MetricDefinitionId ?? Guid.Empty, out var definition);
         var (periodStartDate, periodEndDate) = ResolvePeriod(goal, DateOnly.FromDateTime(DateTime.UtcNow));
+        var scopedNotes = notes.Where(note =>
+            note.TopicId == goal.TopicId && IsWithinPeriod(note, periodStartDate, periodEndDate)
+        );
         decimal? currentValue = goal.Kind == GoalKind.MetricTarget
-            ? notes.Where(note => note.TopicId == goal.TopicId && IsWithinPeriod(note, periodStartDate, periodEndDate)).SelectMany(note => note.Metrics).Where(metric => metric.Definition.Id == goal.MetricDefinitionId).Sum(metric => metric.Value)
+            ? definition?.NormalizedName == StandardStudyMetricDefinitionIds.StudyTimeNormalizedName
+                ? scopedNotes.Sum(note => note.StudyDuration.Ticks / (decimal)TimeSpan.TicksPerHour)
+                : scopedNotes.SelectMany(note => note.Metrics).Where(metric => metric.Definition.Id == goal.MetricDefinitionId).Sum(metric => metric.Value)
             : null;
         return new(goal.Id, goal.SubjectId, goal.TopicId, goal.Title, goal.Kind, definition is null ? null : new(definition.Id, definition.Name, definition.NumberKind), goal.TargetValue, currentValue, goal.TargetDate, goal.Period, periodStartDate, periodEndDate, goal.PriorityPosition, goal.IsCompleted, goal.CompletedAtUtc, goal.CreatedAtUtc, subGoals.Select(item => new SubjectSubGoalDetails(item.Id, item.Title, item.IsCompleted, item.CompletedAtUtc)).ToArray());
     }

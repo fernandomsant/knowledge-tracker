@@ -39,6 +39,7 @@ export const knowledgeClient = {
     method: 'PUT', body: { name, description, parentSubjectId: parentSubjectId || null },
   }),
   deleteSubject: (accessToken, id) => request(accessToken, `/api/subjects/${id}`, { method: 'DELETE' }),
+  saveSubjectLayout: (accessToken, positions) => request(accessToken, '/api/subjects/layout', { method: 'PUT', body: { positions } }),
   createStudyNote: (accessToken, subjectId, topicId, title, content, studyDuration, studyStartedAtUtc, metrics) => request(accessToken, `/api/subjects/${subjectId}/notes`, {
     method: 'POST', body: { topicId, title, content, metrics, studyDuration, studyStartedAtUtc },
   }),

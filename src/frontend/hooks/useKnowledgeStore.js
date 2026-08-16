@@ -55,7 +55,7 @@ const noteDateFormatter = new Intl.DateTimeFormat('en', { month: 'short', day: '
 const errorMessage = reason => reason instanceof Error ? reason.message : 'Your knowledge space could not be updated. Try again.';
 
 function toSubject(subject, index) {
-  return { id: subject.id, name: subject.name, description: subject.description, parentSubjectId: subject.parentSubjectId, color: PALETTE[index % PALETTE.length] };
+  return { id: subject.id, name: subject.name, description: subject.description, parentSubjectId: subject.parentSubjectId, layoutPosition: subject.layoutPosition, color: PALETTE[index % PALETTE.length] };
 }
 
 function toNote(note) {
@@ -195,6 +195,17 @@ export function useKnowledgeStore(accessToken, refreshAccessToken) {
     }
   }, [execute]);
 
+  const saveSubjectLayout = useCallback(async positions => {
+    try {
+      await execute(token => knowledgeClient.saveSubjectLayout(token, positions));
+      dispatch({ type: 'request/clear' });
+      return true;
+    } catch (reason) {
+      dispatch({ type: 'request/failed', error: errorMessage(reason) });
+      return false;
+    }
+  }, [execute]);
+
   const connectSubjects = useCallback(async (source, target) => {
     try {
       const connection = await execute(token => knowledgeClient.createConnection(token, source, target));
@@ -276,5 +287,5 @@ export function useKnowledgeStore(accessToken, refreshAccessToken) {
     }
   }, [execute]);
 
-  return { ...state, subjectsById, notesBySubject, goalsBySubject, addSubject, updateSubject, removeSubject, addNote, updateNote, createMetricDefinition, createTopic, connectSubjects, removeConnection, addSubjectGoal, removeSubjectGoal, completeSubjectGoal, prioritizeSubjectGoal, setSubGoalCompletion };
+  return { ...state, subjectsById, notesBySubject, goalsBySubject, addSubject, updateSubject, removeSubject, addNote, updateNote, createMetricDefinition, createTopic, saveSubjectLayout, connectSubjects, removeConnection, addSubjectGoal, removeSubjectGoal, completeSubjectGoal, prioritizeSubjectGoal, setSubGoalCompletion };
 }

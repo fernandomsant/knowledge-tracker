@@ -10,6 +10,10 @@ import { layoutSubjects } from '../knowledge/utils/subjectLayout';
 
 const MIN_ZOOM = 0.55;
 const MAX_ZOOM = 1.8;
+const WORLD_WIDTH = 1200;
+const WORLD_HEIGHT = 720;
+const NODE_WIDTH = 210;
+const NODE_HEIGHT = 146;
 
 const edgeKey = (source, target) => [source, target].sort().join(':');
 
@@ -27,6 +31,7 @@ const SubjectNode = memo(function SubjectNode({
   onOpen,
   onSelect,
   onMove,
+  onMoveEnd,
 }) {
   const dragRef = useRef(null);
   const movedRef = useRef(false);
@@ -55,7 +60,9 @@ const SubjectNode = memo(function SubjectNode({
   };
 
   const handlePointerUp = event => {
-    if (dragRef.current?.pointerId === event.pointerId) dragRef.current = null;
+    if (dragRef.current?.pointerId !== event.pointerId) return;
+    dragRef.current = null;
+    if (movedRef.current) onMoveEnd(subject.id);
   };
 
   const handleClick = () => {
@@ -261,6 +268,7 @@ export function KnowledgeGraph({
   onRemoveGoal,
   onCompleteGoal,
   onSetSubGoalCompletion,
+  onSaveLayout,
 }) {
   const { pan, zoom, connectMode, connectionStart, openSubjectId, connectionsOpen, drawer } = canvasContext;
   const canvasRef = useRef(null);
@@ -280,11 +288,20 @@ export function KnowledgeGraph({
   );
   const hierarchyEdges = useMemo(() => getSubjectHierarchyEdges(subjects), [subjects]);
   const positionedSubjects = useMemo(() => layoutSubjects(subjects, connections), [connections, subjects]);
-  const [manualPositions, setManualPositions] = useState(new Map());
+  const manualPositions = canvasContext.nodePositions ?? {};
+  const manualPositionsRef = useRef(manualPositions);
   useEffect(() => {
-    setManualPositions(new Map());
-  }, [positionedSubjects]);
-  const displaySubjects = useMemo(() => positionedSubjects.map(subject => ({ ...subject, ...manualPositions.get(subject.id) })), [manualPositions, positionedSubjects]);
+    manualPositionsRef.current = manualPositions;
+  }, [manualPositions]);
+  const displaySubjects = useMemo(() => positionedSubjects.map(subject => {
+    const persistedPosition = subject.layoutPosition
+      ? {
+          x: subject.layoutPosition.normalizedX * (WORLD_WIDTH - NODE_WIDTH),
+          y: subject.layoutPosition.normalizedY * (WORLD_HEIGHT - NODE_HEIGHT),
+        }
+      : null;
+    return { ...subject, ...persistedPosition, ...manualPositions[subject.id] };
+  }), [manualPositions, positionedSubjects]);
   const displaySubjectsById = useMemo(() => new Map(displaySubjects.map(subject => [subject.id, subject])), [displaySubjects]);
   const positionedHierarchyEdges = useMemo(() => getSubjectHierarchyEdges(displaySubjects), [displaySubjects]);
 
@@ -340,13 +357,36 @@ export function KnowledgeGraph({
   }, [connectMode, updateCanvasContext]);
 
   const resetCanvas = useCallback(() => {
-    setManualPositions(new Map());
+    onCanvasContextChange(current => ({ ...current, nodePositions: {} }));
+    void onSaveLayout(positionedSubjects.map(subject => ({
+      subjectId: subject.id,
+      normalizedX: subject.x / (WORLD_WIDTH - NODE_WIDTH),
+      normalizedY: subject.y / (WORLD_HEIGHT - NODE_HEIGHT),
+    })));
     updateCanvasContext({ pan: { x: 0, y: 0 }, zoom: 1 });
-  }, [updateCanvasContext]);
+  }, [onCanvasContextChange, onSaveLayout, positionedSubjects, updateCanvasContext]);
 
   const moveSubject = useCallback((id, x, y) => {
-    setManualPositions(current => new Map(current).set(id, { x, y }));
-  }, []);
+    const position = {
+      x: Math.min(WORLD_WIDTH - NODE_WIDTH, Math.max(0, x)),
+      y: Math.min(WORLD_HEIGHT - NODE_HEIGHT, Math.max(0, y)),
+    };
+    manualPositionsRef.current = { ...manualPositionsRef.current, [id]: position };
+    onCanvasContextChange(current => ({
+      ...current,
+      nodePositions: { ...(current.nodePositions ?? {}), [id]: position },
+    }));
+  }, [onCanvasContextChange]);
+
+  const saveMovedSubject = useCallback(id => {
+    const position = manualPositionsRef.current[id];
+    if (!position) return;
+    void onSaveLayout([{
+      subjectId: id,
+      normalizedX: position.x / (WORLD_WIDTH - NODE_WIDTH),
+      normalizedY: position.y / (WORLD_HEIGHT - NODE_HEIGHT),
+    }]);
+  }, [onSaveLayout]);
 
   const removeOpenSubject = useCallback(() => {
     if (openSubjectId === null) return;
@@ -425,6 +465,7 @@ export function KnowledgeGraph({
               }}
               onSelect={selectForConnection}
               onMove={moveSubject}
+              onMoveEnd={saveMovedSubject}
             />
           ))}
         </div>

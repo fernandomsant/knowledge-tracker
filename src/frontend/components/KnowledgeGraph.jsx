@@ -353,7 +353,12 @@ export function KnowledgeGraph({
   }, [connectMode, updateCanvasContext]);
 
   const resetCanvas = useCallback(() => {
-    onCanvasContextChange(current => ({ ...current, nodePositions: {} }));
+    const gatheredPositions = Object.fromEntries(positionedSubjects.map(subject => [
+      subject.id,
+      { x: subject.x, y: subject.y },
+    ]));
+    manualPositionsRef.current = gatheredPositions;
+    onCanvasContextChange(current => ({ ...current, nodePositions: gatheredPositions }));
     void onSaveLayout(positionedSubjects.map(subject => ({
       subjectId: subject.id,
       normalizedX: subject.x / (CANVAS_WORLD_WIDTH - NODE_WIDTH),
@@ -470,8 +475,8 @@ export function KnowledgeGraph({
           <button onClick={onCreateSubject}><Plus size={16}/> Add node</button>
           <button className={connectionsOpen ? 'active' : ''} onClick={() => updateCanvasContext({ connectionsOpen: !connectionsOpen })}><GitBranch size={16}/> Links ({connections.length})</button>
           <button className={connectMode ? 'active' : ''} onClick={toggleConnectMode}><GitBranch size={16}/>{connectMode ? 'Done' : 'Connect'}</button>
+          <button onClick={resetCanvas}><RotateCcw size={16}/> Gather subjects</button>
           <span>{Math.round(zoom * 100)}%</span>
-          <IconButton label="Reset canvas" onClick={resetCanvas}><RotateCcw size={16}/></IconButton>
         </div>
         {connectionsOpen ? (
           <aside className="connection-panel" onPointerDown={event => event.stopPropagation()}>

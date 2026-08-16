@@ -8,12 +8,13 @@ export class KnowledgeApiError extends Error {
   }
 }
 
-async function request(accessToken, path, { method = 'GET', body } = {}) {
+async function request(accessToken, path, { method = 'GET', body, keepalive = false } = {}) {
   const response = await fetch(`${apiBaseUrl}${path}`, {
     method,
     credentials: 'include',
     headers: { Authorization: `Bearer ${accessToken}`, ...(body ? { 'Content-Type': 'application/json' } : {}) },
     body: body ? JSON.stringify(body) : undefined,
+    keepalive,
   });
   if (!response.ok) {
     const problem = await response.json().catch(() => null);
@@ -39,7 +40,7 @@ export const knowledgeClient = {
     method: 'PUT', body: { name, description, parentSubjectId: parentSubjectId || null },
   }),
   deleteSubject: (accessToken, id) => request(accessToken, `/api/subjects/${id}`, { method: 'DELETE' }),
-  saveSubjectLayout: (accessToken, positions) => request(accessToken, '/api/subjects/layout', { method: 'PUT', body: { positions } }),
+  saveSubjectLayout: (accessToken, positions, keepalive) => request(accessToken, '/api/subjects/layout', { method: 'PUT', body: { positions }, keepalive }),
   createStudyNote: (accessToken, subjectId, topicId, title, content, studyDuration, studyStartedAtUtc, metrics) => request(accessToken, `/api/subjects/${subjectId}/notes`, {
     method: 'POST', body: { topicId, title, content, metrics, studyDuration, studyStartedAtUtc },
   }),

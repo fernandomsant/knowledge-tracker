@@ -195,9 +195,9 @@ export function useKnowledgeStore(accessToken, refreshAccessToken) {
     }
   }, [execute]);
 
-  const saveSubjectLayout = useCallback(async positions => {
+  const saveSubjectLayout = useCallback(async (positions, { keepalive = false } = {}) => {
     try {
-      await execute(token => knowledgeClient.saveSubjectLayout(token, positions));
+      await execute(token => knowledgeClient.saveSubjectLayout(token, positions, keepalive));
       dispatch({ type: 'request/clear' });
       return true;
     } catch (reason) {

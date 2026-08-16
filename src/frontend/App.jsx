@@ -186,6 +186,7 @@ export default function App() {
   const [canvasExpanded, setCanvasExpanded] = useState(false);
   const [canvasContext, setCanvasContext] = useState(initialCanvasContext);
   const copiedTimerRef = useRef(null);
+  const pendingLayoutRef = useRef(new Map());
 
   useEffect(() => {
     const focusSearch = event => {
@@ -230,6 +231,25 @@ export default function App() {
     setView('canvas');
     setCanvasContext(context => ({ ...context, openSubjectId: id }));
   }, []);
+
+  const queueLayoutSave = useCallback(positions => {
+    positions.forEach(position => pendingLayoutRef.current.set(position.subjectId, position));
+  }, []);
+
+  const flushLayoutSave = useCallback(options => {
+    const positions = [...pendingLayoutRef.current.values()];
+    if (!positions.length) return Promise.resolve(true);
+    pendingLayoutRef.current.clear();
+    return saveSubjectLayout(positions, options);
+  }, [saveSubjectLayout]);
+
+  useEffect(() => {
+    const flushOnPageHide = () => {
+      void flushLayoutSave({ keepalive: true });
+    };
+    window.addEventListener('pagehide', flushOnPageHide);
+    return () => window.removeEventListener('pagehide', flushOnPageHide);
+  }, [flushLayoutSave]);
 
   const handleNavigate = useCallback(label => {
     setActiveNav(label);
@@ -311,7 +331,7 @@ export default function App() {
                 goalsBySubject={goalsBySubject}
                 onCreateMetricDefinition={createMetricDefinition}
                 onCreateTopic={createTopic}
-                onSaveLayout={saveSubjectLayout}
+                onSaveLayout={queueLayoutSave}
                 onUpdateSubject={updateSubject}
                 onCreateSubject={openModal}
                 onRemoveSubject={removeSubject}
@@ -350,7 +370,7 @@ export default function App() {
           goalsBySubject,
           onCreateMetricDefinition: createMetricDefinition,
           onCreateTopic: createTopic,
-          onSaveLayout: saveSubjectLayout,
+          onSaveLayout: queueLayoutSave,
           onUpdateSubject: updateSubject,
           onCreateSubject: openModal,
           onRemoveSubject: removeSubject,

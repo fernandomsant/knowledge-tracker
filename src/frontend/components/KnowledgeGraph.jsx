@@ -266,7 +266,7 @@ export function KnowledgeGraph({
   onSetSubGoalCompletion,
   onSaveLayout,
 }) {
-  const { pan, zoom, connectMode, connectionStart, openSubjectId, connectionsOpen, drawer } = canvasContext;
+  const { pan, zoom, connectMode, connectionStart, openSubjectId, connectionsOpen, drawer, hasCenteredSubjectLayout } = canvasContext;
   const canvasRef = useRef(null);
   const panDragRef = useRef(null);
 
@@ -300,6 +300,28 @@ export function KnowledgeGraph({
   }), [manualPositions, positionedSubjects]);
   const displaySubjectsById = useMemo(() => new Map(displaySubjects.map(subject => [subject.id, subject])), [displaySubjects]);
   const positionedHierarchyEdges = useMemo(() => getSubjectHierarchyEdges(displaySubjects), [displaySubjects]);
+
+  const getCenteredPan = useCallback((subjectsToCenter, nextZoom) => {
+    const canvas = canvasRef.current;
+    if (!canvas || !subjectsToCenter.length) return { x: 0, y: 0 };
+    const centroid = subjectsToCenter.reduce(
+      (total, subject) => ({ x: total.x + subject.x + NODE_WIDTH / 2, y: total.y + subject.y + NODE_HEIGHT / 2 }),
+      { x: 0, y: 0 },
+    );
+    const canvasBounds = canvas.getBoundingClientRect();
+    return {
+      x: canvasBounds.width / 2 - (centroid.x / subjectsToCenter.length) * nextZoom,
+      y: canvasBounds.height / 2 - (centroid.y / subjectsToCenter.length) * nextZoom,
+    };
+  }, []);
+
+  useEffect(() => {
+    if (hasCenteredSubjectLayout || !displaySubjects.length) return;
+    updateCanvasContext({
+      pan: getCenteredPan(displaySubjects, zoom),
+      hasCenteredSubjectLayout: true,
+    });
+  }, [displaySubjects, getCenteredPan, hasCenteredSubjectLayout, updateCanvasContext, zoom]);
 
   const beginPan = useCallback(event => {
     if (event.button !== 0 || event.target.closest('button, .subject-drawer, .canvas-controls')) return;
@@ -364,8 +386,12 @@ export function KnowledgeGraph({
       normalizedX: subject.x / (CANVAS_WORLD_WIDTH - NODE_WIDTH),
       normalizedY: subject.y / (CANVAS_WORLD_HEIGHT - NODE_HEIGHT),
     })));
-    updateCanvasContext({ pan: { x: 0, y: 0 }, zoom: 1 });
-  }, [onCanvasContextChange, onSaveLayout, positionedSubjects, updateCanvasContext]);
+    updateCanvasContext({
+      pan: getCenteredPan(positionedSubjects, 1),
+      zoom: 1,
+      hasCenteredSubjectLayout: true,
+    });
+  }, [getCenteredPan, onCanvasContextChange, onSaveLayout, positionedSubjects, updateCanvasContext]);
 
   const moveSubject = useCallback((id, x, y) => {
     const position = {

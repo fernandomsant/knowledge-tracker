@@ -23,6 +23,7 @@ const NAV_ITEMS = [
 const initialCanvasContext = {
   pan: { x: 0, y: 0 },
   zoom: 1,
+  hasCenteredSubjectLayout: false,
   connectMode: false,
   connectionStart: null,
   openSubjectId: null,

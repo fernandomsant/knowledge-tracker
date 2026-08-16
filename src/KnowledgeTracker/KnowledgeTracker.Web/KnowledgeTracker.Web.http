@@ -4,3 +4,9 @@ GET {{KnowledgeTracker.Web_HostAddress}}/weatherforecast/
 Accept: application/json
 
 ###
+
+@accessToken = replace-with-an-access-token
+@topicId = replace-with-an-unused-topic-id
+
+DELETE {{KnowledgeTracker.Web_HostAddress}}/api/topics/{{topicId}}
+Authorization: Bearer {{accessToken}}

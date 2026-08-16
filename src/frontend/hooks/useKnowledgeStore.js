@@ -18,6 +18,7 @@ function knowledgeReducer(state, action) {
     case 'request/failed': return { ...state, error: action.error };
     case 'request/clear': return { ...state, error: null };
     case 'topic/add': return { ...state, topics: [...state.topics, action.topic] };
+    case 'topic/remove': return { ...state, topics: state.topics.filter(topic => topic.id !== action.id) };
     case 'subject/add': return { ...state, subjects: [...state.subjects, action.subject] };
     case 'subject/update': return { ...state, subjects: state.subjects.map(subject => subject.id === action.subject.id ? { ...subject, ...action.subject } : subject) };
     case 'subject/remove': return {
@@ -211,6 +212,18 @@ export function useKnowledgeStore(accessToken, refreshAccessToken) {
     }
   }, [execute]);
 
+  const removeTopic = useCallback(async id => {
+    try {
+      await execute(token => knowledgeClient.deleteTopic(token, id));
+      dispatch({ type: 'topic/remove', id });
+      dispatch({ type: 'request/clear' });
+      return true;
+    } catch (reason) {
+      dispatch({ type: 'request/failed', error: errorMessage(reason) });
+      return false;
+    }
+  }, [execute]);
+
   const saveSubjectLayout = useCallback(async (positions, { keepalive = false } = {}) => {
     try {
       await execute(token => knowledgeClient.saveSubjectLayout(token, positions, keepalive));
@@ -303,5 +316,5 @@ export function useKnowledgeStore(accessToken, refreshAccessToken) {
     }
   }, [execute]);
 
-  return { ...state, subjectsById, notesBySubject, goalsBySubject, addSubject, updateSubject, removeSubject, addNote, updateNote, removeNote, createMetricDefinition, createTopic, saveSubjectLayout, connectSubjects, removeConnection, addSubjectGoal, removeSubjectGoal, completeSubjectGoal, prioritizeSubjectGoal, setSubGoalCompletion };
+  return { ...state, subjectsById, notesBySubject, goalsBySubject, addSubject, updateSubject, removeSubject, addNote, updateNote, removeNote, createMetricDefinition, createTopic, removeTopic, saveSubjectLayout, connectSubjects, removeConnection, addSubjectGoal, removeSubjectGoal, completeSubjectGoal, prioritizeSubjectGoal, setSubGoalCompletion };
 }

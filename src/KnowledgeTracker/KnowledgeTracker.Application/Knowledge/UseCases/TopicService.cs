@@ -28,7 +28,15 @@ public sealed class TopicService(ITopicRepository topics, ISubjectRepository sub
         return ToDetails(topic);
     }
 
-    public Task<bool> DeleteAsync(Guid id, CancellationToken ct) => topics.DeleteAsync(id, ct);
+    public async Task<bool> DeleteAsync(Guid id, CancellationToken ct)
+    {
+        if (await topics.FindAsync(id, ct) is null)
+            return false;
+        if (await topics.IsInUseAsync(id, ct))
+            throw new InvalidOperationException("A topic with notes or goals cannot be deleted.");
+
+        return await topics.DeleteAsync(id, ct);
+    }
 
     private static TopicDetails ToDetails(Topic topic) => new(topic.Id, topic.SubjectId, topic.Name);
 }

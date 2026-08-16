@@ -172,7 +172,7 @@ export default function App() {
   const { accessToken, user, logout, refreshAccessToken } = useAuthenticationSession();
   const {
     subjects, notes, connections, goals, topics, metricDefinitions, subjectsById, notesBySubject, goalsBySubject, status: knowledgeStatus, error: knowledgeError,
-    addSubject, updateSubject, removeSubject, addNote, updateNote, removeNote, createMetricDefinition, createTopic, saveSubjectLayout, connectSubjects, removeConnection, addSubjectGoal, removeSubjectGoal, completeSubjectGoal, prioritizeSubjectGoal, setSubGoalCompletion,
+    addSubject, updateSubject, removeSubject, addNote, updateNote, removeNote, createMetricDefinition, createTopic, removeTopic, saveSubjectLayout, connectSubjects, removeConnection, addSubjectGoal, removeSubjectGoal, completeSubjectGoal, prioritizeSubjectGoal, setSubGoalCompletion,
   } = useKnowledgeStore(accessToken, refreshAccessToken);
   const [activeNav, setActiveNav] = useState('Overview');
   const [activeSubject, setActiveSubject] = useState('all');
@@ -333,6 +333,7 @@ export default function App() {
                 goalsBySubject={goalsBySubject}
                 onCreateMetricDefinition={createMetricDefinition}
                 onCreateTopic={createTopic}
+                onRemoveTopic={removeTopic}
                 onSaveLayout={queueLayoutSave}
                 onUpdateSubject={updateSubject}
                 onCreateSubject={openModal}
@@ -373,6 +374,7 @@ export default function App() {
           goalsBySubject,
           onCreateMetricDefinition: createMetricDefinition,
           onCreateTopic: createTopic,
+          onRemoveTopic: removeTopic,
           onSaveLayout: queueLayoutSave,
           onUpdateSubject: updateSubject,
           onCreateSubject: openModal,

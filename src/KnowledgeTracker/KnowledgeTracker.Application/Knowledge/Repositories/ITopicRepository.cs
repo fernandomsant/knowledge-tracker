@@ -8,5 +8,6 @@ public interface ITopicRepository
     Task<IReadOnlyCollection<Topic>> ListAsync(CancellationToken ct);
     Task AddAsync(Topic topic, CancellationToken ct);
     Task UpdateAsync(Topic topic, CancellationToken ct);
+    Task<bool> IsInUseAsync(Guid id, CancellationToken ct);
     Task<bool> DeleteAsync(Guid id, CancellationToken ct);
 }

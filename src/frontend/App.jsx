@@ -3,7 +3,7 @@ import { lazy, Suspense } from 'react';
 import {
   ArrowRight, Bell, Brain, Check, ChevronDown, Clock3, FileText, Folder,
   GitBranch, Hash, HelpCircle, LayoutDashboard, Library, List, LogOut, Menu,
-  Maximize2, MoreHorizontal, Network, Plus, Search, Settings, Share2, Sparkles, X, Zap,
+  Maximize2, MoreHorizontal, Network, Plus, Search, Settings, Share2, Sparkles, Trash2, X, Zap,
 } from './icons';
 import { useAuthenticationSession } from './authentication/context/AuthenticationContext';
 import { useKnowledgeStore } from './hooks/useKnowledgeStore';
@@ -99,7 +99,7 @@ const StatCard = memo(function StatCard({ Icon, color, label, value, detail }) {
   return <article className="stat-card"><span className={`stat-icon ${color}`}><Icon size={20}/></span><div><small>{label}</small><strong>{value}</strong><p>{detail}</p></div></article>;
 });
 
-const NotesList = memo(function NotesList({ notes, subjectsById, topicsById }) {
+const NotesList = memo(function NotesList({ notes, subjectsById, topicsById, onRemoveNote }) {
   return (
     <div className="notes-list">
       {notes.map(note => {
@@ -111,7 +111,7 @@ const NotesList = memo(function NotesList({ notes, subjectsById, topicsById }) {
             <div className="note-copy"><strong>{note.title}</strong><p>{note.excerpt}</p></div>
             <time>{note.date}</time>
             <span className={`subject-tag ${subject.color}`}>{topic?.name ?? subject.name}</span>
-            <IconButton label={`Options for ${note.title}`}><MoreHorizontal size={18}/></IconButton>
+            <IconButton label={`Delete ${note.title}`} onClick={() => { if (window.confirm(`Delete ${note.title}?`)) void onRemoveNote(note.id); }}><Trash2 size={18}/></IconButton>
           </article>
         );
       })}
@@ -172,7 +172,7 @@ export default function App() {
   const { accessToken, user, logout, refreshAccessToken } = useAuthenticationSession();
   const {
     subjects, notes, connections, goals, topics, metricDefinitions, subjectsById, notesBySubject, goalsBySubject, status: knowledgeStatus, error: knowledgeError,
-    addSubject, updateSubject, removeSubject, addNote, updateNote, createMetricDefinition, createTopic, saveSubjectLayout, connectSubjects, removeConnection, addSubjectGoal, removeSubjectGoal, completeSubjectGoal, prioritizeSubjectGoal, setSubGoalCompletion,
+    addSubject, updateSubject, removeSubject, addNote, updateNote, removeNote, createMetricDefinition, createTopic, saveSubjectLayout, connectSubjects, removeConnection, addSubjectGoal, removeSubjectGoal, completeSubjectGoal, prioritizeSubjectGoal, setSubGoalCompletion,
   } = useKnowledgeStore(accessToken, refreshAccessToken);
   const [activeNav, setActiveNav] = useState('Overview');
   const [activeSubject, setActiveSubject] = useState('all');
@@ -328,6 +328,7 @@ export default function App() {
                 onConnect={connectSubjects}
                 onAddNote={addNote}
                 onUpdateNote={updateNote}
+                onRemoveNote={removeNote}
                 metricDefinitions={metricDefinitions}
                 goalsBySubject={goalsBySubject}
                 onCreateMetricDefinition={createMetricDefinition}
@@ -342,7 +343,7 @@ export default function App() {
                 onCompleteGoal={completeSubjectGoal}
                 onSetSubGoalCompletion={setSubGoalCompletion}
               />
-            ) : <NotesList notes={filteredNotes} subjectsById={subjectsById} topicsById={topicsById}/>}
+            ) : <NotesList notes={filteredNotes} subjectsById={subjectsById} topicsById={topicsById} onRemoveNote={removeNote}/>}
           </section>
           <section className="bottom-grid">
             <article className="activity-card">
@@ -367,6 +368,7 @@ export default function App() {
           onConnect: connectSubjects,
           onAddNote: addNote,
           onUpdateNote: updateNote,
+          onRemoveNote: removeNote,
           metricDefinitions,
           goalsBySubject,
           onCreateMetricDefinition: createMetricDefinition,

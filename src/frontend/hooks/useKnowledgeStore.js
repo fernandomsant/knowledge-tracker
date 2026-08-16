@@ -32,6 +32,10 @@ function knowledgeReducer(state, action) {
       const goals = applyMetricDelta(applyMetricDelta(state.goals, previous?.metrics ?? [], -1), action.note.metrics, 1);
       return { ...state, notes: state.notes.map(note => note.id === action.note.id ? { ...note, ...action.note } : note), goals };
     }
+    case 'note/remove': {
+      const note = state.notes.find(candidate => candidate.id === action.id);
+      return { ...state, notes: state.notes.filter(candidate => candidate.id !== action.id), goals: applyMetricDelta(state.goals, note?.metrics ?? [], -1) };
+    }
     case 'connection/add': return { ...state, connections: [...state.connections, action.connection] };
     case 'connection/remove': return { ...state, connections: state.connections.filter(connection => connection.id !== action.id) };
     case 'goal/add': return { ...state, goals: orderGoals([...state.goals, action.goal]) };
@@ -171,6 +175,18 @@ export function useKnowledgeStore(accessToken, refreshAccessToken) {
     }
   }, [execute]);
 
+  const removeNote = useCallback(async id => {
+    try {
+      await execute(token => knowledgeClient.deleteStudyNote(token, id));
+      dispatch({ type: 'note/remove', id });
+      dispatch({ type: 'request/clear' });
+      return true;
+    } catch (reason) {
+      dispatch({ type: 'request/failed', error: errorMessage(reason) });
+      return false;
+    }
+  }, [execute]);
+
   const createMetricDefinition = useCallback(async (name, numberKind) => {
     try {
       const definition = await execute(token => knowledgeClient.createMetricDefinition(token, name, numberKind));
@@ -287,5 +303,5 @@ export function useKnowledgeStore(accessToken, refreshAccessToken) {
     }
   }, [execute]);
 
-  return { ...state, subjectsById, notesBySubject, goalsBySubject, addSubject, updateSubject, removeSubject, addNote, updateNote, createMetricDefinition, createTopic, saveSubjectLayout, connectSubjects, removeConnection, addSubjectGoal, removeSubjectGoal, completeSubjectGoal, prioritizeSubjectGoal, setSubGoalCompletion };
+  return { ...state, subjectsById, notesBySubject, goalsBySubject, addSubject, updateSubject, removeSubject, addNote, updateNote, removeNote, createMetricDefinition, createTopic, saveSubjectLayout, connectSubjects, removeConnection, addSubjectGoal, removeSubjectGoal, completeSubjectGoal, prioritizeSubjectGoal, setSubGoalCompletion };
 }

@@ -91,7 +91,7 @@ const SubjectNode = memo(function SubjectNode({
   );
 });
 
-function SubjectDrawer({ subject, subjects, topics, notes, goals, metricDefinitions, drawer, onDrawerChange, onClose, onAddNote, onUpdateNote, onCreateMetricDefinition, onCreateTopic, onUpdateSubject, onRemoveSubject, onCreateGoal, onRemoveGoal, onCompleteGoal, onSetSubGoalCompletion }) {
+function SubjectDrawer({ subject, subjects, topics, notes, goals, metricDefinitions, drawer, onDrawerChange, onClose, onAddNote, onUpdateNote, onRemoveNote, onCreateMetricDefinition, onCreateTopic, onUpdateSubject, onRemoveSubject, onCreateGoal, onRemoveGoal, onCompleteGoal, onSetSubGoalCompletion }) {
   const { editingId, title, excerpt, topicId, studyStartedAt, studyDuration, metrics, editingSubject, subjectName, subjectDescription, parentSubjectId } = drawer;
   const subjectTopics = topics.filter(topic => topic.subjectId === subject.id);
   const titleRef = useRef(null);
@@ -230,7 +230,7 @@ function SubjectDrawer({ subject, subjects, topics, notes, goals, metricDefiniti
               <button type="button" className="drawer-note-preview" onClick={() => openNote(note)}><strong>{note.title}</strong><p>{note.excerpt || 'No excerpt yet.'}</p><small>{note.date}</small></button>
               <IconButton label={`Edit ${note.title}`} onClick={() => beginEditing(note)}><MoreHorizontal size={18}/></IconButton>
             </article>
-            {viewingNote?.id === note.id ? <NoteViewer note={note} onClose={() => setViewingNoteId(null)} onEdit={() => beginEditing(note)}/> : null}
+            {viewingNote?.id === note.id ? <NoteViewer note={note} onClose={() => setViewingNoteId(null)} onEdit={() => beginEditing(note)} onDelete={async () => { if (await onRemoveNote(note.id)) setViewingNoteId(null); }}/> : null}
           </div>
         ))}
         {notes.length === 0 && editingId === null ? (
@@ -256,6 +256,7 @@ export function KnowledgeGraph({
   onCreateMetricDefinition,
   onCreateTopic,
   onUpdateNote,
+  onRemoveNote,
   onUpdateSubject,
   onCreateSubject,
   onRemoveSubject,
@@ -527,6 +528,7 @@ export function KnowledgeGraph({
             onClose={() => updateCanvasContext({ openSubjectId: null })}
             onAddNote={onAddNote}
             onUpdateNote={onUpdateNote}
+            onRemoveNote={onRemoveNote}
             onCreateMetricDefinition={onCreateMetricDefinition}
             onCreateTopic={onCreateTopic}
             onUpdateSubject={onUpdateSubject}

@@ -1,9 +1,9 @@
-import { Clock3, FileText, Pencil, X } from '../../icons';
+import { Clock3, FileText, Pencil, Trash2, X } from '../../icons';
 import { IconButton } from '../IconButton';
 
 const studyDateFormatter = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
-export function NoteViewer({ note, onClose, onEdit }) {
+export function NoteViewer({ note, onClose, onEdit, onDelete }) {
   const studiedAt = note.studyStartedAtUtc ? studyDateFormatter.format(new Date(note.studyStartedAtUtc)) : 'Not recorded';
 
   return (
@@ -12,6 +12,7 @@ export function NoteViewer({ note, onClose, onEdit }) {
         <div><span>OPEN NOTE</span><h4 id={`note-viewer-${note.id}`}>{note.title}</h4></div>
         <div className="note-viewer-actions">
           <button type="button" className="text-button" onClick={onEdit}><Pencil size={15}/> Edit note</button>
+          <button type="button" className="remove-node-button" onClick={() => { if (window.confirm(`Delete ${note.title}?`)) void onDelete(); }}><Trash2 size={15}/> Delete note</button>
           <IconButton label="Close note" onClick={onClose}><X size={17}/></IconButton>
         </div>
       </div>

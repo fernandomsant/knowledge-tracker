@@ -72,5 +72,18 @@ export function layoutSubjects(subjects, connections) {
     const y = Math.min(INITIAL_LAYOUT_HEIGHT - NODE_HEIGHT - 20, 48 + depth * 166);
     level.forEach((subject, index) => positioned.set(subject.id, { ...subject, x: startX + index * (NODE_WIDTH + gap), y }));
   });
-  return subjects.map(subject => positioned.get(subject.id) ?? { ...subject, x: 20, y: 20 });
+  const generatedSubjects = subjects.map(subject => positioned.get(subject.id) ?? { ...subject, x: 20, y: 20 });
+  if (!generatedSubjects.length) return generatedSubjects;
+  const centroid = generatedSubjects.reduce(
+    (total, subject) => ({ x: total.x + subject.x + NODE_WIDTH / 2, y: total.y + subject.y + NODE_HEIGHT / 2 }),
+    { x: 0, y: 0 },
+  );
+  const offsetX = CANVAS_WORLD_WIDTH / 2 - centroid.x / generatedSubjects.length;
+  const offsetY = CANVAS_WORLD_HEIGHT / 2 - centroid.y / generatedSubjects.length;
+
+  return generatedSubjects.map(subject => ({
+    ...subject,
+    x: Math.min(CANVAS_WORLD_WIDTH - NODE_WIDTH, Math.max(0, subject.x + offsetX)),
+    y: Math.min(CANVAS_WORLD_HEIGHT - NODE_HEIGHT, Math.max(0, subject.y + offsetY)),
+  }));
 }

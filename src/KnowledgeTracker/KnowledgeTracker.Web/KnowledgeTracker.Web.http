@@ -31,13 +31,3 @@ Content-Type: application/json
   "periodEndDate": null,
   "subGoals": []
 }
-
-###
-
-PUT {{KnowledgeTracker.Web_HostAddress}}/api/subject-goals/{{subjectGoalId}}/day-records/2026-08-17
-Authorization: Bearer {{accessToken}}
-Content-Type: application/json
-
-{
-  "isCompleted": true
-}

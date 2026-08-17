@@ -12,8 +12,6 @@ public interface ISubjectGoalRepository
     Task<bool> CompleteAsync(Guid id, DateTimeOffset completedAtUtc, CancellationToken ct);
     Task AddSubGoalsAsync(IReadOnlyCollection<SubjectSubGoal> subGoals, CancellationToken ct);
     Task<IReadOnlyCollection<SubjectSubGoal>> ListSubGoalsAsync(IReadOnlyCollection<Guid> subjectGoalIds, CancellationToken ct);
-    Task<IReadOnlyCollection<SubjectGoalDayRecord>> ListDayRecordsAsync(IReadOnlyCollection<Guid> subjectGoalIds, CancellationToken ct);
-    Task<SubjectGoalDayRecord> UpsertDayRecordAsync(SubjectGoalDayRecord dayRecord, CancellationToken ct);
     Task<bool> SetSubGoalCompletionAsync(Guid id, bool isCompleted, DateTimeOffset changedAtUtc, CancellationToken ct);
     Task<bool> SwapPriorityAsync(Guid id, Guid swapWithId, CancellationToken ct);
 }

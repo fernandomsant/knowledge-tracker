@@ -91,7 +91,7 @@ const SubjectNode = memo(function SubjectNode({
   );
 });
 
-function SubjectDrawer({ subject, subjects, topics, notes, goals, metricDefinitions, drawer, onDrawerChange, onClose, onAddNote, onUpdateNote, onRemoveNote, onCreateMetricDefinition, onCreateTopic, onRemoveTopic, onUpdateSubject, onRemoveSubject, onCreateGoal, onUpdateGoal, onRecordGoalDay, onRemoveGoal, onCompleteGoal, onSetSubGoalCompletion }) {
+function SubjectDrawer({ subject, subjects, topics, notes, goals, metricDefinitions, drawer, onDrawerChange, onClose, onAddNote, onUpdateNote, onRemoveNote, onCreateMetricDefinition, onCreateTopic, onRemoveTopic, onUpdateSubject, onRemoveSubject, onCreateGoal, onUpdateGoal, onRemoveGoal, onCompleteGoal, onSetSubGoalCompletion }) {
   const { editingId, title, excerpt, topicId, studyStartedAt, studyDuration, metrics, editingSubject, subjectName, subjectDescription, parentSubjectId } = drawer;
   const subjectTopics = topics.filter(topic => topic.subjectId === subject.id);
   const titleRef = useRef(null);
@@ -191,7 +191,7 @@ function SubjectDrawer({ subject, subjects, topics, notes, goals, metricDefiniti
           <div><button type="button" className="ghost-button" onClick={() => onDrawerChange({ editingSubject: false })}>Cancel</button></div>
         </form>
       ) : null}
-      <SubjectGoals subjectId={subject.id} goals={goals} notes={notes} topics={subjectTopics} metricDefinitions={metricDefinitions} onCreateTopic={onCreateTopic} onRemoveTopic={onRemoveTopic} onCreate={goal => onCreateGoal(subject.id, goal)} onUpdate={onUpdateGoal} onRecordDay={onRecordGoalDay} onRemove={onRemoveGoal} onComplete={onCompleteGoal} onSetSubGoalCompletion={onSetSubGoalCompletion}/>
+      <SubjectGoals subjectId={subject.id} goals={goals} notes={notes} topics={subjectTopics} metricDefinitions={metricDefinitions} onCreateTopic={onCreateTopic} onRemoveTopic={onRemoveTopic} onCreate={goal => onCreateGoal(subject.id, goal)} onUpdate={onUpdateGoal} onRemove={onRemoveGoal} onComplete={onCompleteGoal} onSetSubGoalCompletion={onSetSubGoalCompletion}/>
       <div className="drawer-section-title">
         <div><span>Ideas in this subject</span><small>Capture thoughts while the context is fresh.</small></div>
         <button className="text-button" onClick={() => beginEditing(null)}><Plus size={15}/> Add note</button>
@@ -265,7 +265,6 @@ export function KnowledgeGraph({
   onRemoveConnection,
   onCreateGoal,
   onUpdateGoal,
-  onRecordGoalDay,
   onRemoveGoal,
   onCompleteGoal,
   onSetSubGoalCompletion,
@@ -540,7 +539,6 @@ export function KnowledgeGraph({
               onRemoveSubject={removeOpenSubject}
               onCreateGoal={onCreateGoal}
               onUpdateGoal={onUpdateGoal}
-              onRecordGoalDay={onRecordGoalDay}
               onRemoveGoal={onRemoveGoal}
               onCompleteGoal={onCompleteGoal}
               onSetSubGoalCompletion={onSetSubGoalCompletion}

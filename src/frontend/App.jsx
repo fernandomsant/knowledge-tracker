@@ -172,7 +172,7 @@ export default function App() {
   const { accessToken, user, logout, refreshAccessToken } = useAuthenticationSession();
   const {
     subjects, notes, connections, goals, topics, metricDefinitions, subjectsById, notesBySubject, goalsBySubject, status: knowledgeStatus, error: knowledgeError,
-    addSubject, updateSubject, removeSubject, addNote, updateNote, removeNote, createMetricDefinition, createTopic, removeTopic, saveSubjectLayout, connectSubjects, removeConnection, addSubjectGoal, updateSubjectGoal, recordSubjectGoalDay, removeSubjectGoal, completeSubjectGoal, prioritizeSubjectGoal, setSubGoalCompletion,
+    addSubject, updateSubject, removeSubject, addNote, updateNote, removeNote, createMetricDefinition, createTopic, removeTopic, saveSubjectLayout, connectSubjects, removeConnection, addSubjectGoal, updateSubjectGoal, removeSubjectGoal, completeSubjectGoal, prioritizeSubjectGoal, setSubGoalCompletion,
   } = useKnowledgeStore(accessToken, refreshAccessToken);
   const [activeNav, setActiveNav] = useState('Overview');
   const [activeSubject, setActiveSubject] = useState('all');
@@ -341,7 +341,6 @@ export default function App() {
                 onRemoveConnection={removeConnection}
                 onCreateGoal={addSubjectGoal}
                 onUpdateGoal={updateSubjectGoal}
-                onRecordGoalDay={recordSubjectGoalDay}
                 onRemoveGoal={removeSubjectGoal}
                 onCompleteGoal={completeSubjectGoal}
                 onSetSubGoalCompletion={setSubGoalCompletion}
@@ -384,7 +383,6 @@ export default function App() {
           onRemoveConnection: removeConnection,
           onCreateGoal: addSubjectGoal,
           onUpdateGoal: updateSubjectGoal,
-          onRecordGoalDay: recordSubjectGoalDay,
           onRemoveGoal: removeSubjectGoal,
           onCompleteGoal: completeSubjectGoal,
           onSetSubGoalCompletion: setSubGoalCompletion,

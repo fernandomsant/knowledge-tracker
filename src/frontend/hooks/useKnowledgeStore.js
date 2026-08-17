@@ -41,6 +41,16 @@ function knowledgeReducer(state, action) {
     case 'connection/remove': return { ...state, connections: state.connections.filter(connection => connection.id !== action.id) };
     case 'goal/add': return { ...state, goals: orderGoals([...state.goals, action.goal]) };
     case 'goal/update': return { ...state, goals: orderGoals(state.goals.map(goal => goal.id === action.goal.id ? action.goal : goal)) };
+    case 'goal/day-recorded': return {
+      ...state,
+      goals: state.goals.map(goal => goal.id === action.goalId ? {
+        ...goal,
+        dayRecords: [
+          ...(goal.dayRecords ?? []).filter(record => record.occurredOn !== action.record.occurredOn),
+          action.record,
+        ].toSorted((left, right) => right.occurredOn.localeCompare(left.occurredOn)),
+      } : goal),
+    };
     case 'goal/remove': return { ...state, goals: state.goals.filter(goal => goal.id !== action.id) };
     case 'goal/complete': return { ...state, goals: state.goals.map(goal => goal.id === action.id ? { ...goal, isCompleted: true, completedAtUtc: action.completedAtUtc } : goal) };
     case 'goal/prioritize': {
@@ -284,6 +294,18 @@ export function useKnowledgeStore(accessToken, refreshAccessToken) {
     }
   }, [execute]);
 
+  const recordSubjectGoalDay = useCallback(async (id, occurredOn, isCompleted) => {
+    try {
+      const record = await execute(token => knowledgeClient.recordSubjectGoalDay(token, id, occurredOn, isCompleted));
+      dispatch({ type: 'goal/day-recorded', goalId: id, record });
+      dispatch({ type: 'request/clear' });
+      return record;
+    } catch (reason) {
+      dispatch({ type: 'request/failed', error: errorMessage(reason) });
+      return null;
+    }
+  }, [execute]);
+
   const removeSubjectGoal = useCallback(async id => {
     try {
       await execute(token => knowledgeClient.deleteSubjectGoal(token, id));
@@ -298,8 +320,9 @@ export function useKnowledgeStore(accessToken, refreshAccessToken) {
 
   const completeSubjectGoal = useCallback(async id => {
     try {
-      await execute(token => knowledgeClient.completeSubjectGoal(token, id));
+      const record = await execute(token => knowledgeClient.completeSubjectGoal(token, id));
       dispatch({ type: 'goal/complete', id, completedAtUtc: new Date().toISOString() });
+      dispatch({ type: 'goal/day-recorded', goalId: id, record });
       dispatch({ type: 'request/clear' });
       return true;
     } catch (reason) {
@@ -329,5 +352,5 @@ export function useKnowledgeStore(accessToken, refreshAccessToken) {
     }
   }, [execute]);
 
-  return { ...state, subjectsById, notesBySubject, goalsBySubject, addSubject, updateSubject, removeSubject, addNote, updateNote, removeNote, createMetricDefinition, createTopic, removeTopic, saveSubjectLayout, connectSubjects, removeConnection, addSubjectGoal, updateSubjectGoal, removeSubjectGoal, completeSubjectGoal, prioritizeSubjectGoal, setSubGoalCompletion };
+  return { ...state, subjectsById, notesBySubject, goalsBySubject, addSubject, updateSubject, removeSubject, addNote, updateNote, removeNote, createMetricDefinition, createTopic, removeTopic, saveSubjectLayout, connectSubjects, removeConnection, addSubjectGoal, updateSubjectGoal, recordSubjectGoalDay, removeSubjectGoal, completeSubjectGoal, prioritizeSubjectGoal, setSubGoalCompletion };
 }

@@ -83,6 +83,27 @@ public sealed class SqlServerSubjectGoalRepository(Func<DbConnection> connection
         return subGoals;
     }
 
+    public async Task<IReadOnlyCollection<SubjectGoalDayRecord>> ListDayRecordsAsync(IReadOnlyCollection<Guid> subjectGoalIds, CancellationToken ct)
+    {
+        if (subjectGoalIds.Count == 0) return [];
+        await using var connection = connectionFactory(); await connection.OpenAsync(ct); await using var command = connection.CreateCommand();
+        var parameters = subjectGoalIds.Select((id, index) => { var name = $"@Id{index}"; command.AddParameter(name, DbType.Guid, id); return name; });
+        command.CommandText = $"SELECT Id, SubjectGoalId, OccurredOn, IsCompleted, RecordedAtUtc FROM dbo.SubjectGoalDayRecords WHERE SubjectGoalId IN ({string.Join(',', parameters)}) ORDER BY OccurredOn DESC;";
+        await using var reader = await command.ExecuteReaderAsync(ct); var records = new List<SubjectGoalDayRecord>();
+        while (await reader.ReadAsync(ct)) records.Add(new SubjectGoalDayRecord(reader.GetGuid(0), reader.GetGuid(1), DateOnly.FromDateTime(reader.GetDateTime(2)), reader.GetBoolean(3), reader.GetFieldValue<DateTimeOffset>(4)));
+        return records;
+    }
+
+    public async Task<SubjectGoalDayRecord> UpsertDayRecordAsync(SubjectGoalDayRecord dayRecord, CancellationToken ct)
+    {
+        await using var connection = connectionFactory(); await connection.OpenAsync(ct); await using var command = connection.CreateCommand();
+        command.CommandText = "MERGE dbo.SubjectGoalDayRecords WITH (HOLDLOCK) AS Target USING (VALUES (@SubjectGoalId, @OccurredOn, @Id, @IsCompleted, @RecordedAtUtc)) AS Source (SubjectGoalId, OccurredOn, Id, IsCompleted, RecordedAtUtc) ON Target.SubjectGoalId = Source.SubjectGoalId AND Target.OccurredOn = Source.OccurredOn WHEN MATCHED THEN UPDATE SET IsCompleted = Source.IsCompleted, RecordedAtUtc = Source.RecordedAtUtc WHEN NOT MATCHED THEN INSERT (Id, SubjectGoalId, OccurredOn, IsCompleted, RecordedAtUtc) VALUES (Source.Id, Source.SubjectGoalId, Source.OccurredOn, Source.IsCompleted, Source.RecordedAtUtc) OUTPUT inserted.Id, inserted.SubjectGoalId, inserted.OccurredOn, inserted.IsCompleted, inserted.RecordedAtUtc;";
+        command.AddParameter("@Id", DbType.Guid, dayRecord.Id); command.AddParameter("@SubjectGoalId", DbType.Guid, dayRecord.SubjectGoalId); command.AddParameter("@OccurredOn", DbType.Date, dayRecord.OccurredOn); command.AddParameter("@IsCompleted", DbType.Boolean, dayRecord.IsCompleted); command.AddParameter("@RecordedAtUtc", DbType.DateTimeOffset, dayRecord.RecordedAtUtc);
+        await using var reader = await command.ExecuteReaderAsync(ct);
+        if (!await reader.ReadAsync(ct)) throw new InvalidOperationException("The goal day record could not be saved.");
+        return new SubjectGoalDayRecord(reader.GetGuid(0), reader.GetGuid(1), DateOnly.FromDateTime(reader.GetDateTime(2)), reader.GetBoolean(3), reader.GetFieldValue<DateTimeOffset>(4));
+    }
+
     public async Task<bool> SetSubGoalCompletionAsync(Guid id, bool isCompleted, DateTimeOffset changedAtUtc, CancellationToken ct)
     {
         await using var connection = connectionFactory(); await connection.OpenAsync(ct); await using var command = connection.CreateCommand();

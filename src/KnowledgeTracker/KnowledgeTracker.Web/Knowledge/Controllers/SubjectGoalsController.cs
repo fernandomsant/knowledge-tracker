@@ -37,11 +37,26 @@ public sealed class SubjectGoalsController(ISubjectGoalService goals) : Controll
         catch (ArgumentException exception) { return BadRequest(new ProblemDetails { Detail = exception.Message }); }
     }
 
+    [HttpPut("subject-goals/{id:guid}/day-records/{occurredOn}")]
+    public async Task<ActionResult<SubjectGoalDayRecordResponse>> RecordDayAsync(Guid id, DateOnly occurredOn, RecordSubjectGoalDayRequest request, CancellationToken ct)
+    {
+        try
+        {
+            var record = await goals.RecordDayAsync(id, occurredOn, request.IsCompleted, ct);
+            return record is null ? NotFound() : Ok(new SubjectGoalDayRecordResponse(record.Id, record.OccurredOn, record.IsCompleted, record.RecordedAtUtc));
+        }
+        catch (ArgumentException exception) { return BadRequest(new ProblemDetails { Detail = exception.Message }); }
+    }
+
     [HttpDelete("subject-goals/{id:guid}")]
     public async Task<IActionResult> DeleteAsync(Guid id, CancellationToken ct) => await goals.DeleteAsync(id, ct) ? NoContent() : NotFound();
 
     [HttpPost("subject-goals/{id:guid}/complete")]
-    public async Task<IActionResult> CompleteAsync(Guid id, CancellationToken ct) => await goals.CompleteAsync(id, ct) ? NoContent() : BadRequest();
+    public async Task<ActionResult<SubjectGoalDayRecordResponse>> CompleteAsync(Guid id, CancellationToken ct)
+    {
+        var record = await goals.CompleteAsync(id, ct);
+        return record is null ? BadRequest() : Ok(new SubjectGoalDayRecordResponse(record.Id, record.OccurredOn, record.IsCompleted, record.RecordedAtUtc));
+    }
 
     [HttpPut("subject-goals/{id:guid}/priority")]
     public async Task<IActionResult> SwapPriorityAsync(Guid id, [FromBody] SwapSubjectGoalPriorityRequest request, CancellationToken ct) => await goals.SwapPriorityAsync(id, request.SwapWithId, ct) ? NoContent() : BadRequest();

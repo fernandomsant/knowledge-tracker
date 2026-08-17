@@ -10,7 +10,8 @@ public sealed class SubjectGoalService(ISubjectGoalRepository goals, ISubjectRep
         var studyNotes = await notes.ListBySubjectAsync(subjectId, ct);
         var definitionMap = (await definitions.ListAsync(ct)).ToDictionary(definition => definition.Id);
         var subGoals = await goals.ListSubGoalsAsync(subjectGoals.Select(goal => goal.Id).ToArray(), ct);
-        return subjectGoals.Select(goal => ToDetails(goal, studyNotes, definitionMap, subGoals.Where(item => item.SubjectGoalId == goal.Id))).ToArray();
+        var dayRecords = await goals.ListDayRecordsAsync(subjectGoals.Select(goal => goal.Id).ToArray(), ct);
+        return subjectGoals.Select(goal => ToDetails(goal, studyNotes, definitionMap, subGoals.Where(item => item.SubjectGoalId == goal.Id), dayRecords.Where(item => item.SubjectGoalId == goal.Id))).ToArray();
     }
 
     public async Task<SubjectGoalDetails?> CreateAsync(Guid subjectId, CreateSubjectGoalRequest request, CancellationToken ct)
@@ -31,7 +32,7 @@ public sealed class SubjectGoalService(ISubjectGoalRepository goals, ISubjectRep
         var subGoals = request.SubGoals.Where(title => !string.IsNullOrWhiteSpace(title)).Select(title => new SubjectSubGoal(Guid.NewGuid(), goal.Id, title, false, null, DateTimeOffset.UtcNow)).ToArray();
         await goals.AddSubGoalsAsync(subGoals, ct);
         var definitionMap = (await definitions.ListAsync(ct)).ToDictionary(definition => definition.Id);
-        return ToDetails(goal, await notes.ListBySubjectAsync(subjectId, ct), definitionMap, subGoals);
+        return ToDetails(goal, await notes.ListBySubjectAsync(subjectId, ct), definitionMap, subGoals, []);
     }
 
     public async Task<SubjectGoalDetails?> UpdateAsync(Guid id, UpdateSubjectGoalRequest request, CancellationToken ct)
@@ -54,11 +55,25 @@ public sealed class SubjectGoalService(ISubjectGoalRepository goals, ISubjectRep
         await goals.UpdateAsync(updated, subGoals, ct);
 
         var definitionMap = (await definitions.ListAsync(ct)).ToDictionary(definition => definition.Id);
-        return ToDetails(updated, await notes.ListBySubjectAsync(existing.SubjectId, ct), definitionMap, subGoals);
+        return ToDetails(updated, await notes.ListBySubjectAsync(existing.SubjectId, ct), definitionMap, subGoals, await goals.ListDayRecordsAsync([id], ct));
+    }
+
+    public async Task<SubjectGoalDayRecordDetails?> RecordDayAsync(Guid id, DateOnly occurredOn, bool isCompleted, CancellationToken ct)
+    {
+        if (occurredOn > DateOnly.FromDateTime(DateTime.UtcNow)) throw new ArgumentException("A goal day cannot be recorded in the future.", nameof(occurredOn));
+        if (await goals.FindAsync(id, ct) is null) return null;
+        var record = await goals.UpsertDayRecordAsync(new SubjectGoalDayRecord(Guid.NewGuid(), id, occurredOn, isCompleted, DateTimeOffset.UtcNow), ct);
+        return new SubjectGoalDayRecordDetails(record.Id, record.OccurredOn, record.IsCompleted, record.RecordedAtUtc);
     }
 
     public Task<bool> DeleteAsync(Guid id, CancellationToken ct) => goals.DeleteAsync(id, ct);
-    public Task<bool> CompleteAsync(Guid id, CancellationToken ct) => goals.CompleteAsync(id, DateTimeOffset.UtcNow, ct);
+    public async Task<SubjectGoalDayRecordDetails?> CompleteAsync(Guid id, CancellationToken ct)
+    {
+        var completedAtUtc = DateTimeOffset.UtcNow;
+        if (!await goals.CompleteAsync(id, completedAtUtc, ct)) return null;
+        var record = await goals.UpsertDayRecordAsync(new SubjectGoalDayRecord(Guid.NewGuid(), id, DateOnly.FromDateTime(completedAtUtc.UtcDateTime), true, completedAtUtc), ct);
+        return new SubjectGoalDayRecordDetails(record.Id, record.OccurredOn, record.IsCompleted, record.RecordedAtUtc);
+    }
     public Task<bool> SetSubGoalCompletionAsync(Guid id, bool isCompleted, CancellationToken ct) => goals.SetSubGoalCompletionAsync(id, isCompleted, DateTimeOffset.UtcNow, ct);
     public Task<bool> SwapPriorityAsync(Guid id, Guid swapWithId, CancellationToken ct) => goals.SwapPriorityAsync(id, swapWithId, ct);
 
@@ -80,7 +95,7 @@ public sealed class SubjectGoalService(ISubjectGoalRepository goals, ISubjectRep
             .ToArray();
     }
 
-    private static SubjectGoalDetails ToDetails(SubjectGoal goal, IReadOnlyCollection<StudyNote> notes, IReadOnlyDictionary<Guid, StudyMetricDefinition> definitions, IEnumerable<SubjectSubGoal> subGoals)
+    private static SubjectGoalDetails ToDetails(SubjectGoal goal, IReadOnlyCollection<StudyNote> notes, IReadOnlyDictionary<Guid, StudyMetricDefinition> definitions, IEnumerable<SubjectSubGoal> subGoals, IEnumerable<SubjectGoalDayRecord> dayRecords)
     {
         definitions.TryGetValue(goal.MetricDefinitionId ?? Guid.Empty, out var definition);
         var (periodStartDate, periodEndDate) = ResolvePeriod(goal, DateOnly.FromDateTime(DateTime.UtcNow));
@@ -92,7 +107,7 @@ public sealed class SubjectGoalService(ISubjectGoalRepository goals, ISubjectRep
                 ? scopedNotes.Sum(note => note.StudyDuration.Ticks / (decimal)TimeSpan.TicksPerHour)
                 : scopedNotes.SelectMany(note => note.Metrics).Where(metric => metric.Definition.Id == goal.MetricDefinitionId).Sum(metric => metric.Value)
             : null;
-        return new(goal.Id, goal.SubjectId, goal.TopicId, goal.Title, goal.Kind, definition is null ? null : new(definition.Id, definition.Name, definition.NumberKind), goal.TargetValue, currentValue, goal.TargetDate, goal.Period, periodStartDate, periodEndDate, goal.PriorityPosition, goal.IsCompleted, goal.CompletedAtUtc, goal.CreatedAtUtc, subGoals.Select(item => new SubjectSubGoalDetails(item.Id, item.Title, item.IsCompleted, item.CompletedAtUtc)).ToArray());
+        return new(goal.Id, goal.SubjectId, goal.TopicId, goal.Title, goal.Kind, definition is null ? null : new(definition.Id, definition.Name, definition.NumberKind), goal.TargetValue, currentValue, goal.TargetDate, goal.Period, periodStartDate, periodEndDate, goal.PriorityPosition, goal.IsCompleted, goal.CompletedAtUtc, goal.CreatedAtUtc, subGoals.Select(item => new SubjectSubGoalDetails(item.Id, item.Title, item.IsCompleted, item.CompletedAtUtc)).ToArray(), dayRecords.OrderByDescending(item => item.OccurredOn).Select(item => new SubjectGoalDayRecordDetails(item.Id, item.OccurredOn, item.IsCompleted, item.RecordedAtUtc)).ToArray());
     }
 
     private static bool IsWithinPeriod(StudyNote note, DateOnly? startDate, DateOnly? endDate)

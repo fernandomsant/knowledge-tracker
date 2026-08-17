@@ -57,6 +57,7 @@ export const knowledgeClient = {
   deleteConnection: (accessToken, id) => request(accessToken, `/api/subject-connections/${id}`, { method: 'DELETE' }),
   createSubjectGoal: (accessToken, subjectId, goal) => request(accessToken, `/api/subjects/${subjectId}/goals`, { method: 'POST', body: goal }),
   updateSubjectGoal: (accessToken, id, goal) => request(accessToken, `/api/subject-goals/${id}`, { method: 'PUT', body: goal }),
+  recordSubjectGoalDay: (accessToken, id, occurredOn, isCompleted) => request(accessToken, `/api/subject-goals/${id}/day-records/${occurredOn}`, { method: 'PUT', body: { isCompleted } }),
   deleteSubjectGoal: (accessToken, id) => request(accessToken, `/api/subject-goals/${id}`, { method: 'DELETE' }),
   completeSubjectGoal: (accessToken, id) => request(accessToken, `/api/subject-goals/${id}/complete`, { method: 'POST' }),
   swapSubjectGoalPriority: (accessToken, id, swapWithId) => request(accessToken, `/api/subject-goals/${id}/priority`, { method: 'PUT', body: { swapWithId } }),

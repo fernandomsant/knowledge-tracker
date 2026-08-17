@@ -150,5 +150,6 @@ public sealed record UpdateSubjectGoalRequest
 }
 
 public sealed record SetSubGoalCompletionRequest(bool IsCompleted);
+public sealed record RecordSubjectGoalDayRequest(bool IsCompleted);
 public sealed record SwapSubjectGoalPriorityRequest(Guid SwapWithId);
 public sealed record CreateTopicRequest { [Required, StringLength(256)] public required string Name { get; init; } }

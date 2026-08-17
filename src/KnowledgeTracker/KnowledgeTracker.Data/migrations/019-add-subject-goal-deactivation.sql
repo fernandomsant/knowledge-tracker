@@ -10,4 +10,7 @@ ADD CONSTRAINT CK_SubjectGoals_Activation CHECK
     OR (IsActive = 0 AND DeactivatedAtUtc IS NOT NULL)
 );');
 
-CREATE INDEX IX_SubjectGoals_ActiveSubjectPriority ON dbo.SubjectGoals (SubjectId, PriorityPosition) WHERE IsActive = 1;
+EXEC(N'
+CREATE INDEX IX_SubjectGoals_ActiveSubjectPriority
+ON dbo.SubjectGoals (SubjectId, PriorityPosition)
+WHERE IsActive = 1;');

@@ -6,4 +6,4 @@ Goal occurrence dates use the UTC calendar. A daily occurrence is one UTC date, 
 
 Daily, weekly, and monthly goals remain active after a completion. Manual completion and sub-goal completion register the current occurrence; one-time custom/all-time completion goals also retain their existing permanent `IsCompleted` state. Metric occurrences are recalculated after note create, update, and delete. If a correction lowers a metric below its target, the corresponding completion row is removed, so the history reflects the current authoritative notes.
 
-The migration backfills deterministic metric completion for the currently applicable occurrence and preserves existing one-time completion timestamps. Recurring manual history cannot be recovered from the previous single completion flag, so accurate recurring history begins when this migration is deployed.
+The migration backfills deterministic metric completion history from persisted study notes and preserves existing one-time completion timestamps. Recurring manual history cannot be recovered from the previous single completion flag, so accurate recurring manual history begins when this migration is deployed.

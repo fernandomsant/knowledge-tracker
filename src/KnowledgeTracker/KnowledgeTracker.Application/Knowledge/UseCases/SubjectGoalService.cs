@@ -57,7 +57,7 @@ public sealed class SubjectGoalService(ISubjectGoalRepository goals, ISubjectRep
         return ToDetails(updated, await notes.ListBySubjectAsync(existing.SubjectId, ct), definitionMap, subGoals);
     }
 
-    public Task<bool> DeleteAsync(Guid id, CancellationToken ct) => goals.DeleteAsync(id, ct);
+    public Task<bool> DeleteAsync(Guid id, CancellationToken ct) => goals.DeleteAsync(id, DateTimeOffset.UtcNow, ct);
     public Task<bool> CompleteAsync(Guid id, CancellationToken ct) => goals.CompleteAsync(id, DateTimeOffset.UtcNow, ct);
     public Task<bool> SetSubGoalCompletionAsync(Guid id, bool isCompleted, CancellationToken ct) => goals.SetSubGoalCompletionAsync(id, isCompleted, DateTimeOffset.UtcNow, ct);
     public Task<bool> SwapPriorityAsync(Guid id, Guid swapWithId, CancellationToken ct) => goals.SwapPriorityAsync(id, swapWithId, ct);

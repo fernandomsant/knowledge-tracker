@@ -2,7 +2,7 @@ namespace KnowledgeTracker.Domain.Knowledge;
 
 public sealed class SubjectGoal
 {
-    public SubjectGoal(Guid id, Guid subjectId, Guid topicId, string title, GoalKind kind, Guid? metricDefinitionId, decimal? targetValue, DateOnly? targetDate, GoalPeriod period, DateOnly? customPeriodStartDate, DateOnly? customPeriodEndDate, long priorityPosition, bool isCompleted, DateTimeOffset? completedAtUtc, DateTimeOffset createdAtUtc)
+    public SubjectGoal(Guid id, Guid subjectId, Guid topicId, string title, GoalKind kind, Guid? metricDefinitionId, decimal? targetValue, DateOnly? targetDate, GoalPeriod period, DateOnly? customPeriodStartDate, DateOnly? customPeriodEndDate, long priorityPosition, bool isCompleted, DateTimeOffset? completedAtUtc, DateTimeOffset createdAtUtc, bool isActive = true, DateTimeOffset? deactivatedAtUtc = null)
     {
         if (id == Guid.Empty || subjectId == Guid.Empty || topicId == Guid.Empty) throw new ArgumentException("Goal, subject, and topic identifiers are required.");
         if (string.IsNullOrWhiteSpace(title) || title.Trim().Length > 256) throw new ArgumentException("Goal title is required and must be 256 characters or fewer.", nameof(title));
@@ -15,11 +15,12 @@ public sealed class SubjectGoal
         if (period != GoalPeriod.Custom && (customPeriodStartDate is not null || customPeriodEndDate is not null)) throw new ArgumentException("Only custom goals can have a start and end date.");
         if (kind == GoalKind.MetricTarget && (isCompleted || completedAtUtc is not null)) throw new ArgumentException("Metric goals are completed by reaching their target.");
         if (isCompleted != (completedAtUtc is not null)) throw new ArgumentException("Completion state and completion date must match.");
+        if (isActive == (deactivatedAtUtc is not null)) throw new ArgumentException("Goal activation state and deactivation time must match.");
 
         Id = id; SubjectId = subjectId; TopicId = topicId; Title = title.Trim(); Kind = kind; MetricDefinitionId = metricDefinitionId;
         TargetValue = targetValue; TargetDate = targetDate; CreatedAtUtc = createdAtUtc;
         Period = period; CustomPeriodStartDate = customPeriodStartDate; CustomPeriodEndDate = customPeriodEndDate; PriorityPosition = priorityPosition;
-        IsCompleted = isCompleted; CompletedAtUtc = completedAtUtc;
+        IsCompleted = isCompleted; CompletedAtUtc = completedAtUtc; IsActive = isActive; DeactivatedAtUtc = deactivatedAtUtc;
     }
 
     public Guid Id { get; }
@@ -37,9 +38,11 @@ public sealed class SubjectGoal
     public bool IsCompleted { get; private set; }
     public DateTimeOffset? CompletedAtUtc { get; private set; }
     public DateTimeOffset CreatedAtUtc { get; }
+    public bool IsActive { get; private set; }
+    public DateTimeOffset? DeactivatedAtUtc { get; private set; }
 
-    public SubjectGoal(Guid id, Guid subjectId, string title, GoalKind kind, Guid? metricDefinitionId, decimal? targetValue, DateOnly? targetDate, GoalPeriod period, DateOnly? customPeriodStartDate, DateOnly? customPeriodEndDate, long priorityPosition, bool isCompleted, DateTimeOffset? completedAtUtc, DateTimeOffset createdAtUtc)
-        : this(id, subjectId, subjectId, title, kind, metricDefinitionId, targetValue, targetDate, period, customPeriodStartDate, customPeriodEndDate, priorityPosition, isCompleted, completedAtUtc, createdAtUtc)
+    public SubjectGoal(Guid id, Guid subjectId, string title, GoalKind kind, Guid? metricDefinitionId, decimal? targetValue, DateOnly? targetDate, GoalPeriod period, DateOnly? customPeriodStartDate, DateOnly? customPeriodEndDate, long priorityPosition, bool isCompleted, DateTimeOffset? completedAtUtc, DateTimeOffset createdAtUtc, bool isActive = true, DateTimeOffset? deactivatedAtUtc = null)
+        : this(id, subjectId, subjectId, title, kind, metricDefinitionId, targetValue, targetDate, period, customPeriodStartDate, customPeriodEndDate, priorityPosition, isCompleted, completedAtUtc, createdAtUtc, isActive, deactivatedAtUtc)
     {
     }
 
@@ -48,5 +51,12 @@ public sealed class SubjectGoal
         if (Kind == GoalKind.MetricTarget) throw new InvalidOperationException("Metric goals cannot be manually completed.");
         if (IsCompleted) return;
         IsCompleted = true; CompletedAtUtc = completedAtUtc;
+    }
+
+    public void Deactivate(DateTimeOffset deactivatedAtUtc)
+    {
+        if (!IsActive) return;
+        IsActive = false;
+        DeactivatedAtUtc = deactivatedAtUtc;
     }
 }

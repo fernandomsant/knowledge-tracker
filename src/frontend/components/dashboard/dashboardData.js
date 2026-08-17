@@ -1,12 +1,23 @@
 const DAY = 86_400_000;
 const RANGE_DAYS = { week: 7, month: 30, quarter: 90, all: null };
-const PERIOD_LABELS = { 1: 'Daily', 2: 'Weekly', 3: 'Monthly' };
+const PERIOD_LABELS = { 0: 'All time', 1: 'Daily', 2: 'Weekly', 3: 'Monthly', 4: 'Custom' };
 
 export const clamp = value => Math.max(0, Math.min(100, value));
-export const dateLabel = value => new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(`${value}T00:00:00`));
+export const dateLabel = value => new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${value}T00:00:00Z`));
 
 export function dashboardPropsEqual(previous, next) {
-  return previous.goals === next.goals && previous.subjects === next.subjects && previous.topics === next.topics && previous.notes === next.notes;
+  return previous.goals === next.goals && previous.subjects === next.subjects && previous.topics === next.topics && previous.notes === next.notes && previous.goalActivity === next.goalActivity;
+}
+
+const dateKey = value => `${value.getUTCFullYear()}-${String(value.getUTCMonth() + 1).padStart(2, '0')}-${String(value.getUTCDate()).padStart(2, '0')}`;
+const parseDate = value => new Date(`${value}T00:00:00Z`);
+const addDays = (value, days) => new Date(value.getTime() + days * DAY);
+
+export function dashboardRangeDates(range, now = new Date()) {
+  const to = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const days = RANGE_DAYS[range];
+  const from = days ? addDays(to, -days + 1) : new Date(Date.UTC(to.getUTCFullYear() - 10, 0, 1));
+  return { from: dateKey(from), to: dateKey(to) };
 }
 
 function deadlineStatus(daysLeft, pace) {
@@ -17,7 +28,7 @@ function deadlineStatus(daysLeft, pace) {
 }
 
 function goalProgress(goal) {
-  if (goal.kind === 1 && goal.targetValue > 0) return clamp(goal.currentValue / goal.targetValue * 100);
+  if (goal.kind === 1 && goal.targetValue > 0) return clamp((goal.currentValue ?? 0) / goal.targetValue * 100);
   const subGoals = goal.subGoals ?? [];
   return subGoals.length ? clamp(subGoals.filter(subGoal => subGoal.isCompleted).length / subGoals.length * 100) : 0;
 }
@@ -29,7 +40,7 @@ export function buildDeadlinePriorities({ goals, subjects, topics }) {
     .filter(goal => !goal.isCompleted && goal.period === 0)
     .map(goal => {
       const hasDeadline = Boolean(goal.targetDate);
-      const deadlineTime = hasDeadline ? new Date(`${goal.targetDate}T00:00:00`).getTime() : null;
+      const deadlineTime = hasDeadline ? parseDate(goal.targetDate).getTime() : null;
       const daysLeft = deadlineTime === null ? null : Math.ceil((deadlineTime - Date.now()) / DAY);
       const progress = goalProgress(goal);
       const createdAt = goal.createdAtUtc ? new Date(goal.createdAtUtc).getTime() : null;
@@ -40,43 +51,6 @@ export function buildDeadlinePriorities({ goals, subjects, topics }) {
       return { ...goal, subject: subjectsById.get(goal.subjectId), topic: topicsById.get(goal.topicId), progress, elapsed, daysLeft, hasDeadline, urgency, urgencyRank, pace };
     })
     .toSorted((left, right) => left.urgencyRank - right.urgencyRank || (left.daysLeft ?? Number.MAX_SAFE_INTEGER) - (right.daysLeft ?? Number.MAX_SAFE_INTEGER) || left.progress - right.progress);
-}
-
-const atStartOfDay = value => new Date(value.getFullYear(), value.getMonth(), value.getDate());
-const dateKey = value => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
-const weekStart = value => { const start = atStartOfDay(value); start.setDate(start.getDate() - (start.getDay() + 6) % 7); return start; };
-const monthStart = value => new Date(value.getFullYear(), value.getMonth(), 1);
-const occurrenceStart = (date, period) => period === 1 ? atStartOfDay(date) : period === 2 ? weekStart(date) : monthStart(date);
-const occurrenceKey = (date, period) => period === 3 ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}` : dateKey(date);
-const advanceOccurrence = (date, period) => { const next = new Date(date); if (period === 1) next.setDate(next.getDate() + 1); else if (period === 2) next.setDate(next.getDate() + 7); else next.setMonth(next.getMonth() + 1); return next; };
-
-function rangeStart(range, now) {
-  const days = RANGE_DAYS[range];
-  if (!days) return null;
-  const start = atStartOfDay(now);
-  start.setDate(start.getDate() - days + 1);
-  return start;
-}
-
-function goalOccurrences(goal, notes, from, now) {
-  const metricId = goal.metricDefinition?.id;
-  if (!metricId || !goal.targetValue) return null;
-  const goalStart = atStartOfDay(new Date(goal.createdAtUtc));
-  const firstDate = from && from > goalStart ? from : goalStart;
-  const firstOccurrence = occurrenceStart(firstDate, goal.period);
-  const values = new Map();
-  notes.filter(note => note.subjectId === goal.subjectId && new Date(note.studyStartedAtUtc) >= goalStart).forEach(note => {
-    const value = note.metrics.find(metric => metric.definition.id === metricId)?.value;
-    if (value === undefined) return;
-    const key = occurrenceKey(occurrenceStart(new Date(note.studyStartedAtUtc), goal.period), goal.period);
-    values.set(key, (values.get(key) ?? 0) + Number(value));
-  });
-  const occurrences = [];
-  for (let date = firstOccurrence; date <= now; date = advanceOccurrence(date, goal.period)) {
-    const key = occurrenceKey(date, goal.period);
-    occurrences.push({ key, completed: (values.get(key) ?? 0) >= Number(goal.targetValue) });
-  }
-  return occurrences;
 }
 
 function currentStreak(occurrences) {
@@ -102,25 +76,38 @@ function recurringGoalPriority({ consistency, missed, expected, trend }) {
   return { priority: 'On track', priorityRank: 2, priorityReason: 'All expected occurrences completed' };
 }
 
-export function buildStudyBehaviorData({ subjects, notes, goals, topics, range, now = new Date() }) {
-  const from = rangeStart(range, now);
+export function buildGoalActivitySeries(goalActivity, range, now = new Date()) {
+  const { from, to } = dashboardRangeDates(range, now);
+  const series = [];
+  for (let cursor = parseDate(from); cursor <= parseDate(to); cursor = addDays(cursor, 1)) {
+    const key = dateKey(cursor);
+    series.push({ date: key, label: dateLabel(key), met: 0, expected: 0 });
+  }
+  const buckets = new Map(series.map(item => [item.date, item]));
+  goalActivity.forEach(row => {
+    const bucket = buckets.get(row.occurrenceStartDate) ?? buckets.get(from);
+    if (!bucket) return;
+    bucket.expected += 1;
+    if (row.completedAtUtc) bucket.met += 1;
+  });
+  return series;
+}
+
+export function buildStudyBehaviorData({ subjects, notes, goals, topics, goalActivity = [], range, now = new Date() }) {
+  const { from } = dashboardRangeDates(range, now);
+  const fromDate = parseDate(from);
   const subjectsById = new Map(subjects.map(subject => [subject.id, subject]));
   const topicsById = new Map(topics.map(topic => [topic.id, topic]));
-  const visibleNotes = notes.filter(note => !from || new Date(note.studyStartedAtUtc) >= from);
+  const visibleNotes = notes.filter(note => new Date(note.studyStartedAtUtc) >= fromDate);
   const totalNotes = visibleNotes.length;
   const subjectActivity = subjects.map(subject => {
     const count = visibleNotes.filter(note => note.subjectId === subject.id).length;
     return { ...subject, count, percentage: totalNotes ? count / totalNotes * 100 : 0 };
   }).toSorted((left, right) => right.count - left.count || left.name.localeCompare(right.name));
+  const activityByGoal = new Map();
+  goalActivity.forEach(row => { const rows = activityByGoal.get(row.goalId) ?? []; rows.push(row); activityByGoal.set(row.goalId, rows); });
   const periodicGoals = goals.filter(goal => !goal.isCompleted && goal.period >= 1 && goal.period <= 3).map(goal => {
-    if (goal.kind !== 1) {
-      const expected = goal.subGoals?.length || 1;
-      const completed = goal.subGoals?.filter(subGoal => subGoal.isCompleted).length ?? 0;
-      const consistency = completed / expected * 100;
-      const priority = consistency === 100 ? { priority: 'On track', priorityRank: 2, priorityReason: 'All completion criteria met' } : { priority: 'Needs attention', priorityRank: 0, priorityReason: `${completed} of ${expected} completion criteria met` };
-      return { ...goal, subject: subjectsById.get(goal.subjectId), topic: topicsById.get(goal.topicId), periodLabel: PERIOD_LABELS[goal.period], completed, expected, missed: expected - completed, consistency, streak: 0, trend: 'Current status', hasOccurrenceHistory: false, ...priority };
-    }
-    const occurrences = goalOccurrences(goal, notes, from, now) ?? [];
+    const occurrences = (activityByGoal.get(goal.id) ?? []).map(row => ({ ...row, completed: Boolean(row.completedAtUtc) })).toSorted((left, right) => left.occurrenceStartDate.localeCompare(right.occurrenceStartDate));
     const completed = occurrences.filter(occurrence => occurrence.completed).length;
     const expected = occurrences.length;
     const missed = expected - completed;
@@ -128,5 +115,5 @@ export function buildStudyBehaviorData({ subjects, notes, goals, topics, range, 
     const trend = trendFor(occurrences);
     return { ...goal, subject: subjectsById.get(goal.subjectId), topic: topicsById.get(goal.topicId), periodLabel: PERIOD_LABELS[goal.period], completed, expected, missed, consistency, streak: currentStreak(occurrences), trend, hasOccurrenceHistory: true, ...recurringGoalPriority({ consistency, missed, expected, trend }) };
   }).toSorted((left, right) => (left.priorityOrder ?? Number.MAX_SAFE_INTEGER) - (right.priorityOrder ?? Number.MAX_SAFE_INTEGER) || left.priorityRank - right.priorityRank || left.consistency - right.consistency || right.expected - left.expected);
-  return { subjectActivity, totalNotes, periodicGoals };
+  return { subjectActivity, totalNotes, periodicGoals, goalActivitySeries: buildGoalActivitySeries(goalActivity, range, now) };
 }

@@ -4,6 +4,35 @@
   gap: 4px;
 }
 
+.goals-met-panel {
+  grid-column: 1 / -1;
+}
+
+.goals-met-chart {
+  color: #2e9483;
+  padding: 12px 14px 8px;
+}
+
+.goals-met-chart svg {
+  display: block;
+  width: 100%;
+  height: 150px;
+  overflow: visible;
+}
+
+.goals-met-chart-labels {
+  display: flex;
+  justify-content: space-between;
+  color: #728178;
+  font-size: 10px;
+}
+
+.goals-met-chart p {
+  margin: 8px 0 0;
+  color: #84928a;
+  font-size: 11px;
+}
+
 .consistency-status > b {
   color: #456455;
   font-size: 10px;

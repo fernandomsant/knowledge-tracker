@@ -6,7 +6,8 @@ public sealed class StudyNoteService(
     ISubjectRepository subjects,
     ITopicRepository topics,
     IStudyNoteRepository studyNotes,
-    IStudyMetricDefinitionRepository metricDefinitions
+    IStudyMetricDefinitionRepository metricDefinitions,
+    ISubjectGoalActivityService goalActivity
 )
     : IStudyNoteService
 {
@@ -44,6 +45,7 @@ public sealed class StudyNoteService(
             await CreateMetricsAsync(request.Metrics, ct)
         );
         await studyNotes.AddAsync(studyNote, ct);
+        await goalActivity.ReevaluateMetricGoalsAsync(subjectId, ct, DateOnly.FromDateTime(studyNote.StudyStartedAtUtc.UtcDateTime));
         return KnowledgeContractMapper.ToDetails(studyNote);
     }
 
@@ -72,15 +74,20 @@ public sealed class StudyNoteService(
             await CreateMetricsAsync(request.Metrics, ct)
         );
         await studyNotes.UpdateAsync(updated, ct);
+        await goalActivity.ReevaluateMetricGoalsAsync(studyNote.SubjectId, ct, DateOnly.FromDateTime(updated.StudyStartedAtUtc.UtcDateTime));
+        if (DateOnly.FromDateTime(studyNote.StudyStartedAtUtc.UtcDateTime) != DateOnly.FromDateTime(updated.StudyStartedAtUtc.UtcDateTime))
+            await goalActivity.ReevaluateMetricGoalsAsync(studyNote.SubjectId, ct, DateOnly.FromDateTime(studyNote.StudyStartedAtUtc.UtcDateTime));
         return KnowledgeContractMapper.ToDetails(updated);
     }
 
     public async Task<bool> DeleteAsync(Guid id, CancellationToken ct)
     {
-        if (await studyNotes.FindAsync(id, ct) is null)
+        var studyNote = await studyNotes.FindAsync(id, ct);
+        if (studyNote is null)
             return false;
 
         await studyNotes.DeleteAsync(id, ct);
+        await goalActivity.ReevaluateMetricGoalsAsync(studyNote.SubjectId, ct, DateOnly.FromDateTime(studyNote.StudyStartedAtUtc.UtcDateTime));
         return true;
     }
 

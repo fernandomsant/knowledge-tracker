@@ -10,6 +10,7 @@ public interface ISubjectGoalRepository
     Task UpdateAsync(SubjectGoal goal, IReadOnlyCollection<SubjectSubGoal> subGoals, CancellationToken ct);
     Task<bool> DeleteAsync(Guid id, DateTimeOffset deactivatedAtUtc, CancellationToken ct);
     Task<bool> CompleteAsync(Guid id, DateTimeOffset completedAtUtc, CancellationToken ct);
+    Task<SubjectSubGoal?> FindSubGoalAsync(Guid id, CancellationToken ct);
     Task AddSubGoalsAsync(IReadOnlyCollection<SubjectSubGoal> subGoals, CancellationToken ct);
     Task<IReadOnlyCollection<SubjectSubGoal>> ListSubGoalsAsync(IReadOnlyCollection<Guid> subjectGoalIds, CancellationToken ct);
     Task<bool> SetSubGoalCompletionAsync(Guid id, bool isCompleted, DateTimeOffset changedAtUtc, CancellationToken ct);

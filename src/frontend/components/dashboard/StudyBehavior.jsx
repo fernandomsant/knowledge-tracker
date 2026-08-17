@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { CalendarDays, Check, FileText, Target } from '../../icons';
 import { SubjectActivityChart } from './SubjectActivityChart';
+import { GoalsMetChart } from './GoalsMetChart';
 import './StudyBehavior.css';
 
 const RANGE_OPTIONS = [['week', 'Week'], ['month', 'Month'], ['quarter', '3 months'], ['all', 'All time']];
@@ -15,6 +16,7 @@ export function StudyBehavior({ behavior, range, onRangeChange, onInspectSubject
     <div className="study-behavior-grid">
       <section className="behavior-panel consistency-panel"><header><div><Target size={16}/><span>RECURRING GOAL CONSISTENCY</span></div><small>{behavior.periodicGoals.length} tracked</small></header>{behavior.periodicGoals.length ? <div className="consistency-list">{behavior.periodicGoals.map((goal, index) => { const selected = selectedGoalId === goal.id; return <article key={goal.id}><button type="button" className="consistency-summary" onClick={() => setSelectedGoalId(selected ? null : goal.id)} aria-expanded={selected}><span><strong>{index + 1}. {goal.title}</strong><small>{goal.subject?.name ?? 'Unknown subject'} · {goal.topic?.name ?? 'Unknown topic'} · {goal.periodLabel} · {goal.completed} / {goal.expected} {goal.hasOccurrenceHistory ? 'occurrences met' : 'completion criteria met'}</small></span><span className="consistency-status"><b>{Math.round(goal.consistency)}%</b><PriorityBadge priority={goal.priority}/></span><i><span style={{ width: `${goal.consistency}%` }}/></i></button>{selected ? <div className="consistency-detail"><span>{goal.hasOccurrenceHistory ? <>{goal.priorityReason} · {goal.missed} missed · streak {goal.streak} · <ConsistencyBadge trend={goal.trend}/></> : goal.priorityReason}</span><div><button type="button" disabled={!index} onClick={() => onPrioritizeGoal(goal.id, behavior.periodicGoals[index - 1].id)} aria-label={`Move ${goal.title} up`}>↑</button><button type="button" disabled={index === behavior.periodicGoals.length - 1} onClick={() => onPrioritizeGoal(goal.id, behavior.periodicGoals[index + 1].id)} aria-label={`Move ${goal.title} down`}>↓</button><button type="button" onClick={() => onInspectSubject(goal.subjectId)}>Open subject</button></div></div> : null}</article>; })}</div> : <div className="behavior-empty"><Check size={18}/><span>No active recurring goals in this range.</span></div>}</section>
       <section className="behavior-panel activity-panel"><header><div><FileText size={16}/><span>STUDY NOTES BY SUBJECT</span></div><small>{behavior.totalNotes} in range</small></header><SubjectActivityChart data={behavior.subjectActivity} totalNotes={behavior.totalNotes} onInspectSubject={onInspectSubject}/></section>
+      <section className="behavior-panel goals-met-panel"><header><div><Target size={16}/><span>GOALS MET OVER TIME</span></div><small>Occurrence start date</small></header><GoalsMetChart series={behavior.goalActivitySeries}/></section>
     </div>
   </section>;
 }

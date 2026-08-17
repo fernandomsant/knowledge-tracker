@@ -6,7 +6,7 @@ using KnowledgeTracker.Domain.Knowledge;
 
 namespace KnowledgeTracker.Data.Knowledge.Repositories;
 
-public sealed class SqlServerSubjectGoalRepository(Func<DbConnection> connectionFactory) : ISubjectGoalRepository
+public sealed class SqlServerSubjectGoalRepository(Func<DbConnection> connectionFactory) : ISubjectGoalRepository, ISubjectGoalActivityRepository
 {
     public async Task<IReadOnlyCollection<SubjectGoal>> ListBySubjectAsync(Guid subjectId, CancellationToken ct)
     {
@@ -58,6 +58,26 @@ public sealed class SqlServerSubjectGoalRepository(Func<DbConnection> connection
     public async Task<bool> CompleteAsync(Guid id, DateTimeOffset completedAtUtc, CancellationToken ct)
     {
         await using var connection = connectionFactory(); await connection.OpenAsync(ct); await using var command = connection.CreateCommand(); command.CommandText = "UPDATE dbo.SubjectGoals SET IsCompleted = 1, CompletedAtUtc = @CompletedAtUtc WHERE Id = @Id AND IsActive = 1 AND GoalKind = 2 AND IsCompleted = 0;"; command.AddParameter("@Id", DbType.Guid, id); command.AddParameter("@CompletedAtUtc", DbType.DateTimeOffset, completedAtUtc); return await command.ExecuteNonQueryAsync(ct) > 0;
+    }
+
+    public async Task<SubjectSubGoal?> FindSubGoalAsync(Guid id, CancellationToken ct)
+    {
+        await using var connection = connectionFactory(); await connection.OpenAsync(ct); await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT Id, SubjectGoalId, Title, IsCompleted, CompletedAtUtc, CreatedAtUtc FROM dbo.SubjectSubGoals WHERE Id = @Id;";
+        command.AddParameter("@Id", DbType.Guid, id); await using var reader = await command.ExecuteReaderAsync(ct);
+        return await reader.ReadAsync(ct)
+            ? new SubjectSubGoal(reader.GetGuid(0), reader.GetGuid(1), reader.GetString(2), reader.GetBoolean(3), reader.IsDBNull(4) ? null : reader.GetFieldValue<DateTimeOffset>(4), reader.GetFieldValue<DateTimeOffset>(5))
+            : null;
+    }
+
+    public async Task<IReadOnlyCollection<SubjectGoal>> ListForPeriodAsync(DateOnly from, DateOnly to, CancellationToken ct)
+    {
+        await using var connection = connectionFactory(); await connection.OpenAsync(ct); await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT Id, SubjectId, TopicId, Title, GoalKind, MetricDefinitionId, TargetValue, TargetDate, GoalPeriod, CustomPeriodStartDate, CustomPeriodEndDate, PriorityPosition, IsCompleted, CompletedAtUtc, CreatedAtUtc, IsActive, DeactivatedAtUtc FROM dbo.SubjectGoals WHERE CONVERT(date, CreatedAtUtc) <= @To AND (IsActive = 1 OR CONVERT(date, DeactivatedAtUtc) >= @From) ORDER BY CreatedAtUtc, Id;";
+        command.AddParameter("@From", DbType.Date, from); command.AddParameter("@To", DbType.Date, to);
+        await using var reader = await command.ExecuteReaderAsync(ct); var goals = new List<SubjectGoal>();
+        while (await reader.ReadAsync(ct)) goals.Add(ReadGoal(reader));
+        return goals;
     }
 
     public async Task AddSubGoalsAsync(IReadOnlyCollection<SubjectSubGoal> subGoals, CancellationToken ct)

@@ -171,8 +171,8 @@ const CanvasOverlay = memo(function CanvasOverlay({ open, onClose, graphProps })
 export default function App() {
   const { accessToken, user, logout, refreshAccessToken } = useAuthenticationSession();
   const {
-    subjects, notes, connections, goals, topics, metricDefinitions, subjectsById, notesBySubject, goalsBySubject, status: knowledgeStatus, error: knowledgeError,
-    addSubject, updateSubject, removeSubject, addNote, updateNote, removeNote, createMetricDefinition, createTopic, removeTopic, saveSubjectLayout, connectSubjects, removeConnection, addSubjectGoal, updateSubjectGoal, removeSubjectGoal, completeSubjectGoal, prioritizeSubjectGoal, setSubGoalCompletion,
+    subjects, notes, connections, goals, topics, metricDefinitions, goalActivity, subjectsById, notesBySubject, goalsBySubject, status: knowledgeStatus, error: knowledgeError,
+    addSubject, updateSubject, removeSubject, addNote, updateNote, removeNote, createMetricDefinition, createTopic, removeTopic, saveSubjectLayout, connectSubjects, removeConnection, addSubjectGoal, updateSubjectGoal, removeSubjectGoal, completeSubjectGoal, prioritizeSubjectGoal, setSubGoalCompletion, loadGoalActivity,
   } = useKnowledgeStore(accessToken, refreshAccessToken);
   const [activeNav, setActiveNav] = useState('Overview');
   const [activeSubject, setActiveSubject] = useState('all');
@@ -303,7 +303,7 @@ export default function App() {
             <StatCard Icon={Clock3} color="amber" label="Study streak" value="7 days" detail="Best: 14 days"/>
             <StatCard Icon={Hash} color="purple" label="Topics covered" value={topics.length} detail="In your knowledge space"/>
           </section>
-          <Suspense fallback={null}><StudyDashboard subjects={subjects} notes={notes} goals={goals} topics={topics} onInspectSubject={inspectSubject} onPrioritizeGoal={prioritizeSubjectGoal}/></Suspense>
+          <Suspense fallback={null}><StudyDashboard subjects={subjects} notes={notes} goals={goals} topics={topics} goalActivity={goalActivity} onLoadGoalActivity={loadGoalActivity} onInspectSubject={inspectSubject} onPrioritizeGoal={prioritizeSubjectGoal}/></Suspense>
           <section className="workspace-panel">
             <header className="panel-head">
               <div><span>SUBJECT MAP</span><h2>Your knowledge space</h2><p>Arrange subjects, connect related thinking, then open a node to work with its notes.</p></div>

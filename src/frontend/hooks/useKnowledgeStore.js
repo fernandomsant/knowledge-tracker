@@ -14,6 +14,7 @@ function knowledgeReducer(state, action) {
   switch (action.type) {
     case 'knowledge/loading': return { ...state, status: 'loading', error: null };
     case 'knowledge/loaded': return { ...state, ...action.knowledge, goals: orderGoals(action.knowledge.goals), status: 'ready', error: null };
+    case 'goal-activity/loaded': return { ...state, goalActivity: action.activity };
     case 'knowledge/failed': return { ...state, status: 'error', error: action.error };
     case 'request/failed': return { ...state, error: action.error };
     case 'request/clear': return { ...state, error: null };
@@ -42,7 +43,7 @@ function knowledgeReducer(state, action) {
     case 'goal/add': return { ...state, goals: orderGoals([...state.goals, action.goal]) };
     case 'goal/update': return { ...state, goals: orderGoals(state.goals.map(goal => goal.id === action.goal.id ? action.goal : goal)) };
     case 'goal/remove': return { ...state, goals: state.goals.filter(goal => goal.id !== action.id) };
-    case 'goal/complete': return { ...state, goals: state.goals.map(goal => goal.id === action.id ? { ...goal, isCompleted: true, completedAtUtc: action.completedAtUtc } : goal) };
+    case 'goal/complete': return { ...state, goals: state.goals.map(goal => goal.id === action.id && (goal.period === 0 || goal.period === 4) ? { ...goal, isCompleted: true, completedAtUtc: action.completedAtUtc } : goal) };
     case 'goal/prioritize': {
       const ranked = orderGoals(state.goals);
       const index = ranked.findIndex(goal => goal.id === action.id);
@@ -56,7 +57,7 @@ function knowledgeReducer(state, action) {
   }
 }
 
-const initialState = { subjects: [], notes: [], connections: [], goals: [], topics: [], metricDefinitions: [], status: 'loading', error: null };
+const initialState = { subjects: [], notes: [], connections: [], goals: [], topics: [], metricDefinitions: [], goalActivity: [], status: 'loading', error: null };
 const noteDateFormatter = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' });
 const errorMessage = reason => reason instanceof Error ? reason.message : 'Your knowledge space could not be updated. Try again.';
 
@@ -329,5 +330,16 @@ export function useKnowledgeStore(accessToken, refreshAccessToken) {
     }
   }, [execute]);
 
-  return { ...state, subjectsById, notesBySubject, goalsBySubject, addSubject, updateSubject, removeSubject, addNote, updateNote, removeNote, createMetricDefinition, createTopic, removeTopic, saveSubjectLayout, connectSubjects, removeConnection, addSubjectGoal, updateSubjectGoal, removeSubjectGoal, completeSubjectGoal, prioritizeSubjectGoal, setSubGoalCompletion };
+  const loadGoalActivity = useCallback(async (from, to) => {
+    try {
+      const activity = await execute(token => knowledgeClient.getGoalActivity(token, from, to));
+      dispatch({ type: 'goal-activity/loaded', activity });
+      return activity;
+    } catch (reason) {
+      dispatch({ type: 'request/failed', error: errorMessage(reason) });
+      return [];
+    }
+  }, [execute]);
+
+  return { ...state, subjectsById, notesBySubject, goalsBySubject, addSubject, updateSubject, removeSubject, addNote, updateNote, removeNote, createMetricDefinition, createTopic, removeTopic, saveSubjectLayout, connectSubjects, removeConnection, addSubjectGoal, updateSubjectGoal, removeSubjectGoal, completeSubjectGoal, prioritizeSubjectGoal, setSubGoalCompletion, loadGoalActivity };
 }

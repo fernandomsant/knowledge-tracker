@@ -63,4 +63,5 @@ export const knowledgeClient = {
   setSubGoalCompletion: (accessToken, id, isCompleted) => request(accessToken, `/api/subject-sub-goals/${id}/completion`, { method: 'PUT', body: { isCompleted } }),
   createTopic: (accessToken, subjectId, name) => request(accessToken, `/api/subjects/${subjectId}/topics`, { method: 'POST', body: { name } }),
   deleteTopic: (accessToken, id) => request(accessToken, `/api/topics/${id}`, { method: 'DELETE' }),
+  getGoalActivity: (accessToken, from, to) => request(accessToken, `/api/goal-activity?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
 };

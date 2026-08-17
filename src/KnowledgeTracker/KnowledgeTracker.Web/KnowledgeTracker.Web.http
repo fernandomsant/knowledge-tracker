@@ -31,3 +31,7 @@ Content-Type: application/json
   "periodEndDate": null,
   "subGoals": []
 }
+
+### Goal activity for a UTC dashboard range
+GET {{KnowledgeTracker.Web_HostAddress}}/api/goal-activity?from=2026-08-01&to=2026-08-31
+Authorization: Bearer {{accessToken}}

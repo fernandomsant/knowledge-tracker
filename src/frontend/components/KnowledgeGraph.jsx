@@ -523,7 +523,11 @@ export function KnowledgeGraph({
             {connections.length ? connections.map(connection => {
               const source = subjectsById.get(connection.source);
               const target = subjectsById.get(connection.target);
-              return <div className="connection-row" key={connection.id}><span>{source?.name ?? 'Unknown'}<small>connected to</small>{target?.name ?? 'Unknown'}</span><IconButton label={`Remove connection between ${source?.name ?? 'subject'} and ${target?.name ?? 'subject'}`} onClick={() => onRemoveConnection(connection.id)}><Trash2 size={16}/></IconButton></div>;
+              const deleteLink = async () => {
+                if (!window.confirm(`Delete the link between ${source?.name ?? 'subject'} and ${target?.name ?? 'subject'}?`)) return;
+                await onRemoveConnection(connection.id);
+              };
+              return <div className="connection-row" key={connection.id}><span>{source?.name ?? 'Unknown'}<small>connected to</small>{target?.name ?? 'Unknown'}</span><button type="button" className="delete-link-button" onClick={() => void deleteLink()}><Trash2 size={15}/> Delete link</button></div>;
             }) : <p className="connection-empty">Use Connect, then choose two nodes.</p>}
           </aside>
         ) : null}

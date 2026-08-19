@@ -1,15 +1,53 @@
-import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-
 const COLORS = { teal: '#2e9483', blue: '#547fc8', amber: '#c58c35', purple: '#8b68b5' };
 
-function ActivityTooltip({ active, payload }) {
-  if (!active || !payload?.length) return null;
-  const subject = payload[0].payload;
-  return <div className="behavior-chart-tooltip"><strong>{subject.name}</strong><span>{subject.count} study {subject.count === 1 ? 'note' : 'notes'} · {subject.percentage.toFixed(1)}%</span></div>;
+export function formatStudyMinutes(minutes) {
+  const roundedMinutes = Math.round(minutes ?? 0);
+  if (roundedMinutes < 60) return `${roundedMinutes}m`;
+  const hours = Math.floor(roundedMinutes / 60);
+  const remainder = roundedMinutes % 60;
+  return remainder ? `${hours}h ${remainder}m` : `${hours}h`;
 }
 
-export function SubjectActivityChart({ data, totalNotes, onInspectSubject }) {
-  if (!totalNotes) return <div className="behavior-empty"><span>No study notes in this range.</span></div>;
-  const height = Math.min(246, Math.max(138, data.length * 27));
-  return <ResponsiveContainer width="100%" height={height}><BarChart data={data} layout="vertical" margin={{ top: 2, right: 14, left: 0, bottom: 0 }} onClick={event => event?.activePayload?.[0]?.payload && onInspectSubject(event.activePayload[0].payload.id)}><XAxis type="number" allowDecimals={false} hide/><YAxis type="category" dataKey="name" width={85} tickLine={false} axisLine={false}/><Tooltip cursor={{ fill: '#f3f7f4' }} content={<ActivityTooltip/>}/><Bar dataKey="count" radius={[0, 5, 5, 0]}>{data.map(subject => <Cell key={subject.id} fill={COLORS[subject.color] ?? COLORS.teal}/>)}</Bar></BarChart></ResponsiveContainer>;
+export function SubjectActivityChart({ data, totalStudyMinutes, onInspectSubject }) {
+  if (!data.length) return <div className="behavior-empty"><span>No subjects to show.</span></div>;
+
+  return (
+    <div className="subject-time-tree" role="list" aria-label="Study time by subject hierarchy">
+      {!totalStudyMinutes ? <p>No study time recorded in this range.</p> : null}
+      {data.map(subject => {
+        const percentage = Math.round(subject.percentage);
+        const noteLabel = `${subject.noteCount} ${subject.noteCount === 1 ? 'note' : 'notes'}`;
+        const detail = subject.isAggregate
+          ? `${noteLabel} across ${subject.descendantCount} descendant ${subject.descendantCount === 1 ? 'subject' : 'subjects'}`
+          : noteLabel;
+
+        return (
+          <div className="subject-time-item" role="listitem" key={subject.id}>
+            <button
+              type="button"
+              className={`subject-time-row ${subject.isAggregate ? 'aggregate' : 'leaf'} ${subject.depth ? 'nested' : ''}`}
+              style={{ '--subject-depth': subject.depth, '--subject-color': COLORS[subject.color] ?? COLORS.teal }}
+              onClick={() => onInspectSubject(subject.id)}
+              aria-label={`Open ${subject.name}. ${formatStudyMinutes(subject.studyMinutes)}, ${percentage}% of study time.`}
+            >
+              <span className="subject-time-identity">
+                <i aria-hidden="true"/>
+                <span>
+                  <strong>{subject.name}</strong>
+                  <small>{detail}</small>
+                </span>
+              </span>
+              <span className="subject-time-value">
+                <b>{formatStudyMinutes(subject.studyMinutes)}</b>
+                <small>{percentage}%</small>
+              </span>
+              <span className="subject-time-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={percentage}>
+                <i style={{ width: `${subject.percentage}%` }}/>
+              </span>
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
 }

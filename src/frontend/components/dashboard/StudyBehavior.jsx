@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { CalendarDays, Check, FileText, Target } from '../../icons';
-import { SubjectActivityChart } from './SubjectActivityChart';
+import { formatStudyMinutes, SubjectActivityChart } from './SubjectActivityChart';
 import { GoalsMetChart } from './GoalsMetChart';
 import './StudyBehavior.css';
 
@@ -17,7 +17,7 @@ export function StudyBehavior({ behavior, range, onRangeChange, onInspectSubject
       <header className="study-behavior-header">
         <div>
           <span><CalendarDays size={15}/> SUBJECT STUDY BEHAVIOR</span>
-          <h2>Consistency and study-note activity</h2>
+          <h2>Consistency and study time</h2>
         </div>
         <div className="behavior-range" role="group" aria-label="Study behavior time range">
           {RANGE_OPTIONS.map(([value, label]) => (
@@ -102,8 +102,8 @@ export function StudyBehavior({ behavior, range, onRangeChange, onInspectSubject
         </section>
 
         <section className="behavior-panel activity-panel">
-          <header><div><FileText size={16}/><span>STUDY NOTES BY SUBJECT</span></div><small>{behavior.totalNotes} in range</small></header>
-          <SubjectActivityChart data={behavior.subjectActivity} totalNotes={behavior.totalNotes} onInspectSubject={onInspectSubject}/>
+          <header><div><FileText size={16}/><span>STUDY TIME BY SUBJECT</span></div><small>{formatStudyMinutes(behavior.totalStudyMinutes)} in range</small></header>
+          <SubjectActivityChart data={behavior.subjectActivity} totalStudyMinutes={behavior.totalStudyMinutes} onInspectSubject={onInspectSubject}/>
         </section>
 
         <section className="behavior-panel goals-met-panel">

@@ -14,10 +14,10 @@ public sealed class SubjectGoalService(
     public async Task<IReadOnlyCollection<SubjectGoalDetails>> ListBySubjectAsync(Guid subjectId, CancellationToken ct)
     {
         var subjectGoals = await goals.ListBySubjectAsync(subjectId, ct);
-        var studyNotes = await notes.ListBySubjectAsync(subjectId, ct);
+        var (studyNotes, includeDescendantNotes) = await GetGoalNotesAsync(subjectId, ct);
         var definitionMap = (await definitions.ListAsync(ct)).ToDictionary(definition => definition.Id);
         var subGoals = await goals.ListSubGoalsAsync(subjectGoals.Select(goal => goal.Id).ToArray(), ct);
-        return subjectGoals.Select(goal => ToDetails(goal, studyNotes, definitionMap, subGoals.Where(item => item.SubjectGoalId == goal.Id))).ToArray();
+        return subjectGoals.Select(goal => ToDetails(goal, studyNotes, definitionMap, includeDescendantNotes, subGoals.Where(item => item.SubjectGoalId == goal.Id))).ToArray();
     }
 
     public async Task<SubjectGoalDetails?> CreateAsync(Guid subjectId, CreateSubjectGoalRequest request, CancellationToken ct)
@@ -40,7 +40,8 @@ public sealed class SubjectGoalService(
         var definitionMap = (await definitions.ListAsync(ct)).ToDictionary(definition => definition.Id);
         if (goal.Kind == GoalKind.MetricTarget)
             await activity.ReevaluateMetricGoalsAsync(subjectId, ct);
-        return ToDetails(goal, await notes.ListBySubjectAsync(subjectId, ct), definitionMap, subGoals);
+        var (studyNotes, includeDescendantNotes) = await GetGoalNotesAsync(subjectId, ct);
+        return ToDetails(goal, studyNotes, definitionMap, includeDescendantNotes, subGoals);
     }
 
     public async Task<SubjectGoalDetails?> UpdateAsync(Guid id, UpdateSubjectGoalRequest request, CancellationToken ct)
@@ -66,7 +67,8 @@ public sealed class SubjectGoalService(
         var definitionMap = (await definitions.ListAsync(ct)).ToDictionary(definition => definition.Id);
         if (updated.Kind == GoalKind.MetricTarget)
             await activity.ReevaluateMetricGoalsAsync(existing.SubjectId, ct);
-        return ToDetails(updated, await notes.ListBySubjectAsync(existing.SubjectId, ct), definitionMap, subGoals);
+        var (studyNotes, includeDescendantNotes) = await GetGoalNotesAsync(existing.SubjectId, ct);
+        return ToDetails(updated, studyNotes, definitionMap, includeDescendantNotes, subGoals);
     }
 
     public Task<bool> DeleteAsync(Guid id, CancellationToken ct) => goals.DeleteAsync(id, DateTimeOffset.UtcNow, ct);
@@ -104,6 +106,17 @@ public sealed class SubjectGoalService(
     }
     public Task<bool> SwapPriorityAsync(Guid id, Guid swapWithId, CancellationToken ct) => goals.SwapPriorityAsync(id, swapWithId, ct);
 
+    private async Task<(IReadOnlyCollection<StudyNote> Notes, bool IncludeDescendantNotes)> GetGoalNotesAsync(
+        Guid subjectId,
+        CancellationToken ct)
+    {
+        var includeDescendantNotes = await subjects.HasChildrenAsync(subjectId, ct);
+        var studyNotes = includeDescendantNotes
+            ? await notes.ListBySubjectTreeAsync(subjectId, ct)
+            : await notes.ListBySubjectAsync(subjectId, ct);
+        return (studyNotes, includeDescendantNotes);
+    }
+
     private static IReadOnlyCollection<SubjectSubGoal> ReconcileSubGoals(Guid goalId, IReadOnlyCollection<string> requestedTitles, IReadOnlyCollection<SubjectSubGoal> existingSubGoals)
     {
         var reusable = existingSubGoals
@@ -122,12 +135,18 @@ public sealed class SubjectGoalService(
             .ToArray();
     }
 
-    private static SubjectGoalDetails ToDetails(SubjectGoal goal, IReadOnlyCollection<StudyNote> notes, IReadOnlyDictionary<Guid, StudyMetricDefinition> definitions, IEnumerable<SubjectSubGoal> subGoals)
+    private static SubjectGoalDetails ToDetails(
+        SubjectGoal goal,
+        IReadOnlyCollection<StudyNote> notes,
+        IReadOnlyDictionary<Guid, StudyMetricDefinition> definitions,
+        bool includeDescendantNotes,
+        IEnumerable<SubjectSubGoal> subGoals)
     {
         definitions.TryGetValue(goal.MetricDefinitionId ?? Guid.Empty, out var definition);
         var (periodStartDate, periodEndDate) = ResolvePeriod(goal, DateOnly.FromDateTime(DateTime.UtcNow));
         var scopedNotes = notes.Where(note =>
-            note.TopicId == goal.TopicId && IsWithinPeriod(note, periodStartDate, periodEndDate)
+            (includeDescendantNotes || note.TopicId == goal.TopicId) &&
+            IsWithinPeriod(note, periodStartDate, periodEndDate)
         );
         decimal? currentValue = goal.Kind == GoalKind.MetricTarget
             ? definition?.NormalizedName == StandardStudyMetricDefinitionIds.StudyTimeNormalizedName

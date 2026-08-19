@@ -6,6 +6,7 @@ public sealed class SubjectGoalActivityService(
     ISubjectGoalActivityRepository activityGoals,
     ISubjectGoalCompletionRepository completions,
     ISubjectGoalRepository goals,
+    ISubjectRepository subjects,
     IStudyNoteRepository notes,
     IStudyMetricDefinitionRepository definitions) : ISubjectGoalActivityService
 {
@@ -28,29 +29,59 @@ public sealed class SubjectGoalActivityService(
 
     public async Task ReevaluateMetricGoalsAsync(Guid subjectId, CancellationToken ct, DateOnly? affectedDate = null)
     {
-        var subjectGoals = (await goals.ListBySubjectAsync(subjectId, ct)).Where(goal => goal.Kind == GoalKind.MetricTarget).ToArray();
-        if (subjectGoals.Length == 0) return;
-        var studyNotes = await notes.ListBySubjectAsync(subjectId, ct);
+        var subjectScopes = await GetSubjectAndAncestorsAsync(subjectId, ct);
+        if (subjectScopes.Count == 0) return;
+
         var metricDefinitions = (await definitions.ListAsync(ct)).ToDictionary(definition => definition.Id);
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
-        foreach (var goal in subjectGoals)
+        foreach (var subject in subjectScopes)
         {
-            var start = DateOnly.FromDateTime(goal.CreatedAtUtc.UtcDateTime);
-            var occurrences = GoalOccurrenceCalculator.GetOccurrences(goal, start, today, today)
-                .Where(occurrence => affectedDate is null || (affectedDate >= occurrence.StartDate && affectedDate <= occurrence.EndDate))
+            var subjectGoals = (await goals.ListBySubjectAsync(subject.Id, ct))
+                .Where(goal => goal.Kind == GoalKind.MetricTarget)
                 .ToArray();
-            foreach (var occurrence in occurrences)
+            if (subjectGoals.Length == 0) continue;
+
+            var includeDescendantNotes = await subjects.HasChildrenAsync(subject.Id, ct);
+            var studyNotes = includeDescendantNotes
+                ? await notes.ListBySubjectTreeAsync(subject.Id, ct)
+                : await notes.ListBySubjectAsync(subject.Id, ct);
+
+            foreach (var goal in subjectGoals)
             {
-                var total = studyNotes
-                    .Where(note => note.TopicId == goal.TopicId && IsWithin(note, occurrence))
-                    .Sum(note => MetricValue(note, goal, metricDefinitions));
-                if (total >= goal.TargetValue!.Value)
-                    await completions.RegisterAsync(new SubjectGoalCompletion(Guid.NewGuid(), goal.Id, occurrence.StartDate, occurrence.EndDate, DateTimeOffset.UtcNow, GoalCompletionSource.Metric), ct);
-                else
-                    await completions.RemoveAsync(goal.Id, occurrence.StartDate, occurrence.EndDate, ct);
+                var start = DateOnly.FromDateTime(goal.CreatedAtUtc.UtcDateTime);
+                var occurrences = GoalOccurrenceCalculator.GetOccurrences(goal, start, today, today)
+                    .Where(occurrence => affectedDate is null || (affectedDate >= occurrence.StartDate && affectedDate <= occurrence.EndDate))
+                    .ToArray();
+                foreach (var occurrence in occurrences)
+                {
+                    var total = studyNotes
+                        .Where(note => (includeDescendantNotes || note.TopicId == goal.TopicId) && IsWithin(note, occurrence))
+                        .Sum(note => MetricValue(note, goal, metricDefinitions));
+                    if (total >= goal.TargetValue!.Value)
+                        await completions.RegisterAsync(new SubjectGoalCompletion(Guid.NewGuid(), goal.Id, occurrence.StartDate, occurrence.EndDate, DateTimeOffset.UtcNow, GoalCompletionSource.Metric), ct);
+                    else
+                        await completions.RemoveAsync(goal.Id, occurrence.StartDate, occurrence.EndDate, ct);
+                }
             }
         }
+    }
+
+    private async Task<IReadOnlyCollection<Subject>> GetSubjectAndAncestorsAsync(Guid subjectId, CancellationToken ct)
+    {
+        var result = new List<Subject>();
+        var visited = new HashSet<Guid>();
+        Guid? currentId = subjectId;
+
+        while (currentId is not null && visited.Add(currentId.Value))
+        {
+            var subject = await subjects.FindAsync(currentId.Value, ct);
+            if (subject is null) break;
+            result.Add(subject);
+            currentId = subject.ParentSubjectId;
+        }
+
+        return result;
     }
 
     private static decimal MetricValue(StudyNote note, SubjectGoal goal, IReadOnlyDictionary<Guid, StudyMetricDefinition> definitions)

@@ -226,7 +226,7 @@ function SubjectDrawer({ subject, subjects, subjectsById, topics, notes, directN
           })}
         </div>
       ) : <p className="connection-empty subject-links-empty">No related links for this subject.</p>}
-      <SubjectGoals subjectId={subject.id} goals={goals} notes={directNotes} topics={subjectTopics} metricDefinitions={metricDefinitions} onCreateTopic={onCreateTopic} onRemoveTopic={onRemoveTopic} onCreate={goal => onCreateGoal(subject.id, goal)} onUpdate={onUpdateGoal} onRemove={onRemoveGoal} onComplete={onCompleteGoal} onSetSubGoalCompletion={onSetSubGoalCompletion}/>
+      <SubjectGoals subjectId={subject.id} goals={goals} notes={isLeaf ? directNotes : notes} includeDescendantNotes={!isLeaf} topics={subjectTopics} metricDefinitions={metricDefinitions} onCreateTopic={onCreateTopic} onRemoveTopic={onRemoveTopic} onCreate={goal => onCreateGoal(subject.id, goal)} onUpdate={onUpdateGoal} onRemove={onRemoveGoal} onComplete={onCompleteGoal} onSetSubGoalCompletion={onSetSubGoalCompletion}/>
       <div className="drawer-section-title">
         <div><span>Ideas in this subject</span><small>Capture thoughts while the context is fresh.</small></div>
         <button className="text-button" onClick={() => beginEditing(null)} disabled={!isLeaf} title={isLeaf ? 'Add a note' : 'Notes can only be added to leaf subjects'}><Plus size={15}/> {isLeaf ? 'Add note' : 'Leaf notes only'}</button>

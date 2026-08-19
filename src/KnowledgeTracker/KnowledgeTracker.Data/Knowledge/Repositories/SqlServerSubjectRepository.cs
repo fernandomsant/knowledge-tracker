@@ -31,6 +31,16 @@ public sealed class SqlServerSubjectRepository(Func<DbConnection> connectionFact
         return subjects;
     }
 
+    public async Task<bool> HasChildrenAsync(Guid subjectId, CancellationToken ct)
+    {
+        await using var connection = connectionFactory();
+        await connection.OpenAsync(ct);
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT CASE WHEN EXISTS (SELECT 1 FROM dbo.Subjects WHERE ParentSubjectId = @SubjectId) THEN 1 ELSE 0 END;";
+        command.AddParameter("@SubjectId", DbType.Guid, subjectId);
+        return Convert.ToBoolean(await command.ExecuteScalarAsync(ct));
+    }
+
     public async Task AddAsync(Subject subject, CancellationToken ct)
     {
         await using var connection = connectionFactory();

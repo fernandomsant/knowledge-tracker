@@ -11,7 +11,7 @@ public sealed class SubjectService(ISubjectRepository subjects, IStudyNoteReposi
         if (subject is null)
             return null;
 
-        var notes = await studyNotes.ListBySubjectAsync(id, ct);
+        var notes = await studyNotes.ListBySubjectTreeAsync(id, ct);
         var layoutPosition = (await layouts.ListAsync(ct)).FirstOrDefault(position => position.SubjectId == id);
         return new SubjectDetails(
             subject.Id,
@@ -81,6 +81,8 @@ public sealed class SubjectService(ISubjectRepository subjects, IStudyNoteReposi
 
             var parent = await subjects.FindAsync(currentId.Value, ct)
                 ?? throw new ArgumentException("The selected parent subject does not exist.", nameof(parentSubjectId));
+            if ((await studyNotes.ListBySubjectAsync(parent.Id, ct)).Count > 0)
+                throw new ArgumentException("A subject with notes cannot become a parent.", nameof(parentSubjectId));
             depth++;
             if (depth > 3)
                 throw new ArgumentException("Subjects can have at most four hierarchy levels.", nameof(parentSubjectId));

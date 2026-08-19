@@ -86,20 +86,24 @@ const SubjectNode = memo(function SubjectNode({
       </span>
       <strong>{subject.name}</strong>
       <span className="note-count">{noteCount} {noteCount === 1 ? 'note' : 'notes'}</span>
-      <small>{noteCount ? 'Open to browse notes' : 'Open to add the first note'}</small>
+      <small>{subject.hasChildren ? 'Notes roll up from leaf subjects' : noteCount ? 'Open to browse notes' : 'Open to add the first note'}</small>
     </button>
   );
 });
 
-function SubjectDrawer({ subject, subjects, topics, notes, goals, metricDefinitions, drawer, onDrawerChange, onClose, onAddNote, onUpdateNote, onRemoveNote, onCreateMetricDefinition, onCreateTopic, onRemoveTopic, onUpdateSubject, onRemoveSubject, onCreateGoal, onUpdateGoal, onRemoveGoal, onCompleteGoal, onSetSubGoalCompletion }) {
+function SubjectDrawer({ subject, subjects, subjectsById, topics, notes, directNotes, goals, metricDefinitions, drawer, onDrawerChange, onClose, onAddNote, onUpdateNote, onRemoveNote, onCreateMetricDefinition, onCreateTopic, onRemoveTopic, onUpdateSubject, onRemoveSubject, onCreateGoal, onUpdateGoal, onRemoveGoal, onCompleteGoal, onSetSubGoalCompletion }) {
   const { editingId, title, excerpt, topicId, studyStartedAt, studyDuration, metrics, editingSubject, subjectName, subjectDescription, parentSubjectId } = drawer;
   const subjectTopics = topics.filter(topic => topic.subjectId === subject.id);
   const titleRef = useRef(null);
   const subjectNameRef = useRef(null);
   const [viewingNoteId, setViewingNoteId] = useState(null);
+  const [editingNoteSubjectId, setEditingNoteSubjectId] = useState(subject.id);
   const parentOptions = useMemo(() => getSubjectParentOptions(subjects, subject.id), [subject.id, subjects]);
   const directChildCount = useMemo(() => subjects.filter(candidate => candidate.parentSubjectId === subject.id).length, [subject.id, subjects]);
+  const isLeaf = directChildCount === 0;
   const viewingNote = useMemo(() => notes.find(note => note.id === viewingNoteId) ?? null, [notes, viewingNoteId]);
+  const editorSubjectId = editingId === 'new' ? subject.id : editingNoteSubjectId;
+  const editorTopics = useMemo(() => topics.filter(topic => topic.subjectId === editorSubjectId), [editorSubjectId, topics]);
 
   useEffect(() => {
     if (editingId !== null) titleRef.current?.focus();
@@ -110,12 +114,15 @@ function SubjectDrawer({ subject, subjects, topics, notes, goals, metricDefiniti
   }, [editingSubject]);
 
   const beginEditing = note => {
+    const noteSubjectId = note?.subjectId ?? subject.id;
+    const noteTopics = topics.filter(topic => topic.subjectId === noteSubjectId);
     setViewingNoteId(null);
+    setEditingNoteSubjectId(noteSubjectId);
     onDrawerChange({
       editingId: note?.id ?? 'new',
       title: note?.title ?? '',
       excerpt: note?.excerpt ?? '',
-      topicId: note?.topicId ?? subjectTopics[0]?.id ?? '',
+      topicId: note?.topicId ?? noteTopics[0]?.id ?? '',
       studyStartedAt: toDateTimeLocalValue(note?.studyStartedAtUtc),
       studyDuration: note?.studyDuration?.slice(0, 5) ?? '00:00',
       metrics: note?.metrics?.map(metric => ({ definitionId: metric.definition.id, value: String(metric.value) })) ?? [],
@@ -181,7 +188,7 @@ function SubjectDrawer({ subject, subjects, topics, notes, goals, metricDefiniti
       </div>
       <div className={`subject-banner ${subject.color}`}>
         <span><Folder size={24}/></span>
-        <div><strong>{subject.name}</strong><small>{notes.length} {notes.length === 1 ? 'note' : 'notes'} in this subject</small></div>
+        <div><strong>{subject.name}</strong><small>{notes.length} {notes.length === 1 ? 'note' : 'notes'} {isLeaf ? 'owned here' : 'from descendant leaves'}</small></div>
       </div>
       {editingSubject ? (
         <form id="subject-editor" className="note-editor" onSubmit={saveSubject}>
@@ -191,17 +198,17 @@ function SubjectDrawer({ subject, subjects, topics, notes, goals, metricDefiniti
           <div><button type="button" className="ghost-button" onClick={() => onDrawerChange({ editingSubject: false })}>Cancel</button></div>
         </form>
       ) : null}
-      <SubjectGoals subjectId={subject.id} goals={goals} notes={notes} topics={subjectTopics} metricDefinitions={metricDefinitions} onCreateTopic={onCreateTopic} onRemoveTopic={onRemoveTopic} onCreate={goal => onCreateGoal(subject.id, goal)} onUpdate={onUpdateGoal} onRemove={onRemoveGoal} onComplete={onCompleteGoal} onSetSubGoalCompletion={onSetSubGoalCompletion}/>
+      <SubjectGoals subjectId={subject.id} goals={goals} notes={directNotes} topics={subjectTopics} metricDefinitions={metricDefinitions} onCreateTopic={onCreateTopic} onRemoveTopic={onRemoveTopic} onCreate={goal => onCreateGoal(subject.id, goal)} onUpdate={onUpdateGoal} onRemove={onRemoveGoal} onComplete={onCompleteGoal} onSetSubGoalCompletion={onSetSubGoalCompletion}/>
       <div className="drawer-section-title">
         <div><span>Ideas in this subject</span><small>Capture thoughts while the context is fresh.</small></div>
-        <button className="text-button" onClick={() => beginEditing(null)}><Plus size={15}/> Add note</button>
+        <button className="text-button" onClick={() => beginEditing(null)} disabled={!isLeaf} title={isLeaf ? 'Add a note' : 'Notes can only be added to leaf subjects'}><Plus size={15}/> {isLeaf ? 'Add note' : 'Leaf notes only'}</button>
       </div>
       {editingId !== null ? (
         <form className="note-editor" onSubmit={handleSave}>
           <label>Note title<input ref={titleRef} value={title} onChange={event => onDrawerChange({ title: event.target.value })} placeholder="Name this idea"/></label>
           <label>Excerpt<textarea value={excerpt} onChange={event => onDrawerChange({ excerpt: event.target.value })} placeholder="Add the key thought..." rows="4"/></label>
-          <label>Topic<select value={topicId} onChange={event => onDrawerChange({ topicId: event.target.value })} required><option value="">Choose a topic</option>{subjectTopics.map(topic => <option key={topic.id} value={topic.id}>{topic.name}</option>)}</select></label>
-          <TopicComposer subjectId={subject.id} topics={subjectTopics} onCreate={onCreateTopic} onCreated={topic => onDrawerChange({ topicId: topic.id })} onRemove={onRemoveTopic} onRemoved={topic => onDrawerChange({ topicId: topicId === topic.id ? '' : topicId })}/>
+          <label>Topic<select value={topicId} onChange={event => onDrawerChange({ topicId: event.target.value })} required><option value="">Choose a topic</option>{editorTopics.map(topic => <option key={topic.id} value={topic.id}>{topic.name}</option>)}</select></label>
+          <TopicComposer subjectId={editorSubjectId} topics={editorTopics} onCreate={onCreateTopic} onCreated={topic => onDrawerChange({ topicId: topic.id })} onRemove={onRemoveTopic} onRemoved={topic => onDrawerChange({ topicId: topicId === topic.id ? '' : topicId })}/>
           <label>Study date and time<input type="datetime-local" value={studyStartedAt} onChange={event => onDrawerChange({ studyStartedAt: event.target.value })} required/></label>
           <label>Time spent studying<input type="time" value={studyDuration} onChange={event => onDrawerChange({ studyDuration: event.target.value })} step="60" required/></label>
           <section className="note-metrics" aria-label="Study metrics">
@@ -226,11 +233,12 @@ function SubjectDrawer({ subject, subjects, topics, notes, goals, metricDefiniti
         {notes.map(note => (
           <div className="drawer-note-item" key={note.id}>
             <article className="drawer-note">
-              <span className={`file-box ${subject.color}`}><FileText size={17}/></span>
+              <span className={`file-box ${(subjectsById.get(note.subjectId) ?? subject).color}`}><FileText size={17}/></span>
               <button type="button" className="drawer-note-preview" onClick={() => openNote(note)}><strong>{note.title}</strong><p>{note.excerpt || 'No excerpt yet.'}</p><small>{note.date}</small></button>
               <IconButton label={`Edit ${note.title}`} onClick={() => beginEditing(note)}><Pencil size={16}/></IconButton>
               <IconButton label={`Delete ${note.title}`} onClick={() => { if (window.confirm(`Delete ${note.title}?`)) void onRemoveNote(note.id).then(deleted => { if (deleted && viewingNoteId === note.id) setViewingNoteId(null); }); }}><Trash2 size={16}/></IconButton>
             </article>
+            <small className="note-owner-label">Owned by {subjectsById.get(note.subjectId)?.name ?? 'a leaf subject'}</small>
             {viewingNote?.id === note.id ? <NoteViewer note={note} onClose={() => setViewingNoteId(null)} onEdit={() => beginEditing(note)} onDelete={async () => { if (await onRemoveNote(note.id)) setViewingNoteId(null); }}/> : null}
           </div>
         ))}
@@ -247,6 +255,7 @@ export function KnowledgeGraph({
   topics,
   subjectsById,
   notesBySubject,
+  directNotesBySubject,
   connections,
   canvasContext,
   onCanvasContextChange,
@@ -300,7 +309,7 @@ export function KnowledgeGraph({
           y: subject.layoutPosition.normalizedY * (CANVAS_WORLD_HEIGHT - NODE_HEIGHT),
         }
       : null;
-    return { ...subject, ...persistedPosition, ...manualPositions[subject.id] };
+    return { ...subject, hasChildren: subjects.some(candidate => candidate.parentSubjectId === subject.id), ...persistedPosition, ...manualPositions[subject.id] };
   }), [manualPositions, positionedSubjects]);
   const displaySubjectsById = useMemo(() => new Map(displaySubjects.map(subject => [subject.id, subject])), [displaySubjects]);
   const positionedHierarchyEdges = useMemo(() => getSubjectHierarchyEdges(displaySubjects), [displaySubjects]);
@@ -522,8 +531,10 @@ export function KnowledgeGraph({
           <SubjectDrawer
               subject={openSubject}
               subjects={subjects}
+              subjectsById={subjectsById}
               topics={topics}
               notes={notesBySubject.get(openSubject.id) ?? []}
+              directNotes={directNotesBySubject.get(openSubject.id) ?? []}
               goals={goalsBySubject.get(openSubject.id) ?? []}
             metricDefinitions={metricDefinitions}
             drawer={drawer}

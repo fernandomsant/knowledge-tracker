@@ -49,6 +49,42 @@ public sealed class SqlServerStudyNoteRepository(Func<DbConnection> connectionFa
         return await ReadStudyNotesAsync(reader, ct);
     }
 
+    public async Task<IReadOnlyCollection<StudyNote>> ListBySubjectTreeAsync(
+        Guid subjectId,
+        CancellationToken ct
+    )
+    {
+        await using var connection = connectionFactory();
+        await connection.OpenAsync(ct);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            WITH DescendantSubjects AS
+            (
+                SELECT Id
+                FROM dbo.Subjects
+                WHERE Id = @SubjectId
+
+                UNION ALL
+
+                SELECT child.Id
+                FROM dbo.Subjects AS child
+                INNER JOIN DescendantSubjects AS ancestor ON ancestor.Id = child.ParentSubjectId
+            )
+            SELECT note.Id, note.SubjectId, note.TopicId, note.Title, note.Content, note.StudyDurationTicks, note.StudyStartedAtUtc,
+                   definition.Id, definition.Name, definition.NumberKind, metric.MetricValue
+            FROM dbo.StudyNotes AS note
+            INNER JOIN DescendantSubjects AS subject ON subject.Id = note.SubjectId
+            LEFT JOIN dbo.StudyNoteMetrics AS metric ON metric.StudyNoteId = note.Id
+            LEFT JOIN dbo.StudyMetricDefinitions AS definition ON definition.Id = metric.MetricDefinitionId
+            ORDER BY note.StudyStartedAtUtc DESC, note.Id, definition.NormalizedName
+            OPTION (MAXRECURSION 4);
+            """;
+        command.AddParameter("@SubjectId", DbType.Guid, subjectId);
+        await using var reader = await command.ExecuteReaderAsync(ct);
+
+        return await ReadStudyNotesAsync(reader, ct);
+    }
+
     public async Task AddAsync(StudyNote studyNote, CancellationToken ct)
     {
         await using var connection = connectionFactory();

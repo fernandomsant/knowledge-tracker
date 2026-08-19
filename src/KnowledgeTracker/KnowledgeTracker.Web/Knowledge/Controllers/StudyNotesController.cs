@@ -23,10 +23,12 @@ public sealed class StudyNotesController(ISubjectService subjects, IStudyNoteSer
         CancellationToken ct
     )
     {
-        var subject = await subjects.GetAsync(subjectId, ct);
-        return subject is null
-            ? NotFound()
-            : Ok(subject.StudyNotes.Select(KnowledgeResponseMapper.ToResponse).ToArray());
+        if (await subjects.GetAsync(subjectId, ct) is null)
+            return NotFound();
+
+        return Ok((await studyNotes.ListBySubjectTreeAsync(subjectId, ct))
+            .Select(KnowledgeResponseMapper.ToResponse)
+            .ToArray());
     }
 
     [HttpPost("api/subjects/{subjectId:guid}/notes")]

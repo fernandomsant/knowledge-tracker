@@ -72,11 +72,16 @@ function toNote(note) {
 const toConnection = connection => ({ id: connection.id, source: connection.subjectId, target: connection.connectedSubjectId });
 
 function toKnowledgeState(knowledge) {
+  const notes = [...new Map(
+    knowledge.subjects
+      .flatMap(subject => subject.studyNotes)
+      .map(note => [note.id, note])
+  ).values()];
   return {
     subjects: knowledge.subjects.map(toSubject),
     metricDefinitions: knowledge.metricDefinitions,
     topics: knowledge.topics,
-    notes: knowledge.subjects.flatMap(subject => subject.studyNotes.map(toNote)),
+    notes: notes.map(toNote),
     goals: knowledge.goals,
     connections: knowledge.connections.map(toConnection),
   };
@@ -106,11 +111,28 @@ export function useKnowledgeStore(accessToken, refreshAccessToken) {
   }, [execute]);
 
   const subjectsById = useMemo(() => new Map(state.subjects.map(subject => [subject.id, subject])), [state.subjects]);
-  const notesBySubject = useMemo(() => {
+  const directNotesBySubject = useMemo(() => {
     const index = new Map(state.subjects.map(subject => [subject.id, []]));
     state.notes.forEach(note => index.get(note.subjectId)?.push(note));
     return index;
   }, [state.notes, state.subjects]);
+  const notesBySubject = useMemo(() => {
+    const childrenBySubject = new Map(state.subjects.map(subject => [subject.id, []]));
+    state.subjects.forEach(subject => {
+      if (subject.parentSubjectId) childrenBySubject.get(subject.parentSubjectId)?.push(subject.id);
+    });
+
+    const aggregate = (subjectId, visiting = new Set()) => {
+      if (visiting.has(subjectId)) return [];
+      const nextVisiting = new Set(visiting).add(subjectId);
+      return [
+        ...(directNotesBySubject.get(subjectId) ?? []),
+        ...(childrenBySubject.get(subjectId) ?? []).flatMap(childId => aggregate(childId, nextVisiting)),
+      ];
+    };
+
+    return new Map(state.subjects.map(subject => [subject.id, aggregate(subject.id)]));
+  }, [directNotesBySubject, state.subjects]);
   const goalsBySubject = useMemo(() => {
     const index = new Map(state.subjects.map(subject => [subject.id, []]));
     state.goals.forEach(goal => index.get(goal.subjectId)?.push(goal));
@@ -341,5 +363,5 @@ export function useKnowledgeStore(accessToken, refreshAccessToken) {
     }
   }, [execute]);
 
-  return { ...state, subjectsById, notesBySubject, goalsBySubject, addSubject, updateSubject, removeSubject, addNote, updateNote, removeNote, createMetricDefinition, createTopic, removeTopic, saveSubjectLayout, connectSubjects, removeConnection, addSubjectGoal, updateSubjectGoal, removeSubjectGoal, completeSubjectGoal, prioritizeSubjectGoal, setSubGoalCompletion, loadGoalActivity };
+  return { ...state, subjectsById, directNotesBySubject, notesBySubject, goalsBySubject, addSubject, updateSubject, removeSubject, addNote, updateNote, removeNote, createMetricDefinition, createTopic, removeTopic, saveSubjectLayout, connectSubjects, removeConnection, addSubjectGoal, updateSubjectGoal, removeSubjectGoal, completeSubjectGoal, prioritizeSubjectGoal, setSubGoalCompletion, loadGoalActivity };
 }

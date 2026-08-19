@@ -171,7 +171,7 @@ const CanvasOverlay = memo(function CanvasOverlay({ open, onClose, graphProps })
 export default function App() {
   const { accessToken, user, logout, refreshAccessToken } = useAuthenticationSession();
   const {
-    subjects, notes, connections, goals, topics, metricDefinitions, goalActivity, subjectsById, notesBySubject, goalsBySubject, status: knowledgeStatus, error: knowledgeError,
+    subjects, notes, connections, goals, topics, metricDefinitions, goalActivity, subjectsById, notesBySubject, directNotesBySubject, goalsBySubject, status: knowledgeStatus, error: knowledgeError,
     addSubject, updateSubject, removeSubject, addNote, updateNote, removeNote, createMetricDefinition, createTopic, removeTopic, saveSubjectLayout, connectSubjects, removeConnection, addSubjectGoal, updateSubjectGoal, removeSubjectGoal, completeSubjectGoal, prioritizeSubjectGoal, setSubGoalCompletion, loadGoalActivity,
   } = useKnowledgeStore(accessToken, refreshAccessToken);
   const [activeNav, setActiveNav] = useState('Overview');
@@ -205,11 +205,11 @@ export default function App() {
   const filteredNotes = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     return notes.filter(note => {
-      if (activeSubject !== 'all' && note.subjectId !== activeSubject) return false;
+      if (activeSubject !== 'all' && !(notesBySubject.get(activeSubject) ?? []).some(candidate => candidate.id === note.id)) return false;
       if (activeTopic !== 'all' && note.topicId !== activeTopic) return false;
       return !normalizedQuery || `${note.title} ${note.excerpt}`.toLowerCase().includes(normalizedQuery);
     });
-  }, [notes, activeSubject, activeTopic, query]);
+  }, [notes, notesBySubject, activeSubject, activeTopic, query]);
   const topicsById = useMemo(() => new Map(topics.map(topic => [topic.id, topic])), [topics]);
 
   const recentNotes = useMemo(() => notes.slice(-3).reverse(), [notes]);
@@ -322,6 +322,7 @@ export default function App() {
                 topics={topics}
                 subjectsById={subjectsById}
                 notesBySubject={notesBySubject}
+                directNotesBySubject={directNotesBySubject}
                 connections={connections}
                 canvasContext={canvasContext}
                 onCanvasContextChange={setCanvasContext}
@@ -364,6 +365,7 @@ export default function App() {
           topics,
           subjectsById,
           notesBySubject,
+          directNotesBySubject,
           connections,
           canvasContext,
           onCanvasContextChange: setCanvasContext,

@@ -19,6 +19,14 @@ public sealed class StudyNoteService(
             .Select(KnowledgeContractMapper.ToDetails)
             .ToArray();
 
+    public async Task<IReadOnlyCollection<StudyNoteDetails>> ListBySubjectTreeAsync(
+        Guid subjectId,
+        CancellationToken ct
+    ) =>
+        (await studyNotes.ListBySubjectTreeAsync(subjectId, ct))
+            .Select(KnowledgeContractMapper.ToDetails)
+            .ToArray();
+
     public async Task<StudyNoteDetails?> CreateAsync(
         Guid subjectId,
         CreateStudyNoteRequest request,
@@ -29,6 +37,8 @@ public sealed class StudyNoteService(
         var subject = await subjects.FindAsync(subjectId, ct);
         if (subject is null)
             return null;
+        if (await subjects.HasChildrenAsync(subjectId, ct))
+            throw new ArgumentException("Only leaf subjects can own study notes.", nameof(subjectId));
         if (request.TopicId == Guid.Empty)
             throw new ArgumentException("A topic must be selected.", nameof(request));
         var topicId = request.TopicId;

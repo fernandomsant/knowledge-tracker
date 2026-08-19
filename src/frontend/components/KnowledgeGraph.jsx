@@ -307,7 +307,7 @@ export function KnowledgeGraph({
   onSetSubGoalCompletion,
   onSaveLayout,
 }) {
-  const { pan, zoom, connectMode, connectionStart, openSubjectId, connectionsOpen, drawer, hasCenteredSubjectLayout } = canvasContext;
+  const { pan, zoom, connectMode, connectionKind = 'related', connectionStart, openSubjectId, connectionsOpen, drawer, hasCenteredSubjectLayout } = canvasContext;
   const canvasRef = useRef(null);
   const panDragRef = useRef(null);
 
@@ -400,20 +400,30 @@ export function KnowledgeGraph({
     updateCanvasContext({ pan: { x: pointerX - worldX * nextZoom, y: pointerY - worldY * nextZoom }, zoom: nextZoom });
   }, [pan, updateCanvasContext, zoom]);
 
-  const selectForConnection = useCallback(id => {
+  const selectForConnection = useCallback(async id => {
     if (connectionStart === null) {
       updateCanvasContext({ connectionStart: id });
       return;
     }
-    if (connectionStart !== id && !connectionKeys.has(edgeKey(connectionStart, id))) {
-      onConnect(connectionStart, id);
+
+    if (connectionStart !== id) {
+      if (connectionKind === 'hierarchy') {
+        const parent = subjectsById.get(connectionStart);
+        const child = subjectsById.get(id);
+        if (parent && child && child.parentSubjectId !== parent.id) {
+          await onUpdateSubject(child.id, child.name, child.description ?? null, parent.id);
+        }
+      } else if (!connectionKeys.has(edgeKey(connectionStart, id))) {
+        await onConnect(connectionStart, id);
+      }
     }
     updateCanvasContext({ connectionStart: null });
-  }, [connectionKeys, connectionStart, onConnect, updateCanvasContext]);
+  }, [connectionKeys, connectionKind, connectionStart, onConnect, onUpdateSubject, subjectsById, updateCanvasContext]);
 
-  const toggleConnectMode = useCallback(() => {
-    updateCanvasContext({ connectMode: !connectMode, connectionStart: null, openSubjectId: null });
-  }, [connectMode, updateCanvasContext]);
+  const toggleConnectMode = useCallback(kind => {
+    const shouldClose = connectMode && connectionKind === kind;
+    updateCanvasContext({ connectMode: !shouldClose, connectionKind: kind, connectionStart: null, openSubjectId: null });
+  }, [connectMode, connectionKind, updateCanvasContext]);
 
   const resetCanvas = useCallback(() => {
     const gatheredPositions = Object.fromEntries(positionedSubjects.map(subject => [
@@ -479,7 +489,9 @@ export function KnowledgeGraph({
         onWheelCapture={handleWheel}
       >
         {connectMode ? (
-          <div className="connect-banner"><GitBranch size={16}/>{connectionStart ? 'Now choose the second subject.' : 'Click two subjects to create a connection.'}</div>
+          <div className="connect-banner"><GitBranch size={16}/>{connectionKind === 'hierarchy'
+            ? (connectionStart ? 'Now choose the child subject.' : 'Choose the parent subject first.')
+            : (connectionStart ? 'Now choose the second subject.' : 'Choose two subjects to create a related link.')}</div>
         ) : null}
         <div className="graph-world" style={{ transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${zoom})` }}>
             <svg className="connections" width={CANVAS_WORLD_WIDTH} height={CANVAS_WORLD_HEIGHT} aria-hidden="true">
@@ -537,11 +549,12 @@ export function KnowledgeGraph({
             />
           ))}
         </div>
-        <div className="graph-legend"><span><i className="manual-link"/>{connections.length} related links</span><span><i className="hierarchy-link"/>{hierarchyEdges.length} hierarchy links</span><span>{connectMode ? 'Choose two subjects' : 'Drag to arrange'}</span></div>
+        <div className="graph-legend"><span><i className="manual-link"/>{connections.length} related links</span><span><i className="hierarchy-link"/>{hierarchyEdges.length} hierarchy links</span><span>{connectMode ? (connectionKind === 'hierarchy' ? 'Parent first, child second' : 'Choose two related subjects') : 'Drag to arrange'}</span></div>
         <div className="canvas-controls">
           <button onClick={onCreateSubject}><Plus size={16}/> Add node</button>
           <button className={connectionsOpen ? 'active' : ''} onClick={() => updateCanvasContext({ connectionsOpen: !connectionsOpen })}><GitBranch size={16}/> Links ({connections.length})</button>
-          <button className={connectMode ? 'active' : ''} onClick={toggleConnectMode}><GitBranch size={16}/>{connectMode ? 'Done' : 'Connect'}</button>
+          <button className={connectMode && connectionKind === 'related' ? 'active' : ''} onClick={() => toggleConnectMode('related')}><GitBranch size={16}/>{connectMode && connectionKind === 'related' ? 'Done' : 'Relate'}</button>
+          <button className={connectMode && connectionKind === 'hierarchy' ? 'active' : ''} onClick={() => toggleConnectMode('hierarchy')} title="Choose a parent, then its child"><GitBranch size={16}/>{connectMode && connectionKind === 'hierarchy' ? 'Done' : 'Set parent'}</button>
           <button onClick={resetCanvas}><RotateCcw size={16}/> Gather subjects</button>
           <span>{Math.round(zoom * 100)}%</span>
         </div>

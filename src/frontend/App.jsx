@@ -25,6 +25,7 @@ const initialCanvasContext = {
   zoom: 1,
   hasCenteredSubjectLayout: false,
   connectMode: false,
+  connectionKind: 'related',
   connectionStart: null,
   openSubjectId: null,
   connectionsOpen: false,

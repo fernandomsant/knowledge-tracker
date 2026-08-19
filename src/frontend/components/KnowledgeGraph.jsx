@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FileText, Folder, GitBranch, Pencil, Plus, RotateCcw, Trash2, X } from '../icons';
+import { FileText, Folder, GitBranch, Pencil, Plus, RotateCcw, Trash2, Unlink, X } from '../icons';
 import { IconButton } from './IconButton';
 import { MetricDefinitionComposer } from './context/MetricDefinitionComposer';
 import { NoteViewer } from './context/NoteViewer';
@@ -91,7 +91,7 @@ const SubjectNode = memo(function SubjectNode({
   );
 });
 
-function SubjectDrawer({ subject, subjects, subjectsById, topics, notes, directNotes, goals, metricDefinitions, drawer, onDrawerChange, onClose, onAddNote, onUpdateNote, onRemoveNote, onCreateMetricDefinition, onCreateTopic, onRemoveTopic, onUpdateSubject, onRemoveSubject, onCreateGoal, onUpdateGoal, onRemoveGoal, onCompleteGoal, onSetSubGoalCompletion }) {
+function SubjectDrawer({ subject, subjects, subjectsById, topics, notes, directNotes, goals, metricDefinitions, connections, drawer, onDrawerChange, onClose, onAddNote, onUpdateNote, onRemoveNote, onRemoveConnection, onCreateMetricDefinition, onCreateTopic, onRemoveTopic, onUpdateSubject, onRemoveSubject, onCreateGoal, onUpdateGoal, onRemoveGoal, onCompleteGoal, onSetSubGoalCompletion }) {
   const { editingId, title, excerpt, topicId, studyStartedAt, studyDuration, metrics, editingSubject, subjectName, subjectDescription, parentSubjectId } = drawer;
   const subjectTopics = topics.filter(topic => topic.subjectId === subject.id);
   const titleRef = useRef(null);
@@ -100,6 +100,7 @@ function SubjectDrawer({ subject, subjects, subjectsById, topics, notes, directN
   const [editingNoteSubjectId, setEditingNoteSubjectId] = useState(subject.id);
   const parentOptions = useMemo(() => getSubjectParentOptions(subjects, subject.id), [subject.id, subjects]);
   const directChildCount = useMemo(() => subjects.filter(candidate => candidate.parentSubjectId === subject.id).length, [subject.id, subjects]);
+  const subjectConnections = useMemo(() => connections.filter(connection => connection.source === subject.id || connection.target === subject.id), [connections, subject.id]);
   const isLeaf = directChildCount === 0;
   const viewingNote = useMemo(() => notes.find(note => note.id === viewingNoteId) ?? null, [notes, viewingNoteId]);
   const editorSubjectId = editingId === 'new' ? subject.id : editingNoteSubjectId;
@@ -171,6 +172,20 @@ function SubjectDrawer({ subject, subjects, subjectsById, topics, notes, directN
     });
   };
 
+  const removeParentLink = async () => {
+    if (!subject.parentSubjectId || !window.confirm(`Remove ${subject.name}'s parent link?`)) return;
+    if (await onUpdateSubject(subject.id, subject.name, subject.description ?? null, null)) {
+      onDrawerChange({ parentSubjectId: '' });
+    }
+  };
+
+  const removeManualLink = async connection => {
+    const otherSubjectId = connection.source === subject.id ? connection.target : connection.source;
+    const otherSubject = subjectsById.get(otherSubjectId);
+    if (!window.confirm(`Delete the link between ${subject.name} and ${otherSubject?.name ?? 'subject'}?`)) return;
+    await onRemoveConnection(connection.id);
+  };
+
   return (
     <aside
       className="subject-drawer"
@@ -182,6 +197,7 @@ function SubjectDrawer({ subject, subjects, subjectsById, topics, notes, directN
         <div><span>SUBJECT DETAILS</span><h3>{subject.name}</h3></div>
         <div className="drawer-actions">
           {editingSubject ? <button type="submit" form="subject-editor" className="primary-button">Save changes</button> : <button type="button" className="text-button" onClick={startSubjectEditing}><Pencil size={15}/> Edit</button>}
+          {subject.parentSubjectId && !editingSubject ? <button type="button" className="text-button" onClick={() => void removeParentLink()}><Unlink size={15}/> Remove parent link</button> : null}
           <button className="remove-node-button" onClick={() => { const childNotice = directChildCount ? ` ${directChildCount} child ${directChildCount === 1 ? 'subject will' : 'subjects will'} become top-level.` : ''; if (window.confirm(`Remove ${subject.name} and its notes?${childNotice}`)) onRemoveSubject(); }}><Trash2 size={15}/> Remove node</button>
           <IconButton label="Close subject details" onClick={onClose}><X size={19}/></IconButton>
         </div>
@@ -198,6 +214,18 @@ function SubjectDrawer({ subject, subjects, subjectsById, topics, notes, directN
           <div><button type="button" className="ghost-button" onClick={() => onDrawerChange({ editingSubject: false })}>Cancel</button></div>
         </form>
       ) : null}
+      <div className="drawer-section-title">
+        <div><span>Related links</span><small>Manual links are separate from the subject hierarchy.</small></div>
+      </div>
+      {subjectConnections.length ? (
+        <div className="subject-links-list">
+          {subjectConnections.map(connection => {
+            const otherSubjectId = connection.source === subject.id ? connection.target : connection.source;
+            const otherSubject = subjectsById.get(otherSubjectId);
+            return <div className="subject-link-row" key={connection.id}><span>{otherSubject?.name ?? 'Unknown subject'}</span><button type="button" className="delete-link-button" onClick={() => void removeManualLink(connection)}><Trash2 size={14}/> Delete link</button></div>;
+          })}
+        </div>
+      ) : <p className="connection-empty subject-links-empty">No related links for this subject.</p>}
       <SubjectGoals subjectId={subject.id} goals={goals} notes={directNotes} topics={subjectTopics} metricDefinitions={metricDefinitions} onCreateTopic={onCreateTopic} onRemoveTopic={onRemoveTopic} onCreate={goal => onCreateGoal(subject.id, goal)} onUpdate={onUpdateGoal} onRemove={onRemoveGoal} onComplete={onCompleteGoal} onSetSubGoalCompletion={onSetSubGoalCompletion}/>
       <div className="drawer-section-title">
         <div><span>Ideas in this subject</span><small>Capture thoughts while the context is fresh.</small></div>
@@ -535,7 +563,8 @@ export function KnowledgeGraph({
           <SubjectDrawer
               subject={openSubject}
               subjects={subjects}
-              subjectsById={subjectsById}
+            subjectsById={subjectsById}
+            connections={connections}
               topics={topics}
               notes={notesBySubject.get(openSubject.id) ?? []}
               directNotes={directNotesBySubject.get(openSubject.id) ?? []}
@@ -547,6 +576,7 @@ export function KnowledgeGraph({
             onAddNote={onAddNote}
             onUpdateNote={onUpdateNote}
             onRemoveNote={onRemoveNote}
+            onRemoveConnection={onRemoveConnection}
             onCreateMetricDefinition={onCreateMetricDefinition}
             onCreateTopic={onCreateTopic}
             onRemoveTopic={onRemoveTopic}

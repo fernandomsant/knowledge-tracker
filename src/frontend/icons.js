@@ -28,5 +28,6 @@ export { default as Sparkles } from 'lucide-react/dist/esm/icons/sparkles.mjs';
 export { default as Tag } from 'lucide-react/dist/esm/icons/tag.mjs';
 export { default as Target } from 'lucide-react/dist/esm/icons/target.mjs';
 export { default as Trash2 } from 'lucide-react/dist/esm/icons/trash-2.mjs';
+export { default as Unlink } from 'lucide-react/dist/esm/icons/unlink.mjs';
 export { default as X } from 'lucide-react/dist/esm/icons/x.mjs';
 export { default as Zap } from 'lucide-react/dist/esm/icons/zap.mjs';

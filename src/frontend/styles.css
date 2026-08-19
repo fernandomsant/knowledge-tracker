@@ -70,3 +70,4 @@
   font-size: 0.72rem;
 }
 .delete-link-button{border:1px solid #efd7d1;border-radius:7px;background:#fff7f5;color:#b45343;padding:7px 8px;display:flex;align-items:center;gap:5px;font-size:10px;font-weight:700;white-space:nowrap;cursor:pointer}.delete-link-button:hover{background:#fcebe7;border-color:#dfafa5}
+.subject-links-list{border:1px solid #e7ece6;border-radius:9px;padding:0 10px;background:#fbfcfa}.subject-link-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 0;border-bottom:1px solid #edf1ec;font-size:11px;font-weight:700;color:#334039}.subject-link-row:last-child{border-bottom:0}.subject-links-empty{margin-top:-5px}

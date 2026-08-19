@@ -188,7 +188,7 @@ function SubjectDrawer({ subject, subjects, subjectsById, topics, notes, directN
       </div>
       <div className={`subject-banner ${subject.color}`}>
         <span><Folder size={24}/></span>
-        <div><strong>{subject.name}</strong><small>{notes.length} {notes.length === 1 ? 'note' : 'notes'} {isLeaf ? 'owned here' : 'from descendant leaves'}</small></div>
+        <div><strong>{subject.name}</strong><small>{notes.length} {notes.length === 1 ? 'note' : 'notes'} {isLeaf ? 'owned here' : 'including descendant leaves'}</small></div>
       </div>
       {editingSubject ? (
         <form id="subject-editor" className="note-editor" onSubmit={saveSubject}>

@@ -28,22 +28,40 @@ public sealed class SubjectNoteOwnershipTests
     }
 
     [Fact]
-    public async Task Reparenting_rejects_a_subject_with_direct_notes_as_the_new_parent()
+    public async Task Reparenting_rejects_cycles_even_when_legacy_notes_exist()
     {
-        var moving = new Subject("Moving");
-        var occupied = new Subject("Occupied");
-        var topic = new Topic(Guid.NewGuid(), occupied.Id, "Reading");
-        var occupiedNote = occupied.AddStudyNote(topic.Id, "Existing", "Content", TimeSpan.FromMinutes(5), DateTimeOffset.UtcNow);
-        var subjects = new FakeSubjectRepository(moving, occupied);
-        var notes = new FakeStudyNoteRepository(occupiedNote);
+        var parent = new Subject("Parent");
+        var child = new Subject("Child", parentSubjectId: parent.Id);
+        var topic = new Topic(Guid.NewGuid(), parent.Id, "Reading");
+        var legacyNote = parent.AddStudyNote(topic.Id, "Existing", "Content", TimeSpan.FromMinutes(5), DateTimeOffset.UtcNow);
+        var subjects = new FakeSubjectRepository(parent, child);
+        var notes = new FakeStudyNoteRepository(legacyNote);
         var service = new SubjectService(subjects, notes, new FakeSubjectLayoutRepository());
 
         await Assert.ThrowsAsync<ArgumentException>(() => service.UpdateAsync(
-            moving.Id,
-            new UpdateSubjectRequest(moving.Name, moving.Description, occupied.Id),
+            parent.Id,
+            new UpdateSubjectRequest(parent.Name, parent.Description, child.Id),
             CancellationToken.None));
 
-        Assert.Null(subjects.Find(moving.Id)!.ParentSubjectId);
+        Assert.Null(subjects.Find(parent.Id)!.ParentSubjectId);
+    }
+
+    [Fact]
+    public async Task Existing_parent_notes_remain_readable_but_new_parent_notes_are_rejected()
+    {
+        var root = new Subject("Root");
+        var leaf = new Subject("Leaf", parentSubjectId: root.Id);
+        var topic = new Topic(Guid.NewGuid(), root.Id, "Legacy topic");
+        var existingNote = root.AddStudyNote(topic.Id, "Legacy note", "Content", TimeSpan.FromMinutes(5), DateTimeOffset.UtcNow);
+        var subjects = new FakeSubjectRepository(root, leaf);
+        var notes = new FakeStudyNoteRepository(existingNote);
+        var service = new SubjectService(subjects, notes, new FakeSubjectLayoutRepository());
+        var noteService = new StudyNoteService(subjects, new FakeTopicRepository(topic), notes, new FakeMetricDefinitionRepository(), new FakeGoalActivityService());
+
+        var details = await service.GetAsync(root.Id, CancellationToken.None);
+
+        Assert.Contains(details!.StudyNotes, note => note.Id == existingNote.Id);
+        await Assert.ThrowsAsync<ArgumentException>(() => noteService.CreateAsync(root.Id, CreateRequest(topic.Id), CancellationToken.None));
     }
 
     [Fact]

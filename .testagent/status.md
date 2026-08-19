@@ -3,10 +3,11 @@
 ## Review result
 
 - `Create_rejects_parent_subjects_and_allows_leaf_subjects` verifies Application note creation enforces leaf-only ownership and preserves the successful leaf path.
-- `Reparenting_rejects_a_subject_with_direct_notes_as_the_new_parent` verifies Application hierarchy validation rejects a new parent with direct notes.
+- `Reparenting_rejects_cycles_even_when_legacy_notes_exist` verifies Application hierarchy validation still rejects cycles while preserving legacy notes.
 - `Subject_details_use_recursive_notes_without_changing_direct_note_queries` verifies recursive subject/application reads expose a descendant note once while the existing direct repository query remains empty for the parent.
+- `Existing_parent_notes_remain_readable_but_new_parent_notes_are_rejected` verifies legacy parent notes remain visible while new parent-note creation is rejected.
 - SQL migration execution passed through `npm run migrate`, including the conflict audit/backfill and both database triggers.
-- `dotnet test src/KnowledgeTracker/KnowledgeTracker.Tests/KnowledgeTracker.Tests.csproj --no-restore` passed 6/6 tests.
+- `dotnet test src/KnowledgeTracker/KnowledgeTracker.Tests/KnowledgeTracker.Tests.csproj --no-restore` passed 7/7 tests.
 - `dotnet build src/KnowledgeTracker/KnowledgeTracker.Web/KnowledgeTracker.Web.csproj --no-restore` passed with 0 warnings and 0 errors.
 - `npm run build` passed for the frontend.
 

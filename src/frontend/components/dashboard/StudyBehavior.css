@@ -225,24 +225,78 @@
 }
 
 .subject-time-row {
+  position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 5px 10px;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
   width: 100%;
-  border: 0;
   background: transparent;
-  padding: 7px 5px 7px calc(5px + var(--subject-depth) * 17px);
-  text-align: left;
-  cursor: pointer;
+  padding: 7px 5px 7px calc(5px + var(--subject-indent));
 }
 
 .subject-time-row:hover {
   background: #f7faf8;
 }
 
-.subject-time-row:focus-visible {
+.subject-time-content:focus-visible,
+.subject-time-toggle:focus-visible {
   outline: 2px solid #4a947d;
   outline-offset: -2px;
+}
+
+.subject-time-toggle,
+.subject-time-toggle-spacer {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+}
+
+.subject-time-toggle {
+  border: 0;
+  border-radius: 5px;
+  background: #edf5f1;
+  padding: 0;
+  color: #3d7e6b;
+  cursor: pointer;
+}
+
+.subject-time-toggle:hover {
+  background: #dfeee7;
+}
+
+.subject-time-toggle svg {
+  transform: rotate(-90deg);
+  transition: transform 150ms ease;
+}
+
+.subject-time-row.expanded .subject-time-toggle svg {
+  transform: rotate(0);
+}
+
+.subject-time-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 5px 10px;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.subject-time-row.nested::before {
+  position: absolute;
+  top: -8px;
+  bottom: 50%;
+  left: calc(13px + var(--subject-indent) - 17px);
+  width: 9px;
+  border-bottom: 1px solid #cad9d0;
+  border-left: 1px solid #cad9d0;
+  content: '';
+  pointer-events: none;
 }
 
 .subject-time-identity {
@@ -251,17 +305,6 @@
   min-width: 0;
   align-items: center;
   gap: 7px;
-}
-
-.subject-time-row.nested .subject-time-identity::before {
-  position: absolute;
-  top: -8px;
-  bottom: 50%;
-  left: -9px;
-  width: 8px;
-  border-bottom: 1px solid #cad9d0;
-  border-left: 1px solid #cad9d0;
-  content: '';
 }
 
 .subject-time-identity > i {
@@ -331,6 +374,12 @@
   height: 4px;
   border-radius: 99px;
   background: #e7ede9;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .subject-time-toggle svg {
+    transition: none;
+  }
 }
 
 .subject-time-track > i {

@@ -10,6 +10,13 @@ import { CANVAS_WORLD_HEIGHT, CANVAS_WORLD_WIDTH, NODE_HEIGHT, NODE_WIDTH, layou
 
 const MIN_ZOOM = 0.18;
 const MAX_ZOOM = 2.2;
+const classificationLabel = note => ({
+  Pending: 'Classification queued',
+  Processing: 'Classifying…',
+  RetryScheduled: 'Classification retry scheduled',
+  Completed: 'Classified',
+  Failed: 'Classification failed',
+}[note.classification?.status] ?? 'Classification queued');
 
 const edgeKey = (source, target) => [source, target].sort().join(':');
 
@@ -262,7 +269,7 @@ function SubjectDrawer({ subject, subjects, subjectsById, topics, notes, directN
           <div className="drawer-note-item" key={note.id}>
             <article className="drawer-note">
               <span className={`file-box ${(subjectsById.get(note.subjectId) ?? subject).color}`}><FileText size={17}/></span>
-              <button type="button" className="drawer-note-preview" onClick={() => openNote(note)}><strong>{note.title}</strong><p>{note.excerpt || 'No excerpt yet.'}</p><small>{note.date}</small></button>
+              <button type="button" className="drawer-note-preview" onClick={() => openNote(note)}><strong>{note.title}</strong><p>{note.excerpt || 'No excerpt yet.'}</p><small>{note.date} · <span className={`classification-inline ${(note.classification?.status ?? 'Pending').toLowerCase()}`}>{classificationLabel(note)}</span></small></button>
               <IconButton label={`Edit ${note.title}`} onClick={() => beginEditing(note)}><Pencil size={16}/></IconButton>
               <IconButton label={`Delete ${note.title}`} onClick={() => { if (window.confirm(`Delete ${note.title}?`)) void onRemoveNote(note.id).then(deleted => { if (deleted && viewingNoteId === note.id) setViewingNoteId(null); }); }}><Trash2 size={16}/></IconButton>
             </article>

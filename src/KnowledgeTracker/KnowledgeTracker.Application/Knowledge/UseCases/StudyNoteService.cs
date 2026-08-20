@@ -81,7 +81,9 @@ public sealed class StudyNoteService(
             request.Content,
             request.StudyDuration,
             request.StudyStartedAtUtc,
-            await CreateMetricsAsync(request.Metrics, ct)
+            await CreateMetricsAsync(request.Metrics, ct),
+            studyNote.Version + 1,
+            NoteClassificationState.Pending
         );
         await studyNotes.UpdateAsync(updated, ct);
         await goalActivity.ReevaluateMetricGoalsAsync(studyNote.SubjectId, ct, DateOnly.FromDateTime(updated.StudyStartedAtUtc.UtcDateTime));

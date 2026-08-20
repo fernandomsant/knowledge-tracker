@@ -47,6 +47,7 @@ export const knowledgeClient = {
   updateStudyNote: (accessToken, id, topicId, title, content, studyDuration, studyStartedAtUtc, metrics) => request(accessToken, `/api/study-notes/${id}`, {
     method: 'PUT', body: { topicId, title, content, metrics, studyDuration, studyStartedAtUtc },
   }),
+  listStudyNotes: (accessToken, subjectId) => request(accessToken, `/api/subjects/${subjectId}/notes`),
   deleteStudyNote: (accessToken, id) => request(accessToken, `/api/study-notes/${id}`, { method: 'DELETE' }),
   createMetricDefinition: (accessToken, name, numberKind) => request(accessToken, '/api/study-metric-definitions', {
     method: 'POST', body: { name, numberKind },

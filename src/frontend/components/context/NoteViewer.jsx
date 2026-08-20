@@ -1,10 +1,13 @@
-import { Clock3, FileText, Pencil, Trash2, X } from '../../icons';
+import { Check, Clock3, FileText, HelpCircle, Pencil, Sparkles, Trash2, X } from '../../icons';
 import { IconButton } from '../IconButton';
 
 const studyDateFormatter = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
 export function NoteViewer({ note, onClose, onEdit, onDelete }) {
   const studiedAt = note.studyStartedAtUtc ? studyDateFormatter.format(new Date(note.studyStartedAtUtc)) : 'Not recorded';
+  const classification = note.classification ?? { status: 'Pending', scores: [] };
+  const status = classification.status?.toLowerCase() ?? 'pending';
+  const statusLabel = { pending: 'Queued', processing: 'Classifying', retryscheduled: 'Retry scheduled', completed: 'Classified', failed: 'Classification failed' }[status] ?? classification.status;
 
   return (
     <section className="note-viewer" aria-labelledby={`note-viewer-${note.id}`}>
@@ -17,6 +20,18 @@ export function NoteViewer({ note, onClose, onEdit, onDelete }) {
         </div>
       </div>
       <p className="note-viewer-content">{note.excerpt || 'No content has been added to this note yet.'}</p>
+      <section className={`note-classification ${status}`} aria-label="Note classification">
+        <header>
+          {status === 'completed' ? <Check size={14}/> : status === 'failed' ? <HelpCircle size={14}/> : <Sparkles size={14}/>}
+          <strong>{statusLabel}</strong>
+          {classification.model ? <small>{classification.model}</small> : null}
+        </header>
+        {status === 'completed' ? (
+          classification.scores?.length
+            ? <div>{classification.scores.slice(0, 5).map(score => <span key={score.subjectId}>{score.subjectName}<b>{score.score.toFixed(3)}</b></span>)}</div>
+            : <p>No subject relevance was returned.</p>
+        ) : status === 'failed' ? <p>{classification.failureReason || 'The classifier could not process this note.'}</p> : <p>Your note is saved. Classification continues in the background.</p>}
+      </section>
       <dl className="note-viewer-details">
         <div><dt><FileText size={14}/> Studied</dt><dd>{studiedAt}</dd></div>
         <div><dt><Clock3 size={14}/> Time spent</dt><dd>{note.studyDuration || 'Not recorded'}</dd></div>

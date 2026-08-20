@@ -34,6 +34,10 @@ function knowledgeReducer(state, action) {
       const goals = applyMetricDelta(applyMetricDelta(state.goals, previous?.metrics ?? [], -1), action.note.metrics, 1);
       return { ...state, notes: state.notes.map(note => note.id === action.note.id ? { ...note, ...action.note } : note), goals };
     }
+    case 'note/classification-refresh': {
+      const refreshedById = new Map(action.notes.map(note => [note.id, toNote(note)]));
+      return { ...state, notes: state.notes.map(note => refreshedById.get(note.id) ?? note) };
+    }
     case 'note/remove': {
       const note = state.notes.find(candidate => candidate.id === action.id);
       return { ...state, notes: state.notes.filter(candidate => candidate.id !== action.id), goals: applyMetricDelta(state.goals, note?.metrics ?? [], -1) };
@@ -66,7 +70,7 @@ function toSubject(subject, index) {
 }
 
 function toNote(note) {
-  return { id: note.id, subjectId: note.subjectId, topicId: note.topicId, title: note.title, excerpt: note.content, metrics: note.metrics ?? [], studyDuration: note.studyDuration, studyStartedAtUtc: note.studyStartedAtUtc, date: noteDateFormatter.format(new Date(note.studyStartedAtUtc)) };
+  return { id: note.id, subjectId: note.subjectId, topicId: note.topicId, title: note.title, excerpt: note.content, metrics: note.metrics ?? [], studyDuration: note.studyDuration, studyStartedAtUtc: note.studyStartedAtUtc, version: note.version ?? 1, classification: note.classification ?? { status: 'Pending', scores: [] }, date: noteDateFormatter.format(new Date(note.studyStartedAtUtc)) };
 }
 
 const toConnection = connection => ({ id: connection.id, source: connection.subjectId, target: connection.connectedSubjectId });
@@ -111,6 +115,29 @@ export function useKnowledgeStore(accessToken, refreshAccessToken) {
   }, [execute]);
 
   const subjectsById = useMemo(() => new Map(state.subjects.map(subject => [subject.id, subject])), [state.subjects]);
+  const pendingClassificationSubjects = useMemo(() => [...new Set(
+    state.notes
+      .filter(note => ['Pending', 'Processing', 'RetryScheduled'].includes(note.classification?.status))
+      .map(note => note.subjectId)
+  )].sort().join(','), [state.notes]);
+
+  useEffect(() => {
+    if (!pendingClassificationSubjects) return undefined;
+    let current = true;
+    const subjectIds = pendingClassificationSubjects.split(',');
+    const refresh = async () => {
+      try {
+        const groups = await Promise.all(subjectIds.map(subjectId =>
+          execute(token => knowledgeClient.listStudyNotes(token, subjectId))
+        ));
+        if (current) dispatch({ type: 'note/classification-refresh', notes: groups.flat() });
+      } catch (reason) {
+        if (current && reason?.status === 401) dispatch({ type: 'request/failed', error: errorMessage(reason) });
+      }
+    };
+    const interval = window.setInterval(() => { void refresh(); }, 3000);
+    return () => { current = false; window.clearInterval(interval); };
+  }, [execute, pendingClassificationSubjects]);
   const directNotesBySubject = useMemo(() => {
     const index = new Map(state.subjects.map(subject => [subject.id, []]));
     state.notes.forEach(note => index.get(note.subjectId)?.push(note));

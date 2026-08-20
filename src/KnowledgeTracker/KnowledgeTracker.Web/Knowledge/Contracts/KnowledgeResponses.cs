@@ -21,8 +21,20 @@ public sealed record StudyNoteResponse(
     string Content,
     TimeSpan StudyDuration,
     DateTimeOffset StudyStartedAtUtc,
-    IReadOnlyCollection<StudyNoteMetricResponse> Metrics
+    IReadOnlyCollection<StudyNoteMetricResponse> Metrics,
+    long Version,
+    NoteClassificationResponse Classification
 );
+
+public sealed record NoteClassificationResponse(
+    string Status,
+    string? Model,
+    string? ModelVersion,
+    string? FailureReason,
+    IReadOnlyCollection<NoteClassificationScoreResponse> Scores
+);
+
+public sealed record NoteClassificationScoreResponse(Guid SubjectId, string SubjectName, double Score);
 
 public sealed record StudyMetricDefinitionResponse(Guid Id, string Name, KnowledgeTracker.Domain.Knowledge.MetricNumberKind NumberKind);
 

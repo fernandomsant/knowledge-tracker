@@ -347,6 +347,9 @@ public sealed class SqlServerStudyNoteRepository(Func<DbConnection> connectionFa
         CancellationToken ct
     )
     {
+        if (studyNote.SubjectId is not null || studyNote.TopicId is not null)
+            return;
+
         await using var command = connection.CreateCommand();
         command.Transaction = transaction;
         command.CommandText = """
@@ -354,7 +357,15 @@ public sealed class SqlServerStudyNoteRepository(Func<DbConnection> connectionFa
                 (Id, NoteId, NoteVersion, TaxonomyVersion, Status, Attempts, AvailableAtUtc)
             SELECT NEWID(), @NoteId, @NoteVersion, TaxonomyVersion, 0, 0, SYSUTCDATETIME()
             FROM dbo.ClassificationTaxonomyState
-            WHERE Id = 1;
+            WHERE Id = 1
+              AND EXISTS
+              (
+                  SELECT 1
+                  FROM dbo.StudyNotes
+                  WHERE Id = @NoteId
+                    AND SubjectId IS NULL
+                    AND TopicId IS NULL
+              );
             """;
         command.AddParameter("@NoteId", DbType.Guid, studyNote.Id);
         command.AddParameter("@NoteVersion", DbType.Int64, studyNote.Version);

@@ -23,6 +23,50 @@ async function request(accessToken, path, { method = 'GET', body, keepalive = fa
   return response.status === 204 ? null : response.json();
 }
 
+async function streamClassificationUpdates(accessToken, checkpoint, onUpdate, signal) {
+  const url = new URL(`${apiBaseUrl}/api/study-notes/classification-events`);
+  url.searchParams.set('sinceUtc', checkpoint.completedAtUtc);
+  url.searchParams.set('afterJobId', checkpoint.jobId);
+  const response = await fetch(url, {
+    credentials: 'include',
+    headers: {
+      Accept: 'text/event-stream',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    signal,
+  });
+  if (!response.ok) {
+    const problem = await response.json().catch(() => null);
+    throw new KnowledgeApiError(problem?.detail ?? 'Live classification updates are unavailable.', response.status);
+  }
+  if (!response.body)
+    throw new KnowledgeApiError('Live classification updates are unavailable.', response.status);
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    let boundary = buffer.indexOf('\n\n');
+    while (boundary >= 0) {
+      const block = buffer.slice(0, boundary);
+      buffer = buffer.slice(boundary + 2);
+      const lines = block.split('\n');
+      const eventName = lines.find(line => line.startsWith('event:'))?.slice(6).trim();
+      const data = lines.filter(line => line.startsWith('data:')).map(line => line.slice(5).trimStart()).join('\n');
+      if (eventName === 'note-classification' && data)
+        onUpdate(JSON.parse(data));
+      boundary = buffer.indexOf('\n\n');
+    }
+  }
+
+  if (!signal.aborted)
+    throw new KnowledgeApiError('The live classification connection closed.', 0);
+}
+
 export const knowledgeClient = {
   async load(accessToken) {
     const summaries = await request(accessToken, '/api/subjects');
@@ -52,6 +96,7 @@ export const knowledgeClient = {
     method: 'PUT', body: { topicId, title, content, metrics, studyDuration, studyStartedAtUtc },
   }),
   listStudyNotes: accessToken => request(accessToken, '/api/study-notes'),
+  streamClassificationUpdates,
   deleteStudyNote: (accessToken, id) => request(accessToken, `/api/study-notes/${id}`, { method: 'DELETE' }),
   createMetricDefinition: (accessToken, name, numberKind) => request(accessToken, '/api/study-metric-definitions', {
     method: 'POST', body: { name, numberKind },

@@ -79,7 +79,11 @@ public sealed class SqlServerClassificationJobRepository(Func<DbConnection> conn
         await using var versionCommand = connection.CreateCommand();
         versionCommand.Transaction = transaction;
         versionCommand.CommandText = """
-            SELECT note.NoteVersion, note.Title, note.Content, taxonomy.TaxonomyVersion
+            SELECT note.NoteVersion,
+                   note.Title,
+                   note.Content,
+                   taxonomy.TaxonomyVersion,
+                   CAST(CASE WHEN note.SubjectId IS NULL AND note.TopicId IS NULL THEN 0 ELSE 1 END AS BIT)
             FROM dbo.StudyNotes AS note
             CROSS JOIN dbo.ClassificationTaxonomyState AS taxonomy WITH (UPDLOCK)
             WHERE note.Id = @NoteId AND taxonomy.Id = 1;
@@ -95,9 +99,10 @@ public sealed class SqlServerClassificationJobRepository(Func<DbConnection> conn
         var currentNoteVersion = versionReader.GetInt64(0);
         var text = string.Concat(versionReader.GetString(1), Environment.NewLine, Environment.NewLine, versionReader.GetString(2));
         var currentTaxonomyVersion = versionReader.GetInt64(3);
+        var hasOwnership = versionReader.GetBoolean(4);
         await versionReader.DisposeAsync();
 
-        if (currentNoteVersion != job.NoteVersion || currentTaxonomyVersion != job.TaxonomyVersion)
+        if (hasOwnership || currentNoteVersion != job.NoteVersion || currentTaxonomyVersion != job.TaxonomyVersion)
         {
             await SupersedeAndEnqueueCurrentAsync(
                 connection, transaction, job, currentNoteVersion, currentTaxonomyVersion, ct
@@ -136,7 +141,7 @@ public sealed class SqlServerClassificationJobRepository(Func<DbConnection> conn
                 WHERE child.ParentSubjectId = topic.SubjectId
             )
             ORDER BY path.SubjectPath, topic.Name, topic.Id
-            OPTION (MAXRECURSION 4);
+            OPTION (MAXRECURSION 100);
             """;
         var nodes = new List<ClassificationNode>();
         await using var nodesReader = await nodesCommand.ExecuteReaderAsync(ct);
@@ -173,7 +178,9 @@ public sealed class SqlServerClassificationJobRepository(Func<DbConnection> conn
             return ClassificationCompletionOutcome.Superseded;
         }
 
-        if (current.Value.NoteVersion != job.NoteVersion || current.Value.TaxonomyVersion != job.TaxonomyVersion)
+        if (current.Value.HasOwnership
+            || current.Value.NoteVersion != job.NoteVersion
+            || current.Value.TaxonomyVersion != job.TaxonomyVersion)
         {
             await SupersedeAndEnqueueCurrentAsync(
                 connection, transaction, job, current.Value.NoteVersion, current.Value.TaxonomyVersion, ct
@@ -267,7 +274,7 @@ public sealed class SqlServerClassificationJobRepository(Func<DbConnection> conn
         await command.ExecuteNonQueryAsync(ct);
     }
 
-    private static async Task<(long NoteVersion, long TaxonomyVersion)?> ReadCurrentVersionsAsync(
+    private static async Task<(long NoteVersion, long TaxonomyVersion, bool HasOwnership)?> ReadCurrentVersionsAsync(
         DbConnection connection,
         DbTransaction transaction,
         Guid noteId,
@@ -277,14 +284,18 @@ public sealed class SqlServerClassificationJobRepository(Func<DbConnection> conn
         await using var command = connection.CreateCommand();
         command.Transaction = transaction;
         command.CommandText = """
-            SELECT note.NoteVersion, taxonomy.TaxonomyVersion
+            SELECT note.NoteVersion,
+                   taxonomy.TaxonomyVersion,
+                   CAST(CASE WHEN note.SubjectId IS NULL AND note.TopicId IS NULL THEN 0 ELSE 1 END AS BIT)
             FROM dbo.StudyNotes AS note WITH (UPDLOCK)
             CROSS JOIN dbo.ClassificationTaxonomyState AS taxonomy WITH (UPDLOCK)
             WHERE note.Id = @NoteId AND taxonomy.Id = 1;
             """;
         command.AddParameter("@NoteId", DbType.Guid, noteId);
         await using var reader = await command.ExecuteReaderAsync(ct);
-        return await reader.ReadAsync(ct) ? (reader.GetInt64(0), reader.GetInt64(1)) : null;
+        return await reader.ReadAsync(ct)
+            ? (reader.GetInt64(0), reader.GetInt64(1), reader.GetBoolean(2))
+            : null;
     }
 
     private static async Task SupersedeAndEnqueueCurrentAsync(
@@ -304,7 +315,7 @@ public sealed class SqlServerClassificationJobRepository(Func<DbConnection> conn
                 LockedUntilUtc = NULL,
                 WorkerId = NULL,
                 CompletedAtUtc = SYSUTCDATETIME(),
-                LastError = 'Superseded by a newer note or taxonomy version.'
+                LastError = 'Superseded because the note is already classified or its version changed.'
             WHERE Id = @JobId AND Status = 1 AND WorkerId = @WorkerId;
 
             IF NOT EXISTS
@@ -314,6 +325,14 @@ public sealed class SqlServerClassificationJobRepository(Func<DbConnection> conn
                 WHERE NoteId = @NoteId
                   AND NoteVersion = @NoteVersion
                   AND TaxonomyVersion = @TaxonomyVersion
+            )
+            AND EXISTS
+            (
+                SELECT 1
+                FROM dbo.StudyNotes
+                WHERE Id = @NoteId
+                  AND SubjectId IS NULL
+                  AND TopicId IS NULL
             )
             BEGIN
                 INSERT INTO dbo.ClassificationJobs

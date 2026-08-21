@@ -36,6 +36,12 @@ public sealed record NoteClassificationResponse(
 
 public sealed record NoteClassificationScoreResponse(Guid TopicId, string TopicName, double Score);
 
+public sealed record ClassificationUpdateResponse(
+    DateTimeOffset CompletedAtUtc,
+    Guid JobId,
+    StudyNoteResponse Note
+);
+
 public sealed record StudyMetricDefinitionResponse(Guid Id, string Name, KnowledgeTracker.Domain.Knowledge.MetricNumberKind NumberKind);
 
 public sealed record StudyNoteMetricResponse(StudyMetricDefinitionResponse Definition, decimal Value);

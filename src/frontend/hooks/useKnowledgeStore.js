@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useReducer } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
 import { PALETTE } from '../data/seed';
 import { knowledgeClient } from '../knowledge/api/knowledgeClient';
 
@@ -34,8 +34,15 @@ function knowledgeReducer(state, action) {
       const goals = applyMetricDelta(applyMetricDelta(state.goals, previous?.metrics ?? [], -1), action.note.metrics, 1);
       return { ...state, notes: state.notes.map(note => note.id === action.note.id ? { ...note, ...action.note } : note), goals };
     }
-    case 'note/classification-refresh': {
-      return { ...state, notes: action.notes.map(toNote) };
+    case 'note/classification-updated': {
+      const updated = toNote(action.note);
+      const exists = state.notes.some(note => note.id === updated.id);
+      return {
+        ...state,
+        notes: exists
+          ? state.notes.map(note => note.id === updated.id ? updated : note)
+          : [...state.notes, updated],
+      };
     }
     case 'note/remove': {
       const note = state.notes.find(candidate => candidate.id === action.id);
@@ -90,6 +97,10 @@ function toKnowledgeState(knowledge) {
 
 export function useKnowledgeStore(accessToken, refreshAccessToken) {
   const [state, dispatch] = useReducer(knowledgeReducer, initialState);
+  const classificationCheckpoint = useRef({
+    completedAtUtc: new Date().toISOString(),
+    jobId: '00000000-0000-0000-0000-000000000000',
+  });
 
   const execute = useCallback(async operation => {
     try {
@@ -111,25 +122,47 @@ export function useKnowledgeStore(accessToken, refreshAccessToken) {
     return () => { current = false; };
   }, [execute]);
 
-  const subjectsById = useMemo(() => new Map(state.subjects.map(subject => [subject.id, subject])), [state.subjects]);
-  const hasPendingClassifications = useMemo(() => state.notes.some(note =>
-    ['Pending', 'Processing', 'RetryScheduled'].includes(note.classification?.status)
-  ), [state.notes]);
-
   useEffect(() => {
-    if (!hasPendingClassifications) return undefined;
-    let current = true;
-    const refresh = async () => {
-      try {
-        const notes = await execute(token => knowledgeClient.listStudyNotes(token));
-        if (current) dispatch({ type: 'note/classification-refresh', notes });
-      } catch (reason) {
-        if (current && reason?.status === 401) dispatch({ type: 'request/failed', error: errorMessage(reason) });
+    if (!accessToken) return undefined;
+    const controller = new AbortController();
+
+    const waitBeforeReconnect = delay => new Promise(resolve => {
+      const timer = window.setTimeout(resolve, delay);
+      controller.signal.addEventListener('abort', () => {
+        window.clearTimeout(timer);
+        resolve();
+      }, { once: true });
+    });
+
+    const connect = async () => {
+      let reconnectDelay = 500;
+      while (!controller.signal.aborted) {
+        try {
+          await execute(token => knowledgeClient.streamClassificationUpdates(
+            token,
+            classificationCheckpoint.current,
+            update => {
+              classificationCheckpoint.current = {
+                completedAtUtc: update.completedAtUtc,
+                jobId: update.jobId,
+              };
+              dispatch({ type: 'note/classification-updated', note: update.note });
+            },
+            controller.signal,
+          ));
+          reconnectDelay = 500;
+        } catch (reason) {
+          if (controller.signal.aborted) return;
+          await waitBeforeReconnect(reconnectDelay);
+          reconnectDelay = Math.min(reconnectDelay * 2, 10000);
+        }
       }
     };
-    const interval = window.setInterval(() => { void refresh(); }, 3000);
-    return () => { current = false; window.clearInterval(interval); };
-  }, [execute, hasPendingClassifications]);
+    void connect();
+    return () => { controller.abort(); };
+  }, [accessToken, execute]);
+
+  const subjectsById = useMemo(() => new Map(state.subjects.map(subject => [subject.id, subject])), [state.subjects]);
   const directNotesBySubject = useMemo(() => {
     const index = new Map(state.subjects.map(subject => [subject.id, []]));
     state.notes.forEach(note => index.get(note.subjectId)?.push(note));

@@ -3,7 +3,7 @@ import { IconButton } from '../IconButton';
 
 const studyDateFormatter = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
-export function NoteViewer({ note, onClose, onEdit, onDelete }) {
+export function NoteViewer({ note, topicsById, subjectsById, onClose, onEdit, onDelete }) {
   const studiedAt = note.studyStartedAtUtc ? studyDateFormatter.format(new Date(note.studyStartedAtUtc)) : 'Not recorded';
   const classification = note.classification ?? { status: 'Pending', scores: [] };
   const status = classification.status?.toLowerCase() ?? 'pending';
@@ -28,7 +28,11 @@ export function NoteViewer({ note, onClose, onEdit, onDelete }) {
         </header>
         {status === 'completed' ? (
           classification.scores?.length
-            ? <div>{classification.scores.slice(0, 5).map(score => <span key={score.topicId}>{score.topicName}<b>{score.score.toFixed(3)}</b></span>)}</div>
+            ? <div>{classification.scores.slice(0, 5).map(score => {
+                const topic = topicsById.get(score.topicId);
+                const owner = subjectsById.get(topic?.subjectId);
+                return <span key={score.topicId}><strong>{owner?.name ?? 'Unknown subject'}</strong><small>{topic?.name ?? score.topicName}</small><b>{score.score.toFixed(3)}</b></span>;
+              })}</div>
             : <p>No subject relevance was returned.</p>
         ) : status === 'failed' ? <p>{classification.failureReason || 'The classifier could not process this note.'}</p> : <p>Your note is saved. Classification continues in the background.</p>}
       </section>

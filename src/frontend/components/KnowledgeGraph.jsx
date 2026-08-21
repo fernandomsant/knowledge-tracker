@@ -105,6 +105,7 @@ function SubjectDrawer({ subject, subjects, subjectsById, topics, notes, directN
   const subjectNameRef = useRef(null);
   const [viewingNoteId, setViewingNoteId] = useState(null);
   const [editingNoteSubjectId, setEditingNoteSubjectId] = useState(subject.id);
+  const topicsById = useMemo(() => new Map(topics.map(topic => [topic.id, topic])), [topics]);
   const parentOptions = useMemo(() => getSubjectParentOptions(subjects, subject.id), [subject.id, subjects]);
   const directChildCount = useMemo(() => subjects.filter(candidate => candidate.parentSubjectId === subject.id).length, [subject.id, subjects]);
   const subjectConnections = useMemo(() => connections.filter(connection => connection.source === subject.id || connection.target === subject.id), [connections, subject.id]);
@@ -274,7 +275,7 @@ function SubjectDrawer({ subject, subjects, subjectsById, topics, notes, directN
               <IconButton label={`Delete ${note.title}`} onClick={() => { if (window.confirm(`Delete ${note.title}?`)) void onRemoveNote(note.id).then(deleted => { if (deleted && viewingNoteId === note.id) setViewingNoteId(null); }); }}><Trash2 size={16}/></IconButton>
             </article>
             <small className="note-owner-label">Owned by {subjectsById.get(note.subjectId)?.name ?? 'a leaf subject'}</small>
-            {viewingNote?.id === note.id ? <NoteViewer note={note} onClose={() => setViewingNoteId(null)} onEdit={() => beginEditing(note)} onDelete={async () => { if (await onRemoveNote(note.id)) setViewingNoteId(null); }}/> : null}
+            {viewingNote?.id === note.id ? <NoteViewer note={note} topicsById={topicsById} subjectsById={subjectsById} onClose={() => setViewingNoteId(null)} onEdit={() => beginEditing(note)} onDelete={async () => { if (await onRemoveNote(note.id)) setViewingNoteId(null); }}/> : null}
           </div>
         ))}
         {notes.length === 0 && editingId === null ? (

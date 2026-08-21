@@ -1,3 +1,4 @@
+import logging
 import os
 from collections.abc import Sequence
 from contextlib import asynccontextmanager
@@ -12,6 +13,7 @@ from pydantic import BaseModel, Field
 from transformers import AutoTokenizer
 
 MODEL_NAME = os.getenv("GLICLASS_MODEL", "knowledgator/gliclass-multilang-ultra")
+logger = logging.getLogger("uvicorn.error")
 
 
 class ClassificationNode(BaseModel):
@@ -92,6 +94,18 @@ def classify(request: ClassifyRequest) -> ClassifyResponse:
         ClassificationScore(nodeId=node.id, score=predicted_scores.get(node.id, 0.0))
         for node in request.nodes
     ]
+    ranked_output = "\n".join(
+        f"{rank:2}. {labels_by_node[score.node_id]} [{score.node_id}] = {score.score:.6f}"
+        for rank, score in enumerate(
+            sorted(scores, key=lambda item: item.score, reverse=True), start=1
+        )
+    )
+    logger.info(
+        "Classifier model output:\nModel: %s\nVersion: %s\nScores:\n%s",
+        MODEL_NAME,
+        gliclass.__version__,
+        ranked_output,
+    )
     return ClassifyResponse(
         classifications=scores,
         model=MODEL_NAME,

@@ -11,7 +11,7 @@ from gliclass import GLiClassModel, ZeroShotClassificationPipeline
 from pydantic import BaseModel, Field
 from transformers import AutoTokenizer
 
-MODEL_NAME = os.getenv("GLICLASS_MODEL", "knowledgator/gliclass-small-v1.0")
+MODEL_NAME = os.getenv("GLICLASS_MODEL", "knowledgator/gliclass-multilang-ultra")
 
 
 class ClassificationNode(BaseModel):

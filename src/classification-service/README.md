@@ -8,4 +8,4 @@ python -m venv .venv-classifier
 .\.venv-classifier\Scripts\python -m uvicorn app:app --app-dir src\classification-service --host 127.0.0.1 --port 8021
 ```
 
-Set `GLICLASS_MODEL` to use another compatible model. The default is `knowledgator/gliclass-small-v1.0`.
+Set `GLICLASS_MODEL` to use another compatible model. The default is `knowledgator/gliclass-multilang-ultra`.

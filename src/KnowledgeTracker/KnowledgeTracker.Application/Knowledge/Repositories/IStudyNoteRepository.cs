@@ -5,6 +5,7 @@ namespace KnowledgeTracker.Application.Knowledge;
 public interface IStudyNoteRepository
 {
     Task<StudyNote?> FindAsync(Guid id, CancellationToken ct);
+    Task<IReadOnlyCollection<StudyNote>> ListAsync(CancellationToken ct);
     Task<IReadOnlyCollection<StudyNote>> ListBySubjectAsync(Guid subjectId, CancellationToken ct);
     Task<IReadOnlyCollection<StudyNote>> ListBySubjectTreeAsync(Guid subjectId, CancellationToken ct);
     Task AddAsync(StudyNote studyNote, CancellationToken ct);

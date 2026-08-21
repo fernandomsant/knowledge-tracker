@@ -26,14 +26,15 @@ async function request(accessToken, path, { method = 'GET', body, keepalive = fa
 export const knowledgeClient = {
   async load(accessToken) {
     const summaries = await request(accessToken, '/api/subjects');
-    const [subjects, connectionGroups, goalGroups, metricDefinitions, topics] = await Promise.all([
+    const [subjects, connectionGroups, goalGroups, metricDefinitions, topics, notes] = await Promise.all([
       Promise.all(summaries.map(subject => request(accessToken, `/api/subjects/${subject.id}`))),
       Promise.all(summaries.map(subject => request(accessToken, `/api/subjects/${subject.id}/connections`))),
       Promise.all(summaries.map(subject => request(accessToken, `/api/subjects/${subject.id}/goals`))),
       request(accessToken, '/api/study-metric-definitions'),
       request(accessToken, '/api/topics'),
+      request(accessToken, '/api/study-notes'),
     ]);
-    return { subjects, metricDefinitions, topics, goals: goalGroups.flat(), connections: [...new Map(connectionGroups.flat().map(item => [item.id, item])).values()] };
+    return { subjects, metricDefinitions, topics, notes, goals: goalGroups.flat(), connections: [...new Map(connectionGroups.flat().map(item => [item.id, item])).values()] };
   },
   createSubject: (accessToken, name, parentSubjectId) => request(accessToken, '/api/subjects', { method: 'POST', body: { name, parentSubjectId: parentSubjectId || null } }),
   updateSubject: (accessToken, id, name, description, parentSubjectId) => request(accessToken, `/api/subjects/${id}`, {
@@ -44,10 +45,13 @@ export const knowledgeClient = {
   createStudyNote: (accessToken, subjectId, topicId, title, content, studyDuration, studyStartedAtUtc, metrics) => request(accessToken, `/api/subjects/${subjectId}/notes`, {
     method: 'POST', body: { topicId, title, content, metrics, studyDuration, studyStartedAtUtc },
   }),
+  createUnclassifiedStudyNote: (accessToken, title, content, studyDuration, studyStartedAtUtc, metrics) => request(accessToken, '/api/study-notes', {
+    method: 'POST', body: { title, content, metrics, studyDuration, studyStartedAtUtc },
+  }),
   updateStudyNote: (accessToken, id, topicId, title, content, studyDuration, studyStartedAtUtc, metrics) => request(accessToken, `/api/study-notes/${id}`, {
     method: 'PUT', body: { topicId, title, content, metrics, studyDuration, studyStartedAtUtc },
   }),
-  listStudyNotes: (accessToken, subjectId) => request(accessToken, `/api/subjects/${subjectId}/notes`),
+  listStudyNotes: accessToken => request(accessToken, '/api/study-notes'),
   deleteStudyNote: (accessToken, id) => request(accessToken, `/api/study-notes/${id}`, { method: 'DELETE' }),
   createMetricDefinition: (accessToken, name, numberKind) => request(accessToken, '/api/study-metric-definitions', {
     method: 'POST', body: { name, numberKind },

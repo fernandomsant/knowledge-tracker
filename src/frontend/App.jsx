@@ -174,7 +174,7 @@ export default function App() {
   const { accessToken, user, logout, refreshAccessToken } = useAuthenticationSession();
   const {
     subjects, notes, connections, goals, topics, metricDefinitions, goalActivity, subjectsById, notesBySubject, directNotesBySubject, goalsBySubject, status: knowledgeStatus, error: knowledgeError,
-    addSubject, updateSubject, removeSubject, addNote, updateNote, removeNote, createMetricDefinition, createTopic, removeTopic, saveSubjectLayout, connectSubjects, removeConnection, addSubjectGoal, updateSubjectGoal, removeSubjectGoal, completeSubjectGoal, prioritizeSubjectGoal, setSubGoalCompletion, loadGoalActivity,
+    addSubject, updateSubject, removeSubject, addNote, addUnclassifiedNote, updateNote, removeNote, createMetricDefinition, createTopic, removeTopic, saveSubjectLayout, connectSubjects, removeConnection, addSubjectGoal, updateSubjectGoal, removeSubjectGoal, completeSubjectGoal, prioritizeSubjectGoal, setSubGoalCompletion, loadGoalActivity,
   } = useKnowledgeStore(accessToken, refreshAccessToken);
   const [activeNav, setActiveNav] = useState('Overview');
   const [activeSubject, setActiveSubject] = useState('all');
@@ -280,19 +280,14 @@ export default function App() {
   }, [addSubject, closeModal, newSubjectName, newSubjectParentId]);
 
   const handleCreateUnclassifiedNote = useCallback(async (...noteDetails) => {
-    const note = await addNote(...noteDetails);
+    const note = await addUnclassifiedNote(...noteDetails);
     if (!note) return null;
-    setActiveNav('Graph view');
-    setActiveSubject(note.subjectId);
+    setActiveNav('My notes');
+    setActiveSubject('all');
     setActiveTopic('all');
-    setView('canvas');
-    setCanvasContext(context => ({
-      ...context,
-      openSubjectId: note.subjectId,
-      drawer: { ...context.drawer, subjectId: note.subjectId, editingId: null },
-    }));
+    setView('list');
     return note;
-  }, [addNote]);
+  }, [addUnclassifiedNote]);
 
   return (
     <div className="app-shell">
@@ -374,7 +369,7 @@ export default function App() {
           <section className="bottom-grid">
             <article className="activity-card">
               <div className="card-title"><div><span>RECENT ACTIVITY</span><h3>Keep the thread going</h3></div><button onClick={() => setView('list')}>View all <ArrowRight size={14}/></button></div>
-              {recentNotes.map(note => { const subject = subjectsById.get(note.subjectId); return <div className="activity-row" key={note.id}><span className={`file-box ${subject?.color ?? 'purple'}`}><FileText size={17}/></span><div><strong>{note.title}</strong><small>{subject?.name} Â· {note.date}</small></div><ArrowRight size={16}/></div>; })}
+              {recentNotes.map(note => { const subject = subjectsById.get(note.subjectId); return <div className="activity-row" key={note.id}><span className={`file-box ${subject?.color ?? 'purple'}`}><FileText size={17}/></span><div><strong>{note.title}</strong><small>{subject?.name ?? 'Unclassified'} · {note.date}</small></div><ArrowRight size={16}/></div>; })}
             </article>
             <article className="focus-card"><span className="nudge"><Sparkles size={13}/> A LITTLE NUDGE</span><h3>Connect the dots.</h3><p>A few of your newest notes are still floating alone. Link them to a subject or connect related themes.</p><button>Explore suggestions <ArrowRight size={15}/></button></article>
           </section>
@@ -413,7 +408,7 @@ export default function App() {
           onSetSubGoalCompletion: setSubGoalCompletion,
         }}
       />
-      <UnclassifiedNoteModal open={noteModalOpen} subjects={subjects} topics={topics} preferredSubjectId={activeSubject === 'all' ? null : activeSubject} onClose={closeNoteModal} onCreate={handleCreateUnclassifiedNote}/>
+      <UnclassifiedNoteModal open={noteModalOpen} onClose={closeNoteModal} onCreate={handleCreateUnclassifiedNote}/>
       <SubjectModal open={modalOpen} name={newSubjectName} parentSubjectId={newSubjectParentId} parentOptions={parentOptions} onNameChange={setNewSubjectName} onParentChange={setNewSubjectParentId} onClose={closeModal} onCreate={handleCreateSubject}/>
     </div>
   );

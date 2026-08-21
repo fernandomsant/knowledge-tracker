@@ -28,7 +28,7 @@ export function NoteViewer({ note, onClose, onEdit, onDelete }) {
         </header>
         {status === 'completed' ? (
           classification.scores?.length
-            ? <div>{classification.scores.slice(0, 5).map(score => <span key={score.subjectId}>{score.subjectName}<b>{score.score.toFixed(3)}</b></span>)}</div>
+            ? <div>{classification.scores.slice(0, 5).map(score => <span key={score.topicId}>{score.topicName}<b>{score.score.toFixed(3)}</b></span>)}</div>
             : <p>No subject relevance was returned.</p>
         ) : status === 'failed' ? <p>{classification.failureReason || 'The classifier could not process this note.'}</p> : <p>Your note is saved. Classification continues in the background.</p>}
       </section>

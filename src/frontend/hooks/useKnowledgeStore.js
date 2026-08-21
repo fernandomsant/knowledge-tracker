@@ -35,8 +35,7 @@ function knowledgeReducer(state, action) {
       return { ...state, notes: state.notes.map(note => note.id === action.note.id ? { ...note, ...action.note } : note), goals };
     }
     case 'note/classification-refresh': {
-      const refreshedById = new Map(action.notes.map(note => [note.id, toNote(note)]));
-      return { ...state, notes: state.notes.map(note => refreshedById.get(note.id) ?? note) };
+      return { ...state, notes: action.notes.map(toNote) };
     }
     case 'note/remove': {
       const note = state.notes.find(candidate => candidate.id === action.id);
@@ -76,10 +75,8 @@ function toNote(note) {
 const toConnection = connection => ({ id: connection.id, source: connection.subjectId, target: connection.connectedSubjectId });
 
 function toKnowledgeState(knowledge) {
-  const notes = [...new Map(
-    knowledge.subjects
-      .flatMap(subject => subject.studyNotes)
-      .map(note => [note.id, note])
+  const notes = knowledge.notes ?? [...new Map(
+    knowledge.subjects.flatMap(subject => subject.studyNotes).map(note => [note.id, note])
   ).values()];
   return {
     subjects: knowledge.subjects.map(toSubject),
@@ -115,29 +112,24 @@ export function useKnowledgeStore(accessToken, refreshAccessToken) {
   }, [execute]);
 
   const subjectsById = useMemo(() => new Map(state.subjects.map(subject => [subject.id, subject])), [state.subjects]);
-  const pendingClassificationSubjects = useMemo(() => [...new Set(
-    state.notes
-      .filter(note => ['Pending', 'Processing', 'RetryScheduled'].includes(note.classification?.status))
-      .map(note => note.subjectId)
-  )].sort().join(','), [state.notes]);
+  const hasPendingClassifications = useMemo(() => state.notes.some(note =>
+    ['Pending', 'Processing', 'RetryScheduled'].includes(note.classification?.status)
+  ), [state.notes]);
 
   useEffect(() => {
-    if (!pendingClassificationSubjects) return undefined;
+    if (!hasPendingClassifications) return undefined;
     let current = true;
-    const subjectIds = pendingClassificationSubjects.split(',');
     const refresh = async () => {
       try {
-        const groups = await Promise.all(subjectIds.map(subjectId =>
-          execute(token => knowledgeClient.listStudyNotes(token, subjectId))
-        ));
-        if (current) dispatch({ type: 'note/classification-refresh', notes: groups.flat() });
+        const notes = await execute(token => knowledgeClient.listStudyNotes(token));
+        if (current) dispatch({ type: 'note/classification-refresh', notes });
       } catch (reason) {
         if (current && reason?.status === 401) dispatch({ type: 'request/failed', error: errorMessage(reason) });
       }
     };
     const interval = window.setInterval(() => { void refresh(); }, 3000);
     return () => { current = false; window.clearInterval(interval); };
-  }, [execute, pendingClassificationSubjects]);
+  }, [execute, hasPendingClassifications]);
   const directNotesBySubject = useMemo(() => {
     const index = new Map(state.subjects.map(subject => [subject.id, []]));
     state.notes.forEach(note => index.get(note.subjectId)?.push(note));
@@ -206,6 +198,18 @@ export function useKnowledgeStore(accessToken, refreshAccessToken) {
   const addNote = useCallback(async (subjectId, topicId, title, excerpt, studyDuration, studyStartedAtUtc, metrics) => {
     try {
       const note = await execute(token => knowledgeClient.createStudyNote(token, subjectId, topicId, title, excerpt, studyDuration, studyStartedAtUtc, metrics));
+      dispatch({ type: 'note/add', note: toNote(note) });
+      dispatch({ type: 'request/clear' });
+      return note;
+    } catch (reason) {
+      dispatch({ type: 'request/failed', error: errorMessage(reason) });
+      return null;
+    }
+  }, [execute]);
+
+  const addUnclassifiedNote = useCallback(async (title, excerpt, studyDuration, studyStartedAtUtc, metrics) => {
+    try {
+      const note = await execute(token => knowledgeClient.createUnclassifiedStudyNote(token, title, excerpt, studyDuration, studyStartedAtUtc, metrics));
       dispatch({ type: 'note/add', note: toNote(note) });
       dispatch({ type: 'request/clear' });
       return note;
@@ -390,5 +394,5 @@ export function useKnowledgeStore(accessToken, refreshAccessToken) {
     }
   }, [execute]);
 
-  return { ...state, subjectsById, directNotesBySubject, notesBySubject, goalsBySubject, addSubject, updateSubject, removeSubject, addNote, updateNote, removeNote, createMetricDefinition, createTopic, removeTopic, saveSubjectLayout, connectSubjects, removeConnection, addSubjectGoal, updateSubjectGoal, removeSubjectGoal, completeSubjectGoal, prioritizeSubjectGoal, setSubGoalCompletion, loadGoalActivity };
+  return { ...state, subjectsById, directNotesBySubject, notesBySubject, goalsBySubject, addSubject, updateSubject, removeSubject, addNote, addUnclassifiedNote, updateNote, removeNote, createMetricDefinition, createTopic, removeTopic, saveSubjectLayout, connectSubjects, removeConnection, addSubjectGoal, updateSubjectGoal, removeSubjectGoal, completeSubjectGoal, prioritizeSubjectGoal, setSubGoalCompletion, loadGoalActivity };
 }

@@ -15,8 +15,8 @@ public sealed record SubjectLayoutPositionResponse(Guid SubjectId, decimal Norma
 
 public sealed record StudyNoteResponse(
     Guid Id,
-    Guid SubjectId,
-    Guid TopicId,
+    Guid? SubjectId,
+    Guid? TopicId,
     string Title,
     string Content,
     TimeSpan StudyDuration,
@@ -34,7 +34,7 @@ public sealed record NoteClassificationResponse(
     IReadOnlyCollection<NoteClassificationScoreResponse> Scores
 );
 
-public sealed record NoteClassificationScoreResponse(Guid SubjectId, string SubjectName, double Score);
+public sealed record NoteClassificationScoreResponse(Guid TopicId, string TopicName, double Score);
 
 public sealed record StudyMetricDefinitionResponse(Guid Id, string Name, KnowledgeTracker.Domain.Knowledge.MetricNumberKind NumberKind);
 

@@ -14,6 +14,12 @@ public sealed class StudyNotesController(ISubjectService subjects, IStudyNoteSer
     : ControllerBase
 {
     private const string ListStudyNotesBySubjectRoute = "list-study-notes-by-subject";
+    private const string ListStudyNotesRoute = "list-study-notes";
+
+    [HttpGet("api/study-notes", Name = ListStudyNotesRoute)]
+    [ProducesResponseType(typeof(IReadOnlyCollection<StudyNoteResponse>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyCollection<StudyNoteResponse>>> ListAsync(CancellationToken ct) =>
+        Ok((await studyNotes.ListAsync(ct)).Select(KnowledgeResponseMapper.ToResponse).ToArray());
 
     [HttpGet("api/subjects/{subjectId:guid}/notes", Name = ListStudyNotesBySubjectRoute)]
     [ProducesResponseType(typeof(IReadOnlyCollection<StudyNoteResponse>), StatusCodes.Status200OK)]
@@ -60,6 +66,34 @@ public sealed class StudyNotesController(ISubjectService subjects, IStudyNoteSer
 
             var response = KnowledgeResponseMapper.ToResponse(note);
             return CreatedAtRoute(ListStudyNotesBySubjectRoute, new { subjectId }, response);
+        }
+        catch (ArgumentException exception)
+        {
+            return BadRequest(new ProblemDetails { Detail = exception.Message });
+        }
+    }
+
+    [HttpPost("api/study-notes")]
+    [ProducesResponseType(typeof(StudyNoteResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<StudyNoteResponse>> CreateUnclassifiedAsync(
+        KnowledgeTracker.Web.Knowledge.Contracts.CreateUnclassifiedStudyNoteRequest request,
+        CancellationToken ct
+    )
+    {
+        try
+        {
+            var note = await studyNotes.CreateUnclassifiedAsync(
+                new KnowledgeTracker.Application.Knowledge.CreateUnclassifiedStudyNoteRequest(
+                    request.Title,
+                    request.Content,
+                    request.StudyDuration,
+                    request.StudyStartedAtUtc,
+                    request.Metrics.Select(metric => new KnowledgeTracker.Application.Knowledge.StudyNoteMetricRequest(metric.DefinitionId, metric.Value)).ToArray()
+                ),
+                ct
+            );
+            return CreatedAtRoute(ListStudyNotesRoute, null, KnowledgeResponseMapper.ToResponse(note));
         }
         catch (ArgumentException exception)
         {

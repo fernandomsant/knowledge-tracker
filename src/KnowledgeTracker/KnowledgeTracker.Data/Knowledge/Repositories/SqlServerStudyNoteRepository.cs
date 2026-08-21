@@ -16,7 +16,7 @@ public sealed class SqlServerStudyNoteRepository(Func<DbConnection> connectionFa
         command.CommandText = """
             SELECT note.Id, note.SubjectId, note.TopicId, note.Title, note.Content, note.StudyDurationTicks, note.StudyStartedAtUtc,
                    note.NoteVersion, job.Status, job.LastError, run.Model, run.ModelVersion,
-                   classification.SubjectId, classification.SubjectName, classification.Score,
+                   classification.TopicId, classification.TopicName, classification.Score,
                    definition.Id, definition.Name, definition.NumberKind, metric.MetricValue
             FROM dbo.StudyNotes AS note
             OUTER APPLY
@@ -44,6 +44,41 @@ public sealed class SqlServerStudyNoteRepository(Func<DbConnection> connectionFa
         return (await ReadStudyNotesAsync(reader, ct)).SingleOrDefault();
     }
 
+    public async Task<IReadOnlyCollection<StudyNote>> ListAsync(CancellationToken ct)
+    {
+        await using var connection = connectionFactory();
+        await connection.OpenAsync(ct);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT note.Id, note.SubjectId, note.TopicId, note.Title, note.Content, note.StudyDurationTicks, note.StudyStartedAtUtc,
+                   note.NoteVersion, job.Status, job.LastError, run.Model, run.ModelVersion,
+                   classification.TopicId, classification.TopicName, classification.Score,
+                   definition.Id, definition.Name, definition.NumberKind, metric.MetricValue
+            FROM dbo.StudyNotes AS note
+            OUTER APPLY
+            (
+                SELECT TOP (1) currentJob.Status, currentJob.LastError, currentJob.TaxonomyVersion
+                FROM dbo.ClassificationJobs AS currentJob
+                WHERE currentJob.NoteId = note.Id AND currentJob.NoteVersion = note.NoteVersion
+                ORDER BY currentJob.TaxonomyVersion DESC, currentJob.CreatedAtUtc DESC
+            ) AS job
+            OUTER APPLY
+            (
+                SELECT TOP (1) currentRun.Id, currentRun.Model, currentRun.ModelVersion
+                FROM dbo.ClassificationRuns AS currentRun
+                WHERE currentRun.NoteId = note.Id AND currentRun.NoteVersion = note.NoteVersion
+                  AND currentRun.TaxonomyVersion = job.TaxonomyVersion
+                ORDER BY currentRun.TaxonomyVersion DESC, currentRun.CreatedAtUtc DESC
+            ) AS run
+            LEFT JOIN dbo.NoteClassifications AS classification ON classification.ClassificationRunId = run.Id
+            LEFT JOIN dbo.StudyNoteMetrics AS metric ON metric.StudyNoteId = note.Id
+            LEFT JOIN dbo.StudyMetricDefinitions AS definition ON definition.Id = metric.MetricDefinitionId
+            ORDER BY note.StudyStartedAtUtc DESC, note.Id, definition.NormalizedName;
+            """;
+        await using var reader = await command.ExecuteReaderAsync(ct);
+        return await ReadStudyNotesAsync(reader, ct);
+    }
+
     public async Task<IReadOnlyCollection<StudyNote>> ListBySubjectAsync(
         Guid subjectId,
         CancellationToken ct
@@ -55,7 +90,7 @@ public sealed class SqlServerStudyNoteRepository(Func<DbConnection> connectionFa
         command.CommandText = """
             SELECT note.Id, note.SubjectId, note.TopicId, note.Title, note.Content, note.StudyDurationTicks, note.StudyStartedAtUtc,
                    note.NoteVersion, job.Status, job.LastError, run.Model, run.ModelVersion,
-                   classification.SubjectId, classification.SubjectName, classification.Score,
+                   classification.TopicId, classification.TopicName, classification.Score,
                    definition.Id, definition.Name, definition.NumberKind, metric.MetricValue
             FROM dbo.StudyNotes AS note
             OUTER APPLY
@@ -108,7 +143,7 @@ public sealed class SqlServerStudyNoteRepository(Func<DbConnection> connectionFa
             )
             SELECT note.Id, note.SubjectId, note.TopicId, note.Title, note.Content, note.StudyDurationTicks, note.StudyStartedAtUtc,
                    note.NoteVersion, job.Status, job.LastError, run.Model, run.ModelVersion,
-                   classification.SubjectId, classification.SubjectName, classification.Score,
+                   classification.TopicId, classification.TopicName, classification.Score,
                    definition.Id, definition.Name, definition.NumberKind, metric.MetricValue
             FROM dbo.StudyNotes AS note
             INNER JOIN DescendantSubjects AS subject ON subject.Id = note.SubjectId
@@ -204,8 +239,8 @@ public sealed class SqlServerStudyNoteRepository(Func<DbConnection> connectionFa
     private static void AddStudyNoteParameters(DbCommand command, StudyNote studyNote)
     {
         command.AddParameter("@Id", DbType.Guid, studyNote.Id);
-        command.AddParameter("@SubjectId", DbType.Guid, studyNote.SubjectId);
-        command.AddParameter("@TopicId", DbType.Guid, studyNote.TopicId);
+        command.AddParameter("@SubjectId", DbType.Guid, (object?)studyNote.SubjectId ?? DBNull.Value);
+        command.AddParameter("@TopicId", DbType.Guid, (object?)studyNote.TopicId ?? DBNull.Value);
         command.AddParameter("@Title", DbType.String, studyNote.Title);
         command.AddParameter("@Content", DbType.String, studyNote.Content);
         command.AddParameter("@StudyDurationTicks", DbType.Int64, studyNote.StudyDuration.Ticks);
@@ -226,8 +261,8 @@ public sealed class SqlServerStudyNoteRepository(Func<DbConnection> connectionFa
             {
                 row = new StudyNoteRow(
                     id,
-                    reader.GetGuid(1),
-                    reader.GetGuid(2), reader.GetString(3), reader.GetString(4),
+                    reader.IsDBNull(1) ? null : reader.GetGuid(1),
+                    reader.IsDBNull(2) ? null : reader.GetGuid(2), reader.GetString(3), reader.GetString(4),
                     TimeSpan.FromTicks(reader.GetInt64(5)), reader.GetFieldValue<DateTimeOffset>(6),
                     reader.GetInt64(7),
                     reader.IsDBNull(8) ? NoteClassificationStatus.Pending : (NoteClassificationStatus)reader.GetByte(8),
@@ -285,6 +320,9 @@ public sealed class SqlServerStudyNoteRepository(Func<DbConnection> connectionFa
         CancellationToken ct
     )
     {
+        if (studyNote.SubjectId is not Guid subjectId)
+            return;
+
         await using var command = connection.CreateCommand();
         command.Transaction = transaction;
         command.CommandText = """
@@ -298,7 +336,7 @@ public sealed class SqlServerStudyNoteRepository(Func<DbConnection> connectionFa
                 VALUES (source.NoteId, source.SubjectId, 0, NULL, NULL);
             """;
         command.AddParameter("@NoteId", DbType.Guid, studyNote.Id);
-        command.AddParameter("@SubjectId", DbType.Guid, studyNote.SubjectId);
+        command.AddParameter("@SubjectId", DbType.Guid, subjectId);
         await command.ExecuteNonQueryAsync(ct);
     }
 
@@ -325,8 +363,8 @@ public sealed class SqlServerStudyNoteRepository(Func<DbConnection> connectionFa
 
     private sealed class StudyNoteRow(
         Guid id,
-        Guid subjectId,
-        Guid topicId,
+        Guid? subjectId,
+        Guid? topicId,
         string title,
         string content,
         TimeSpan studyDuration,
@@ -339,8 +377,8 @@ public sealed class SqlServerStudyNoteRepository(Func<DbConnection> connectionFa
     )
     {
         public Guid Id { get; } = id;
-        public Guid SubjectId { get; } = subjectId;
-        public Guid TopicId { get; } = topicId;
+        public Guid? SubjectId { get; } = subjectId;
+        public Guid? TopicId { get; } = topicId;
         public string Title { get; } = title;
         public string Content { get; } = content;
         public TimeSpan StudyDuration { get; } = studyDuration;

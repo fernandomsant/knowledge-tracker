@@ -163,6 +163,7 @@ public sealed class SubjectGoalHierarchyTests
     {
         private readonly List<StudyNote> items = [.. initial];
         public Task<StudyNote?> FindAsync(Guid id, CancellationToken ct) => Task.FromResult(items.SingleOrDefault(note => note.Id == id));
+        public Task<IReadOnlyCollection<StudyNote>> ListAsync(CancellationToken ct) => Task.FromResult<IReadOnlyCollection<StudyNote>>(items.ToArray());
         public Task<IReadOnlyCollection<StudyNote>> ListBySubjectAsync(Guid subjectId, CancellationToken ct) =>
             Task.FromResult<IReadOnlyCollection<StudyNote>>(items.Where(note => note.SubjectId == subjectId).ToArray());
         public Task<IReadOnlyCollection<StudyNote>> ListBySubjectTreeAsync(Guid subjectId, CancellationToken ct)
@@ -171,7 +172,7 @@ public sealed class SubjectGoalHierarchyTests
             while (subjects.Where(subject => subject.ParentSubjectId is not null && subjectIds.Contains(subject.ParentSubjectId.Value)).Select(subject => subject.Id).Where(subjectIds.Add).Any())
             {
             }
-            return Task.FromResult<IReadOnlyCollection<StudyNote>>(items.Where(note => subjectIds.Contains(note.SubjectId)).ToArray());
+            return Task.FromResult<IReadOnlyCollection<StudyNote>>(items.Where(note => note.SubjectId is Guid ownerId && subjectIds.Contains(ownerId)).ToArray());
         }
         public Task AddAsync(StudyNote studyNote, CancellationToken ct) { items.Add(studyNote); return Task.CompletedTask; }
         public Task UpdateAsync(StudyNote studyNote, CancellationToken ct) => Task.CompletedTask;

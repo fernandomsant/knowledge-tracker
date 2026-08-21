@@ -9,8 +9,16 @@ public sealed record CreateStudyNoteRequest(
     IReadOnlyCollection<StudyNoteMetricRequest> Metrics
 );
 
+public sealed record CreateUnclassifiedStudyNoteRequest(
+    string Title,
+    string Content,
+    TimeSpan StudyDuration,
+    DateTimeOffset StudyStartedAtUtc,
+    IReadOnlyCollection<StudyNoteMetricRequest> Metrics
+);
+
 public sealed record UpdateStudyNoteRequest(
-    Guid TopicId,
+    Guid? TopicId,
     string Title,
     string Content,
     TimeSpan StudyDuration,
@@ -22,8 +30,8 @@ public sealed record StudyNoteMetricRequest(Guid DefinitionId, decimal Value);
 
 public sealed record StudyNoteDetails(
     Guid Id,
-    Guid SubjectId,
-    Guid TopicId,
+    Guid? SubjectId,
+    Guid? TopicId,
     string Title,
     string Content,
     TimeSpan StudyDuration,
@@ -43,4 +51,4 @@ public sealed record NoteClassificationDetails(
     IReadOnlyCollection<NoteClassificationScoreDetails> Scores
 );
 
-public sealed record NoteClassificationScoreDetails(Guid SubjectId, string SubjectName, double Score);
+public sealed record NoteClassificationScoreDetails(Guid TopicId, string TopicName, double Score);

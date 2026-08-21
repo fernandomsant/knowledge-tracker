@@ -110,6 +110,7 @@ public sealed class SubjectNoteOwnershipTests
         private readonly List<StudyNote> items = [.. initial];
         public IReadOnlyList<StudyNote> Added => items;
         public Task<StudyNote?> FindAsync(Guid id, CancellationToken ct) => Task.FromResult(items.SingleOrDefault(note => note.Id == id));
+        public Task<IReadOnlyCollection<StudyNote>> ListAsync(CancellationToken ct) => Task.FromResult<IReadOnlyCollection<StudyNote>>(items.ToArray());
         public Task<IReadOnlyCollection<StudyNote>> ListBySubjectAsync(Guid subjectId, CancellationToken ct) => Task.FromResult<IReadOnlyCollection<StudyNote>>(items.Where(note => note.SubjectId == subjectId).ToArray());
         public Task<IReadOnlyCollection<StudyNote>> ListBySubjectTreeAsync(Guid subjectId, CancellationToken ct) => Task.FromResult<IReadOnlyCollection<StudyNote>>(items.ToArray());
         public Task AddAsync(StudyNote studyNote, CancellationToken ct) { items.Add(studyNote); return Task.CompletedTask; }

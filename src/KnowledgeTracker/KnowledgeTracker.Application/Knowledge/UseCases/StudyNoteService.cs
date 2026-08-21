@@ -11,6 +11,9 @@ public sealed class StudyNoteService(
 )
     : IStudyNoteService
 {
+    public async Task<IReadOnlyCollection<StudyNoteDetails>> ListAsync(CancellationToken ct) =>
+        (await studyNotes.ListAsync(ct)).Select(KnowledgeContractMapper.ToDetails).ToArray();
+
     public async Task<IReadOnlyCollection<StudyNoteDetails>> ListBySubjectAsync(
         Guid subjectId,
         CancellationToken ct
@@ -59,6 +62,26 @@ public sealed class StudyNoteService(
         return KnowledgeContractMapper.ToDetails(studyNote);
     }
 
+    public async Task<StudyNoteDetails> CreateUnclassifiedAsync(
+        CreateUnclassifiedStudyNoteRequest request,
+        CancellationToken ct
+    )
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var studyNote = new StudyNote(
+            Guid.NewGuid(),
+            null,
+            null,
+            request.Title,
+            request.Content,
+            request.StudyDuration,
+            request.StudyStartedAtUtc,
+            await CreateMetricsAsync(request.Metrics, ct)
+        );
+        await studyNotes.AddAsync(studyNote, ct);
+        return KnowledgeContractMapper.ToDetails(studyNote);
+    }
+
     public async Task<StudyNoteDetails?> UpdateAsync(
         Guid id,
         UpdateStudyNoteRequest request,
@@ -69,12 +92,20 @@ public sealed class StudyNoteService(
         var studyNote = await studyNotes.FindAsync(id, ct);
         if (studyNote is null)
             return null;
-        if (request.TopicId == Guid.Empty)
-            throw new ArgumentException("A topic must be selected.", nameof(request));
-        var topicId = request.TopicId;
-        var topic = await topics.FindAsync(topicId, ct);
-        if (topic is null || topic.SubjectId != studyNote.SubjectId)
-            throw new ArgumentException("The selected topic does not belong to this subject.", nameof(request));
+        Guid? topicId = null;
+        if (studyNote.SubjectId is Guid subjectId)
+        {
+            if (!request.TopicId.HasValue || request.TopicId.Value == Guid.Empty)
+                throw new ArgumentException("A topic must be selected.", nameof(request));
+            topicId = request.TopicId.Value;
+            var topic = await topics.FindAsync(topicId.Value, ct);
+            if (topic is null || topic.SubjectId != subjectId)
+                throw new ArgumentException("The selected topic does not belong to this subject.", nameof(request));
+        }
+        else if (request.TopicId.HasValue)
+        {
+            throw new ArgumentException("An unclassified note cannot be assigned without an owning subject.", nameof(request));
+        }
 
         var updated = new StudyNote(studyNote.Id, studyNote.SubjectId, topicId,
             request.Title,
@@ -86,9 +117,12 @@ public sealed class StudyNoteService(
             NoteClassificationState.Pending
         );
         await studyNotes.UpdateAsync(updated, ct);
-        await goalActivity.ReevaluateMetricGoalsAsync(studyNote.SubjectId, ct, DateOnly.FromDateTime(updated.StudyStartedAtUtc.UtcDateTime));
-        if (DateOnly.FromDateTime(studyNote.StudyStartedAtUtc.UtcDateTime) != DateOnly.FromDateTime(updated.StudyStartedAtUtc.UtcDateTime))
-            await goalActivity.ReevaluateMetricGoalsAsync(studyNote.SubjectId, ct, DateOnly.FromDateTime(studyNote.StudyStartedAtUtc.UtcDateTime));
+        if (studyNote.SubjectId is Guid updatedSubjectId)
+        {
+            await goalActivity.ReevaluateMetricGoalsAsync(updatedSubjectId, ct, DateOnly.FromDateTime(updated.StudyStartedAtUtc.UtcDateTime));
+            if (DateOnly.FromDateTime(studyNote.StudyStartedAtUtc.UtcDateTime) != DateOnly.FromDateTime(updated.StudyStartedAtUtc.UtcDateTime))
+                await goalActivity.ReevaluateMetricGoalsAsync(updatedSubjectId, ct, DateOnly.FromDateTime(studyNote.StudyStartedAtUtc.UtcDateTime));
+        }
         return KnowledgeContractMapper.ToDetails(updated);
     }
 
@@ -99,7 +133,8 @@ public sealed class StudyNoteService(
             return false;
 
         await studyNotes.DeleteAsync(id, ct);
-        await goalActivity.ReevaluateMetricGoalsAsync(studyNote.SubjectId, ct, DateOnly.FromDateTime(studyNote.StudyStartedAtUtc.UtcDateTime));
+        if (studyNote.SubjectId is Guid subjectId)
+            await goalActivity.ReevaluateMetricGoalsAsync(subjectId, ct, DateOnly.FromDateTime(studyNote.StudyStartedAtUtc.UtcDateTime));
         return true;
     }
 

@@ -109,9 +109,34 @@ public sealed class SqlServerClassificationJobRepository(Func<DbConnection> conn
         await using var nodesCommand = connection.CreateCommand();
         nodesCommand.Transaction = transaction;
         nodesCommand.CommandText = """
-            SELECT Id, Name, Description, ParentSubjectId
-            FROM dbo.Subjects
-            ORDER BY ParentSubjectId, Name, Id;
+            WITH SubjectPaths AS
+            (
+                SELECT subject.Id, subject.Name, subject.Description,
+                       CAST(subject.Name AS NVARCHAR(MAX)) AS SubjectPath
+                FROM dbo.Subjects AS subject
+                WHERE subject.ParentSubjectId IS NULL
+
+                UNION ALL
+
+                SELECT child.Id, child.Name, child.Description,
+                       CAST(parent.SubjectPath + N' > ' + child.Name AS NVARCHAR(MAX))
+                FROM dbo.Subjects AS child
+                INNER JOIN SubjectPaths AS parent ON parent.Id = child.ParentSubjectId
+            )
+            SELECT topic.Id,
+                   CAST(path.SubjectPath + N' > ' + topic.Name AS NVARCHAR(MAX)),
+                   path.Description,
+                   CAST(NULL AS UNIQUEIDENTIFIER)
+            FROM dbo.Topics AS topic
+            INNER JOIN SubjectPaths AS path ON path.Id = topic.SubjectId
+            WHERE NOT EXISTS
+            (
+                SELECT 1
+                FROM dbo.Subjects AS child
+                WHERE child.ParentSubjectId = topic.SubjectId
+            )
+            ORDER BY path.SubjectPath, topic.Name, topic.Id
+            OPTION (MAXRECURSION 4);
             """;
         var nodes = new List<ClassificationNode>();
         await using var nodesReader = await nodesCommand.ExecuteReaderAsync(ct);
@@ -190,6 +215,7 @@ public sealed class SqlServerClassificationJobRepository(Func<DbConnection> conn
         }
 
         await ReplaceScoresAsync(connection, transaction, runId, result.Classifications, ct);
+        await AssignUnclassifiedOwnershipAsync(connection, transaction, job.NoteId, result.Classifications, ct);
         await ReplaceClassifierRelationsAsync(
             connection, transaction, job.NoteId, runId, result.Classifications, relationThreshold, ct
         );
@@ -321,19 +347,19 @@ public sealed class SqlServerClassificationJobRepository(Func<DbConnection> conn
             return;
 
         command.Parameters.Clear();
-        var sql = new StringBuilder("INSERT INTO dbo.NoteClassifications (ClassificationRunId, SubjectId, SubjectName, Score) ");
+        var sql = new StringBuilder("INSERT INTO dbo.NoteClassifications (ClassificationRunId, TopicId, TopicName, Score) ");
         for (var index = 0; index < scores.Count; index++)
         {
             if (index > 0)
                 sql.Append(" UNION ALL ");
-            sql.Append($"SELECT @RunId, subject.Id, subject.Name, @Score{index} FROM dbo.Subjects AS subject WHERE subject.Id = @SubjectId{index}");
+            sql.Append($"SELECT @RunId, topic.Id, topic.Name, @Score{index} FROM dbo.Topics AS topic WHERE topic.Id = @TopicId{index}");
         }
         command.CommandText = sql.ToString();
         command.AddParameter("@RunId", DbType.Guid, runId);
         var scoreArray = scores.ToArray();
         for (var index = 0; index < scoreArray.Length; index++)
         {
-            command.AddParameter($"@SubjectId{index}", DbType.Guid, scoreArray[index].NodeId);
+            command.AddParameter($"@TopicId{index}", DbType.Guid, scoreArray[index].NodeId);
             command.AddParameter($"@Score{index}", DbType.Decimal, Convert.ToDecimal(scoreArray[index].Score));
         }
         await command.ExecuteNonQueryAsync(ct);
@@ -360,20 +386,62 @@ public sealed class SqlServerClassificationJobRepository(Func<DbConnection> conn
             return;
 
         command.Parameters.Clear();
-        var sql = new StringBuilder("INSERT INTO dbo.StudyNoteSubjectRelations (NoteId, SubjectId, RelationSource, Score, ClassificationRunId) VALUES ");
+        var sql = new StringBuilder("WITH TopicScores (TopicId, Score) AS (");
         for (var index = 0; index < selected.Length; index++)
         {
             if (index > 0)
-                sql.Append(',');
-            sql.Append($"(@NoteId, @SubjectId{index}, 1, @Score{index}, @RunId)");
+                sql.Append(" UNION ALL ");
+            sql.Append($"SELECT @TopicId{index}, @Score{index}");
         }
+        sql.Append(") INSERT INTO dbo.StudyNoteSubjectRelations (NoteId, SubjectId, RelationSource, Score, ClassificationRunId) ");
+        sql.Append("SELECT @NoteId, topic.SubjectId, 1, MAX(scores.Score), @RunId FROM TopicScores AS scores ");
+        sql.Append("INNER JOIN dbo.Topics AS topic ON topic.Id = scores.TopicId GROUP BY topic.SubjectId;");
         command.CommandText = sql.ToString();
         command.AddParameter("@NoteId", DbType.Guid, noteId);
         command.AddParameter("@RunId", DbType.Guid, runId);
         for (var index = 0; index < selected.Length; index++)
         {
-            command.AddParameter($"@SubjectId{index}", DbType.Guid, selected[index].NodeId);
+            command.AddParameter($"@TopicId{index}", DbType.Guid, selected[index].NodeId);
             command.AddParameter($"@Score{index}", DbType.Decimal, Convert.ToDecimal(selected[index].Score));
+        }
+        await command.ExecuteNonQueryAsync(ct);
+    }
+
+    private static async Task AssignUnclassifiedOwnershipAsync(
+        DbConnection connection,
+        DbTransaction transaction,
+        Guid noteId,
+        IReadOnlyCollection<ClassifierScore> scores,
+        CancellationToken ct
+    )
+    {
+        if (scores.Count == 0)
+            return;
+
+        await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        var scoreArray = scores.ToArray();
+        var sql = new StringBuilder("WITH TopicScores (TopicId, Score) AS (");
+        for (var index = 0; index < scoreArray.Length; index++)
+        {
+            if (index > 0)
+                sql.Append(" UNION ALL ");
+            sql.Append($"SELECT @TopicId{index}, @Score{index}");
+        }
+        sql.Append("), BestTopic AS (");
+        sql.Append("SELECT TOP (1) topic.Id AS TopicId, topic.SubjectId FROM TopicScores AS scores ");
+        sql.Append("INNER JOIN dbo.Topics AS topic ON topic.Id = scores.TopicId ");
+        sql.Append("WHERE NOT EXISTS (SELECT 1 FROM dbo.Subjects AS child WHERE child.ParentSubjectId = topic.SubjectId) ");
+        sql.Append("ORDER BY scores.Score DESC, topic.Id) ");
+        sql.Append("UPDATE note SET SubjectId = best.SubjectId, TopicId = best.TopicId ");
+        sql.Append("FROM dbo.StudyNotes AS note CROSS JOIN BestTopic AS best ");
+        sql.Append("WHERE note.Id = @NoteId AND note.SubjectId IS NULL AND note.TopicId IS NULL;");
+        command.CommandText = sql.ToString();
+        command.AddParameter("@NoteId", DbType.Guid, noteId);
+        for (var index = 0; index < scoreArray.Length; index++)
+        {
+            command.AddParameter($"@TopicId{index}", DbType.Guid, scoreArray[index].NodeId);
+            command.AddParameter($"@Score{index}", DbType.Decimal, Convert.ToDecimal(scoreArray[index].Score));
         }
         await command.ExecuteNonQueryAsync(ct);
     }

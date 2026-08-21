@@ -197,9 +197,9 @@ Initialize-ClassifierEnvironment
 $classifierPython = Join-Path $runtimeDirectory 'classifier-venv/Scripts/python.exe'
 
 Write-Output 'Building the .NET solution...'
-& dotnet build 'src/KnowledgeTracker/KnowledgeTracker.slnx' -m:1 --verbosity minimal
+& dotnet build 'src/KnowledgeTracker/KnowledgeTracker.slnx' --no-restore -m:1 --verbosity minimal
 if ($LASTEXITCODE -ne 0) {
-    throw 'The .NET build failed. Development services were not started.'
+    throw 'The .NET build failed using the existing restore cache. Run dotnet restore once after changing package references.'
 }
 
 Write-Output 'Applying database migrations...'

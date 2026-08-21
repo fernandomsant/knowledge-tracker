@@ -144,14 +144,16 @@ public sealed class SqlServerClassificationJobRepository(Func<DbConnection> conn
             OPTION (MAXRECURSION 100);
             """;
         var nodes = new List<ClassificationNode>();
-        await using var nodesReader = await nodesCommand.ExecuteReaderAsync(ct);
-        while (await nodesReader.ReadAsync(ct))
-            nodes.Add(new ClassificationNode(
-                nodesReader.GetGuid(0),
-                nodesReader.GetString(1),
-                nodesReader.IsDBNull(2) ? null : nodesReader.GetString(2),
-                nodesReader.IsDBNull(3) ? null : nodesReader.GetGuid(3)
-            ));
+        await using (var nodesReader = await nodesCommand.ExecuteReaderAsync(ct))
+        {
+            while (await nodesReader.ReadAsync(ct))
+                nodes.Add(new ClassificationNode(
+                    nodesReader.GetGuid(0),
+                    nodesReader.GetString(1),
+                    nodesReader.IsDBNull(2) ? null : nodesReader.GetString(2),
+                    nodesReader.IsDBNull(3) ? null : nodesReader.GetGuid(3)
+                ));
+        }
 
         await transaction.CommitAsync(ct);
         return new ClassificationWorkItem(job, text, nodes);

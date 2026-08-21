@@ -30,7 +30,7 @@ internal static class KnowledgeContractMapper
                 studyNote.Classification.ModelVersion,
                 studyNote.Classification.FailureReason,
                 studyNote.Classification.Scores.Select(score => new NoteClassificationScoreDetails(
-                    score.TopicId, score.TopicName, score.Score
+                    score.SubjectId, score.SubjectName, score.Score
                 )).ToArray()
             )
         );

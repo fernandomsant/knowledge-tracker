@@ -19,22 +19,22 @@ public enum NoteNodeRelationSource : byte
 
 public sealed record NoteClassificationScore
 {
-    public NoteClassificationScore(Guid topicId, string topicName, double score)
+    public NoteClassificationScore(Guid subjectId, string subjectName, double score)
     {
-        if (topicId == Guid.Empty)
-            throw new ArgumentException("Topic identifier is required.", nameof(topicId));
-        if (string.IsNullOrWhiteSpace(topicName))
-            throw new ArgumentException("Topic name is required.", nameof(topicName));
+        if (subjectId == Guid.Empty)
+            throw new ArgumentException("Subject identifier is required.", nameof(subjectId));
+        if (string.IsNullOrWhiteSpace(subjectName))
+            throw new ArgumentException("Subject name is required.", nameof(subjectName));
         if (!double.IsFinite(score) || score < 0 || score > 1)
             throw new ArgumentOutOfRangeException(nameof(score), "Classification score must be between zero and one.");
 
-        TopicId = topicId;
-        TopicName = topicName.Trim();
+        SubjectId = subjectId;
+        SubjectName = subjectName.Trim();
         Score = score;
     }
 
-    public Guid TopicId { get; }
-    public string TopicName { get; }
+    public Guid SubjectId { get; }
+    public string SubjectName { get; }
     public double Score { get; }
 }
 

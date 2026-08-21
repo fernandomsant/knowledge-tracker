@@ -51,4 +51,4 @@ public sealed record NoteClassificationDetails(
     IReadOnlyCollection<NoteClassificationScoreDetails> Scores
 );
 
-public sealed record NoteClassificationScoreDetails(Guid TopicId, string TopicName, double Score);
+public sealed record NoteClassificationScoreDetails(Guid SubjectId, string SubjectName, double Score);

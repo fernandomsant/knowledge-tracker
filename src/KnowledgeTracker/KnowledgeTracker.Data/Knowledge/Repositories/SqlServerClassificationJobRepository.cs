@@ -128,19 +128,46 @@ public sealed class SqlServerClassificationJobRepository(Func<DbConnection> conn
                 FROM dbo.Subjects AS child
                 INNER JOIN SubjectPaths AS parent ON parent.Id = child.ParentSubjectId
             )
-            SELECT topic.Id,
-                   CAST(path.SubjectPath + N' > ' + topic.Name AS NVARCHAR(MAX)),
-                   path.Description,
-                   CAST(NULL AS UNIQUEIDENTIFIER)
-            FROM dbo.Topics AS topic
-            INNER JOIN SubjectPaths AS path ON path.Id = topic.SubjectId
-            WHERE NOT EXISTS
+            , EligibleSubjects AS
             (
-                SELECT 1
-                FROM dbo.Subjects AS child
-                WHERE child.ParentSubjectId = topic.SubjectId
+                SELECT path.Id, path.SubjectPath, path.Description
+                FROM SubjectPaths AS path
+                WHERE NOT EXISTS
+                (
+                    SELECT 1
+                    FROM dbo.Subjects AS child
+                    WHERE child.ParentSubjectId = path.Id
+                )
+                  AND EXISTS
+                (
+                    SELECT 1
+                    FROM dbo.Topics AS topic
+                    WHERE topic.SubjectId = path.Id
+                )
             )
-            ORDER BY path.SubjectPath, topic.Name, topic.Id
+            SELECT node.Id, node.Name, node.Description, node.ParentId
+            FROM
+            (
+                SELECT subject.Id,
+                       subject.SubjectPath AS Name,
+                       subject.Description,
+                       CAST(NULL AS UNIQUEIDENTIFIER) AS ParentId,
+                       subject.SubjectPath AS SortPath,
+                       0 AS SortOrder
+                FROM EligibleSubjects AS subject
+
+                UNION ALL
+
+                SELECT topic.Id,
+                       CAST(topic.Name AS NVARCHAR(MAX)),
+                       CAST(NULL AS NVARCHAR(MAX)),
+                       topic.SubjectId,
+                       CAST(subject.SubjectPath + N' > ' + topic.Name AS NVARCHAR(MAX)),
+                       1
+                FROM dbo.Topics AS topic
+                INNER JOIN EligibleSubjects AS subject ON subject.Id = topic.SubjectId
+            ) AS node
+            ORDER BY node.SortPath, node.SortOrder, node.Id
             OPTION (MAXRECURSION 100);
             """;
         var nodes = new List<ClassificationNode>();
@@ -368,19 +395,30 @@ public sealed class SqlServerClassificationJobRepository(Func<DbConnection> conn
             return;
 
         command.Parameters.Clear();
-        var sql = new StringBuilder("INSERT INTO dbo.NoteClassifications (ClassificationRunId, TopicId, TopicName, Score) ");
+        var sql = new StringBuilder("WITH NodeScores (NodeId, Score) AS (");
         for (var index = 0; index < scores.Count; index++)
         {
             if (index > 0)
                 sql.Append(" UNION ALL ");
-            sql.Append($"SELECT @RunId, topic.Id, topic.Name, @Score{index} FROM dbo.Topics AS topic WHERE topic.Id = @TopicId{index}");
+            sql.Append($"SELECT @NodeId{index}, @Score{index}");
         }
+        sql.Append("), SubjectScores AS (");
+        sql.Append("SELECT subject.Id AS SubjectId, subject.Name AS SubjectName, scores.Score FROM NodeScores AS scores ");
+        sql.Append("INNER JOIN dbo.Subjects AS subject ON subject.Id = scores.NodeId ");
+        sql.Append("WHERE NOT EXISTS (SELECT 1 FROM dbo.Subjects AS child WHERE child.ParentSubjectId = subject.Id) ");
+        sql.Append("AND EXISTS (SELECT 1 FROM dbo.Topics AS topic WHERE topic.SubjectId = subject.Id) UNION ALL ");
+        sql.Append("SELECT topic.SubjectId, subject.Name, scores.Score FROM NodeScores AS scores ");
+        sql.Append("INNER JOIN dbo.Topics AS topic ON topic.Id = scores.NodeId ");
+        sql.Append("INNER JOIN dbo.Subjects AS subject ON subject.Id = topic.SubjectId ");
+        sql.Append("WHERE NOT EXISTS (SELECT 1 FROM dbo.Subjects AS child WHERE child.ParentSubjectId = subject.Id) ");
+        sql.Append(") INSERT INTO dbo.NoteClassifications (ClassificationRunId, SubjectId, SubjectName, Score) ");
+        sql.Append("SELECT @RunId, SubjectId, MAX(SubjectName), MAX(Score) FROM SubjectScores GROUP BY SubjectId;");
         command.CommandText = sql.ToString();
         command.AddParameter("@RunId", DbType.Guid, runId);
         var scoreArray = scores.ToArray();
         for (var index = 0; index < scoreArray.Length; index++)
         {
-            command.AddParameter($"@TopicId{index}", DbType.Guid, scoreArray[index].NodeId);
+            command.AddParameter($"@NodeId{index}", DbType.Guid, scoreArray[index].NodeId);
             command.AddParameter($"@Score{index}", DbType.Decimal, Convert.ToDecimal(scoreArray[index].Score));
         }
         await command.ExecuteNonQueryAsync(ct);
@@ -402,28 +440,38 @@ public sealed class SqlServerClassificationJobRepository(Func<DbConnection> conn
         command.AddParameter("@NoteId", DbType.Guid, noteId);
         await command.ExecuteNonQueryAsync(ct);
 
-        var selected = scores.Where(item => item.Score >= threshold).ToArray();
-        if (selected.Length == 0)
+        if (scores.Count == 0)
             return;
 
         command.Parameters.Clear();
-        var sql = new StringBuilder("WITH TopicScores (TopicId, Score) AS (");
-        for (var index = 0; index < selected.Length; index++)
+        var scoreArray = scores.ToArray();
+        var sql = new StringBuilder("WITH NodeScores (NodeId, Score) AS (");
+        for (var index = 0; index < scoreArray.Length; index++)
         {
             if (index > 0)
                 sql.Append(" UNION ALL ");
-            sql.Append($"SELECT @TopicId{index}, @Score{index}");
+            sql.Append($"SELECT @NodeId{index}, @Score{index}");
         }
+        sql.Append("), SubjectScores AS (");
+        sql.Append("SELECT subject.Id AS SubjectId, scores.Score FROM NodeScores AS scores ");
+        sql.Append("INNER JOIN dbo.Subjects AS subject ON subject.Id = scores.NodeId ");
+        sql.Append("WHERE NOT EXISTS (SELECT 1 FROM dbo.Subjects AS child WHERE child.ParentSubjectId = subject.Id) ");
+        sql.Append("AND EXISTS (SELECT 1 FROM dbo.Topics AS topic WHERE topic.SubjectId = subject.Id) UNION ALL ");
+        sql.Append("SELECT topic.SubjectId, scores.Score FROM NodeScores AS scores ");
+        sql.Append("INNER JOIN dbo.Topics AS topic ON topic.Id = scores.NodeId ");
+        sql.Append("INNER JOIN dbo.Subjects AS subject ON subject.Id = topic.SubjectId ");
+        sql.Append("WHERE NOT EXISTS (SELECT 1 FROM dbo.Subjects AS child WHERE child.ParentSubjectId = subject.Id) ");
         sql.Append(") INSERT INTO dbo.StudyNoteSubjectRelations (NoteId, SubjectId, RelationSource, Score, ClassificationRunId) ");
-        sql.Append("SELECT @NoteId, topic.SubjectId, 1, MAX(scores.Score), @RunId FROM TopicScores AS scores ");
-        sql.Append("INNER JOIN dbo.Topics AS topic ON topic.Id = scores.TopicId GROUP BY topic.SubjectId;");
+        sql.Append("SELECT @NoteId, SubjectId, 1, MAX(Score), @RunId FROM SubjectScores ");
+        sql.Append("GROUP BY SubjectId HAVING MAX(Score) >= @Threshold;");
         command.CommandText = sql.ToString();
         command.AddParameter("@NoteId", DbType.Guid, noteId);
         command.AddParameter("@RunId", DbType.Guid, runId);
-        for (var index = 0; index < selected.Length; index++)
+        command.AddParameter("@Threshold", DbType.Decimal, Convert.ToDecimal(threshold));
+        for (var index = 0; index < scoreArray.Length; index++)
         {
-            command.AddParameter($"@TopicId{index}", DbType.Guid, selected[index].NodeId);
-            command.AddParameter($"@Score{index}", DbType.Decimal, Convert.ToDecimal(selected[index].Score));
+            command.AddParameter($"@NodeId{index}", DbType.Guid, scoreArray[index].NodeId);
+            command.AddParameter($"@Score{index}", DbType.Decimal, Convert.ToDecimal(scoreArray[index].Score));
         }
         await command.ExecuteNonQueryAsync(ct);
     }
@@ -442,18 +490,29 @@ public sealed class SqlServerClassificationJobRepository(Func<DbConnection> conn
         await using var command = connection.CreateCommand();
         command.Transaction = transaction;
         var scoreArray = scores.ToArray();
-        var sql = new StringBuilder("WITH TopicScores (TopicId, Score) AS (");
+        var sql = new StringBuilder("WITH NodeScores (NodeId, Score) AS (");
         for (var index = 0; index < scoreArray.Length; index++)
         {
             if (index > 0)
                 sql.Append(" UNION ALL ");
-            sql.Append($"SELECT @TopicId{index}, @Score{index}");
+            sql.Append($"SELECT @NodeId{index}, @Score{index}");
         }
-        sql.Append("), BestTopic AS (");
-        sql.Append("SELECT TOP (1) topic.Id AS TopicId, topic.SubjectId FROM TopicScores AS scores ");
-        sql.Append("INNER JOIN dbo.Topics AS topic ON topic.Id = scores.TopicId ");
-        sql.Append("WHERE NOT EXISTS (SELECT 1 FROM dbo.Subjects AS child WHERE child.ParentSubjectId = topic.SubjectId) ");
-        sql.Append("ORDER BY scores.Score DESC, topic.Id) ");
+        sql.Append("), SubjectScores AS (");
+        sql.Append("SELECT subject.Id AS SubjectId, scores.Score FROM NodeScores AS scores ");
+        sql.Append("INNER JOIN dbo.Subjects AS subject ON subject.Id = scores.NodeId ");
+        sql.Append("WHERE NOT EXISTS (SELECT 1 FROM dbo.Subjects AS child WHERE child.ParentSubjectId = subject.Id) ");
+        sql.Append("AND EXISTS (SELECT 1 FROM dbo.Topics AS topic WHERE topic.SubjectId = subject.Id) UNION ALL ");
+        sql.Append("SELECT topic.SubjectId, scores.Score FROM NodeScores AS scores ");
+        sql.Append("INNER JOIN dbo.Topics AS topic ON topic.Id = scores.NodeId ");
+        sql.Append("INNER JOIN dbo.Subjects AS subject ON subject.Id = topic.SubjectId ");
+        sql.Append("WHERE NOT EXISTS (SELECT 1 FROM dbo.Subjects AS child WHERE child.ParentSubjectId = subject.Id) ");
+        sql.Append("), BestSubject AS (");
+        sql.Append("SELECT TOP (1) SubjectId, MAX(Score) AS Score FROM SubjectScores GROUP BY SubjectId ");
+        sql.Append("ORDER BY MAX(Score) DESC, SubjectId), BestTopic AS (");
+        sql.Append("SELECT TOP (1) topic.Id AS TopicId, best.SubjectId FROM BestSubject AS best ");
+        sql.Append("INNER JOIN dbo.Topics AS topic ON topic.SubjectId = best.SubjectId ");
+        sql.Append("LEFT JOIN NodeScores AS scores ON scores.NodeId = topic.Id ");
+        sql.Append("ORDER BY COALESCE(scores.Score, 0) DESC, topic.Id) ");
         sql.Append("UPDATE note SET SubjectId = best.SubjectId, TopicId = best.TopicId ");
         sql.Append("FROM dbo.StudyNotes AS note CROSS JOIN BestTopic AS best ");
         sql.Append("WHERE note.Id = @NoteId AND note.SubjectId IS NULL AND note.TopicId IS NULL;");
@@ -461,7 +520,7 @@ public sealed class SqlServerClassificationJobRepository(Func<DbConnection> conn
         command.AddParameter("@NoteId", DbType.Guid, noteId);
         for (var index = 0; index < scoreArray.Length; index++)
         {
-            command.AddParameter($"@TopicId{index}", DbType.Guid, scoreArray[index].NodeId);
+            command.AddParameter($"@NodeId{index}", DbType.Guid, scoreArray[index].NodeId);
             command.AddParameter($"@Score{index}", DbType.Decimal, Convert.ToDecimal(scoreArray[index].Score));
         }
         await command.ExecuteNonQueryAsync(ct);

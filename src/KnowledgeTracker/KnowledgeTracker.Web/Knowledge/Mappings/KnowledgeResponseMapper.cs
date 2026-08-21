@@ -38,7 +38,7 @@ internal static class KnowledgeResponseMapper
                 studyNote.Classification.ModelVersion,
                 studyNote.Classification.FailureReason,
                 studyNote.Classification.Scores.Select(score => new NoteClassificationScoreResponse(
-                    score.TopicId, score.TopicName, score.Score
+                    score.SubjectId, score.SubjectName, score.Score
                 )).ToArray()
             )
         );

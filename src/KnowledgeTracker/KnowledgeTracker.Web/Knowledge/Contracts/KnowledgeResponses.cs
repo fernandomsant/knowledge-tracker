@@ -34,7 +34,7 @@ public sealed record NoteClassificationResponse(
     IReadOnlyCollection<NoteClassificationScoreResponse> Scores
 );
 
-public sealed record NoteClassificationScoreResponse(Guid TopicId, string TopicName, double Score);
+public sealed record NoteClassificationScoreResponse(Guid SubjectId, string SubjectName, double Score);
 
 public sealed record ClassificationUpdateResponse(
     DateTimeOffset CompletedAtUtc,

@@ -16,7 +16,7 @@ public sealed class SqlServerStudyNoteRepository(Func<DbConnection> connectionFa
         command.CommandText = """
             SELECT note.Id, note.SubjectId, note.TopicId, note.Title, note.Content, note.StudyDurationTicks, note.StudyStartedAtUtc,
                    note.NoteVersion, job.Status, job.LastError, run.Model, run.ModelVersion,
-                   classification.TopicId, classification.TopicName, classification.Score,
+                   classification.SubjectId, classification.SubjectName, classification.Score,
                    definition.Id, definition.Name, definition.NumberKind, metric.MetricValue
             FROM dbo.StudyNotes AS note
             OUTER APPLY
@@ -52,7 +52,7 @@ public sealed class SqlServerStudyNoteRepository(Func<DbConnection> connectionFa
         command.CommandText = """
             SELECT note.Id, note.SubjectId, note.TopicId, note.Title, note.Content, note.StudyDurationTicks, note.StudyStartedAtUtc,
                    note.NoteVersion, job.Status, job.LastError, run.Model, run.ModelVersion,
-                   classification.TopicId, classification.TopicName, classification.Score,
+                   classification.SubjectId, classification.SubjectName, classification.Score,
                    definition.Id, definition.Name, definition.NumberKind, metric.MetricValue
             FROM dbo.StudyNotes AS note
             OUTER APPLY
@@ -90,7 +90,7 @@ public sealed class SqlServerStudyNoteRepository(Func<DbConnection> connectionFa
         command.CommandText = """
             SELECT note.Id, note.SubjectId, note.TopicId, note.Title, note.Content, note.StudyDurationTicks, note.StudyStartedAtUtc,
                    note.NoteVersion, job.Status, job.LastError, run.Model, run.ModelVersion,
-                   classification.TopicId, classification.TopicName, classification.Score,
+                   classification.SubjectId, classification.SubjectName, classification.Score,
                    definition.Id, definition.Name, definition.NumberKind, metric.MetricValue
             FROM dbo.StudyNotes AS note
             OUTER APPLY
@@ -143,7 +143,7 @@ public sealed class SqlServerStudyNoteRepository(Func<DbConnection> connectionFa
             )
             SELECT note.Id, note.SubjectId, note.TopicId, note.Title, note.Content, note.StudyDurationTicks, note.StudyStartedAtUtc,
                    note.NoteVersion, job.Status, job.LastError, run.Model, run.ModelVersion,
-                   classification.TopicId, classification.TopicName, classification.Score,
+                   classification.SubjectId, classification.SubjectName, classification.Score,
                    definition.Id, definition.Name, definition.NumberKind, metric.MetricValue
             FROM dbo.StudyNotes AS note
             INNER JOIN DescendantSubjects AS subject ON subject.Id = note.SubjectId

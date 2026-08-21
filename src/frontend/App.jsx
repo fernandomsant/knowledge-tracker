@@ -9,6 +9,7 @@ import { useAuthenticationSession } from './authentication/context/Authenticatio
 import { useKnowledgeStore } from './hooks/useKnowledgeStore';
 import { IconButton } from './components/IconButton';
 import { KnowledgeGraph } from './components/KnowledgeGraph';
+import { UnclassifiedNoteModal } from './components/modals/UnclassifiedNoteModal';
 import { getSubjectParentOptions } from './knowledge/utils/subjectHierarchy';
 
 const StudyDashboard = lazy(() => import('./components/dashboard/StudyDashboard'));
@@ -182,6 +183,7 @@ export default function App() {
   const [query, setQuery] = useState('');
   const [copied, setCopied] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+  const [noteModalOpen, setNoteModalOpen] = useState(false);
   const [newSubjectName, setNewSubjectName] = useState('');
   const [newSubjectParentId, setNewSubjectParentId] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
@@ -224,6 +226,8 @@ export default function App() {
   }, []);
 
   const openModal = useCallback(() => setModalOpen(true), []);
+  const openNoteModal = useCallback(() => setNoteModalOpen(true), []);
+  const closeNoteModal = useCallback(() => setNoteModalOpen(false), []);
   const openMenu = useCallback(() => setMenuOpen(true), []);
   const closeMenu = useCallback(() => setMenuOpen(false), []);
   const expandCanvas = useCallback(() => setCanvasExpanded(true), []);
@@ -275,6 +279,21 @@ export default function App() {
     closeModal();
   }, [addSubject, closeModal, newSubjectName, newSubjectParentId]);
 
+  const handleCreateUnclassifiedNote = useCallback(async (...noteDetails) => {
+    const note = await addNote(...noteDetails);
+    if (!note) return null;
+    setActiveNav('Graph view');
+    setActiveSubject(note.subjectId);
+    setActiveTopic('all');
+    setView('canvas');
+    setCanvasContext(context => ({
+      ...context,
+      openSubjectId: note.subjectId,
+      drawer: { ...context.drawer, subjectId: note.subjectId, editingId: null },
+    }));
+    return note;
+  }, [addNote]);
+
   return (
     <div className="app-shell">
       <Sidebar
@@ -296,7 +315,10 @@ export default function App() {
         <main>
           <section className="page-intro">
             <div><span className="eyebrow"><Sparkles size={14}/> YOUR KNOWLEDGE SPACE</span><h1>Good morning, {user.login}.</h1><p>{selectedSubject ? `Exploring ${selectedSubject.name}.` : 'Gather your ideas, find the patterns, and keep learning.'}</p></div>
-            <button className={`share-button ${copied ? 'success' : ''}`} onClick={handleShare}>{copied ? <Check size={17}/> : <Share2 size={17}/>} {copied ? 'Link copied' : 'Share space'}</button>
+            <div className="page-intro-actions">
+              <button type="button" className="primary-button" onClick={openNoteModal}><Plus size={17}/> Add unclassified note</button>
+              <button className={`share-button ${copied ? 'success' : ''}`} onClick={handleShare}>{copied ? <Check size={17}/> : <Share2 size={17}/>} {copied ? 'Link copied' : 'Share space'}</button>
+            </div>
           </section>
           <section className="stats-grid">
             <StatCard Icon={FileText} color="teal" label="Total notes" value={notes.length} detail="Saved to your space"/>
@@ -390,7 +412,9 @@ export default function App() {
           onCompleteGoal: completeSubjectGoal,
           onSetSubGoalCompletion: setSubGoalCompletion,
         }}
-      />      <SubjectModal open={modalOpen} name={newSubjectName} parentSubjectId={newSubjectParentId} parentOptions={parentOptions} onNameChange={setNewSubjectName} onParentChange={setNewSubjectParentId} onClose={closeModal} onCreate={handleCreateSubject}/>
+      />
+      <UnclassifiedNoteModal open={noteModalOpen} subjects={subjects} topics={topics} preferredSubjectId={activeSubject === 'all' ? null : activeSubject} onClose={closeNoteModal} onCreate={handleCreateUnclassifiedNote}/>
+      <SubjectModal open={modalOpen} name={newSubjectName} parentSubjectId={newSubjectParentId} parentOptions={parentOptions} onNameChange={setNewSubjectName} onParentChange={setNewSubjectParentId} onClose={closeModal} onCreate={handleCreateSubject}/>
     </div>
   );
 }

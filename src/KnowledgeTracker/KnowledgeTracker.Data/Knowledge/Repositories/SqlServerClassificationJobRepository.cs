@@ -128,7 +128,7 @@ public sealed class SqlServerClassificationJobRepository(Func<DbConnection> conn
                 FROM dbo.Subjects AS child
                 INNER JOIN SubjectPaths AS parent ON parent.Id = child.ParentSubjectId
             )
-            , EligibleSubjects AS
+            , LeafSubjects AS
             (
                 SELECT path.Id, path.SubjectPath, path.Description
                 FROM SubjectPaths AS path
@@ -137,12 +137,6 @@ public sealed class SqlServerClassificationJobRepository(Func<DbConnection> conn
                     SELECT 1
                     FROM dbo.Subjects AS child
                     WHERE child.ParentSubjectId = path.Id
-                )
-                  AND EXISTS
-                (
-                    SELECT 1
-                    FROM dbo.Topics AS topic
-                    WHERE topic.SubjectId = path.Id
                 )
             )
             SELECT node.Id, node.Name, node.Description, node.ParentId
@@ -154,7 +148,7 @@ public sealed class SqlServerClassificationJobRepository(Func<DbConnection> conn
                        CAST(NULL AS UNIQUEIDENTIFIER) AS ParentId,
                        subject.SubjectPath AS SortPath,
                        0 AS SortOrder
-                FROM EligibleSubjects AS subject
+                FROM LeafSubjects AS subject
 
                 UNION ALL
 
@@ -165,7 +159,7 @@ public sealed class SqlServerClassificationJobRepository(Func<DbConnection> conn
                        CAST(subject.SubjectPath + N' > ' + topic.Name AS NVARCHAR(MAX)),
                        1
                 FROM dbo.Topics AS topic
-                INNER JOIN EligibleSubjects AS subject ON subject.Id = topic.SubjectId
+                INNER JOIN LeafSubjects AS subject ON subject.Id = topic.SubjectId
             ) AS node
             ORDER BY node.SortPath, node.SortOrder, node.Id
             OPTION (MAXRECURSION 100);
@@ -402,17 +396,10 @@ public sealed class SqlServerClassificationJobRepository(Func<DbConnection> conn
                 sql.Append(" UNION ALL ");
             sql.Append($"SELECT @NodeId{index}, @Score{index}");
         }
-        sql.Append("), SubjectScores AS (");
-        sql.Append("SELECT subject.Id AS SubjectId, subject.Name AS SubjectName, scores.Score FROM NodeScores AS scores ");
-        sql.Append("INNER JOIN dbo.Subjects AS subject ON subject.Id = scores.NodeId ");
-        sql.Append("WHERE NOT EXISTS (SELECT 1 FROM dbo.Subjects AS child WHERE child.ParentSubjectId = subject.Id) ");
-        sql.Append("AND EXISTS (SELECT 1 FROM dbo.Topics AS topic WHERE topic.SubjectId = subject.Id) UNION ALL ");
-        sql.Append("SELECT topic.SubjectId, subject.Name, scores.Score FROM NodeScores AS scores ");
-        sql.Append("INNER JOIN dbo.Topics AS topic ON topic.Id = scores.NodeId ");
-        sql.Append("INNER JOIN dbo.Subjects AS subject ON subject.Id = topic.SubjectId ");
-        sql.Append("WHERE NOT EXISTS (SELECT 1 FROM dbo.Subjects AS child WHERE child.ParentSubjectId = subject.Id) ");
         sql.Append(") INSERT INTO dbo.NoteClassifications (ClassificationRunId, SubjectId, SubjectName, Score) ");
-        sql.Append("SELECT @RunId, SubjectId, MAX(SubjectName), MAX(Score) FROM SubjectScores GROUP BY SubjectId;");
+        sql.Append("SELECT @RunId, subject.Id, subject.Name, scores.Score FROM NodeScores AS scores ");
+        sql.Append("INNER JOIN dbo.Subjects AS subject ON subject.Id = scores.NodeId ");
+        sql.Append("WHERE NOT EXISTS (SELECT 1 FROM dbo.Subjects AS child WHERE child.ParentSubjectId = subject.Id);");
         command.CommandText = sql.ToString();
         command.AddParameter("@RunId", DbType.Guid, runId);
         var scoreArray = scores.ToArray();
@@ -452,18 +439,11 @@ public sealed class SqlServerClassificationJobRepository(Func<DbConnection> conn
                 sql.Append(" UNION ALL ");
             sql.Append($"SELECT @NodeId{index}, @Score{index}");
         }
-        sql.Append("), SubjectScores AS (");
-        sql.Append("SELECT subject.Id AS SubjectId, scores.Score FROM NodeScores AS scores ");
+        sql.Append(") INSERT INTO dbo.StudyNoteSubjectRelations (NoteId, SubjectId, RelationSource, Score, ClassificationRunId) ");
+        sql.Append("SELECT @NoteId, subject.Id, 1, scores.Score, @RunId FROM NodeScores AS scores ");
         sql.Append("INNER JOIN dbo.Subjects AS subject ON subject.Id = scores.NodeId ");
         sql.Append("WHERE NOT EXISTS (SELECT 1 FROM dbo.Subjects AS child WHERE child.ParentSubjectId = subject.Id) ");
-        sql.Append("AND EXISTS (SELECT 1 FROM dbo.Topics AS topic WHERE topic.SubjectId = subject.Id) UNION ALL ");
-        sql.Append("SELECT topic.SubjectId, scores.Score FROM NodeScores AS scores ");
-        sql.Append("INNER JOIN dbo.Topics AS topic ON topic.Id = scores.NodeId ");
-        sql.Append("INNER JOIN dbo.Subjects AS subject ON subject.Id = topic.SubjectId ");
-        sql.Append("WHERE NOT EXISTS (SELECT 1 FROM dbo.Subjects AS child WHERE child.ParentSubjectId = subject.Id) ");
-        sql.Append(") INSERT INTO dbo.StudyNoteSubjectRelations (NoteId, SubjectId, RelationSource, Score, ClassificationRunId) ");
-        sql.Append("SELECT @NoteId, SubjectId, 1, MAX(Score), @RunId FROM SubjectScores ");
-        sql.Append("GROUP BY SubjectId HAVING MAX(Score) >= @Threshold;");
+        sql.Append("AND scores.Score >= @Threshold;");
         command.CommandText = sql.ToString();
         command.AddParameter("@NoteId", DbType.Guid, noteId);
         command.AddParameter("@RunId", DbType.Guid, runId);
@@ -497,18 +477,12 @@ public sealed class SqlServerClassificationJobRepository(Func<DbConnection> conn
                 sql.Append(" UNION ALL ");
             sql.Append($"SELECT @NodeId{index}, @Score{index}");
         }
-        sql.Append("), SubjectScores AS (");
-        sql.Append("SELECT subject.Id AS SubjectId, scores.Score FROM NodeScores AS scores ");
+        sql.Append("), BestSubject AS (");
+        sql.Append("SELECT TOP (1) subject.Id AS SubjectId, scores.Score FROM NodeScores AS scores ");
         sql.Append("INNER JOIN dbo.Subjects AS subject ON subject.Id = scores.NodeId ");
         sql.Append("WHERE NOT EXISTS (SELECT 1 FROM dbo.Subjects AS child WHERE child.ParentSubjectId = subject.Id) ");
-        sql.Append("AND EXISTS (SELECT 1 FROM dbo.Topics AS topic WHERE topic.SubjectId = subject.Id) UNION ALL ");
-        sql.Append("SELECT topic.SubjectId, scores.Score FROM NodeScores AS scores ");
-        sql.Append("INNER JOIN dbo.Topics AS topic ON topic.Id = scores.NodeId ");
-        sql.Append("INNER JOIN dbo.Subjects AS subject ON subject.Id = topic.SubjectId ");
-        sql.Append("WHERE NOT EXISTS (SELECT 1 FROM dbo.Subjects AS child WHERE child.ParentSubjectId = subject.Id) ");
-        sql.Append("), BestSubject AS (");
-        sql.Append("SELECT TOP (1) SubjectId, MAX(Score) AS Score FROM SubjectScores GROUP BY SubjectId ");
-        sql.Append("ORDER BY MAX(Score) DESC, SubjectId), BestTopic AS (");
+        sql.Append("AND EXISTS (SELECT 1 FROM dbo.Topics AS topic WHERE topic.SubjectId = subject.Id) ");
+        sql.Append("ORDER BY scores.Score DESC, subject.Id), BestTopic AS (");
         sql.Append("SELECT TOP (1) topic.Id AS TopicId, best.SubjectId FROM BestSubject AS best ");
         sql.Append("INNER JOIN dbo.Topics AS topic ON topic.SubjectId = best.SubjectId ");
         sql.Append("LEFT JOIN NodeScores AS scores ON scores.NodeId = topic.Id ");

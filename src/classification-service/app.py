@@ -83,6 +83,7 @@ def classify(request: ClassifyRequest) -> ClassifyResponse:
         )
 
     labels_by_node = build_labels(request.nodes)
+    node_by_id = {node.id: node for node in request.nodes}
     node_by_label = {label: node_id for node_id, label in labels_by_node.items()}
     predictions = runtime.pipeline(request.text, list(node_by_label), threshold=0.0)[0]
     predicted_scores = {
@@ -95,15 +96,20 @@ def classify(request: ClassifyRequest) -> ClassifyResponse:
         for node in request.nodes
     ]
     ranked_output = "\n".join(
-        f"{rank:2}. {labels_by_node[score.node_id]} [{score.node_id}] = {score.score:.6f}"
+        f"{rank:2}. [{'TOPIC' if node_by_id[score.node_id].parent_id else 'SUBJECT'}] "
+        f"{labels_by_node[score.node_id]} [{score.node_id}] = {score.score:.6f}"
         for rank, score in enumerate(
             sorted(scores, key=lambda item: item.score, reverse=True), start=1
         )
     )
+    subject_count = sum(node.parent_id is None for node in request.nodes)
+    topic_count = len(request.nodes) - subject_count
     logger.info(
-        "Classifier model output:\nModel: %s\nVersion: %s\nScores:\n%s",
+        "Classifier model output:\nModel: %s\nVersion: %s\nSubjects: %d\nTopics: %d\nScores:\n%s",
         MODEL_NAME,
         gliclass.__version__,
+        subject_count,
+        topic_count,
         ranked_output,
     )
     return ClassifyResponse(

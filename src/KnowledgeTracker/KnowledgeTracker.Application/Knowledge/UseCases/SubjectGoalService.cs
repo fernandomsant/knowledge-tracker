@@ -27,7 +27,7 @@ public sealed class SubjectGoalService(
             : await completions.ListAsync(recurringGoalIds, today, today, ct);
         var currentCompletionByGoal = currentCompletions
             .GroupBy(completion => completion.SubjectGoalId)
-            .ToDictionary(group => group.Key, group => group.MinBy(completion => completion.CompletedAtUtc)!.CompletedAtUtc);
+            .ToDictionary(group => group.Key, group => (DateTimeOffset?)group.MinBy(completion => completion.CompletedAtUtc)!.CompletedAtUtc);
         return subjectGoals.Select(goal => ToDetails(goal, studyNotes, definitionMap, includeDescendantNotes, subGoals.Where(item => item.SubjectGoalId == goal.Id), currentCompletionByGoal.GetValueOrDefault(goal.Id))).ToArray();
     }
 

@@ -41,6 +41,20 @@ public sealed class SubjectGoalHierarchyTests
     }
 
     [Fact]
+    public async Task Recurring_goal_without_current_occurrence_completion_remains_open()
+    {
+        var subject = new Subject("Subject");
+        var topic = new Topic(Guid.NewGuid(), subject.Id, "Topic");
+        var otherTopic = new Topic(Guid.NewGuid(), subject.Id, "Other topic");
+        var goal = new SubjectGoal(Guid.NewGuid(), subject.Id, topic.Id, "Finish task", GoalKind.TargetDate, null, null, null, GoalPeriod.Daily, null, null, long.MaxValue, false, null, DateTimeOffset.UtcNow);
+        var service = CreateGoalService(new FakeSubjectRepository(subject), new FakeStudyNoteRepository([subject]), StudyTimeDefinition(), topic, otherTopic, goal);
+
+        var details = await service.ListBySubjectAsync(subject.Id, CancellationToken.None);
+
+        Assert.Null(Assert.Single(details).CurrentOccurrenceCompletedAtUtc);
+    }
+
+    [Fact]
     public async Task Parent_goal_progress_includes_notes_from_all_descendants()
     {
         var root = new Subject("Root");

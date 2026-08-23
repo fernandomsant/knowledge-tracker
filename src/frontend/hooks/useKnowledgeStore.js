@@ -53,7 +53,17 @@ function knowledgeReducer(state, action) {
     case 'goal/add': return { ...state, goals: orderGoals([...state.goals, action.goal]) };
     case 'goal/update': return { ...state, goals: orderGoals(state.goals.map(goal => goal.id === action.goal.id ? action.goal : goal)) };
     case 'goal/remove': return { ...state, goals: state.goals.filter(goal => goal.id !== action.id) };
-    case 'goal/complete': return { ...state, goals: state.goals.map(goal => goal.id === action.id && (goal.period === 0 || goal.period === 4) ? { ...goal, isCompleted: true, completedAtUtc: action.completedAtUtc } : goal) };
+    case 'goal/complete': return {
+      ...state,
+      goals: state.goals.map(goal => goal.id === action.id
+        ? {
+          ...goal,
+          isCompleted: goal.period === 0 || goal.period === 4 ? true : goal.isCompleted,
+          completedAtUtc: goal.period === 0 || goal.period === 4 ? action.completedAtUtc : goal.completedAtUtc,
+          currentOccurrenceCompletedAtUtc: action.completedAtUtc,
+        }
+        : goal),
+    };
     case 'goal/prioritize': {
       const ranked = orderGoals(state.goals);
       const index = ranked.findIndex(goal => goal.id === action.id);

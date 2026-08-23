@@ -50,5 +50,5 @@ internal static class KnowledgeResponseMapper
         new(connection.Id, connection.SubjectId, connection.ConnectedSubjectId);
 
     public static SubjectGoalResponse ToResponse(SubjectGoalDetails goal) =>
-        new(goal.Id, goal.SubjectId, goal.TopicId, goal.Title, goal.Kind, goal.MetricDefinition is null ? null : ToResponse(goal.MetricDefinition), goal.TargetValue, goal.CurrentValue, goal.TargetDate, goal.Period, goal.PeriodStartDate, goal.PeriodEndDate, goal.PriorityPosition, goal.IsCompleted, goal.CompletedAtUtc, goal.CreatedAtUtc, goal.SubGoals.Select(item => new SubjectSubGoalResponse(item.Id, item.Title, item.IsCompleted, item.CompletedAtUtc)).ToArray());
+        new(goal.Id, goal.SubjectId, goal.TopicId, goal.Title, goal.Kind, goal.MetricDefinition is null ? null : ToResponse(goal.MetricDefinition), goal.TargetValue, goal.CurrentValue, goal.TargetDate, goal.Period, goal.PeriodStartDate, goal.PeriodEndDate, goal.PriorityPosition, goal.IsCompleted, goal.CompletedAtUtc, goal.CreatedAtUtc, goal.CurrentOccurrenceCompletedAtUtc, goal.SubGoals.Select(item => new SubjectSubGoalResponse(item.Id, item.Title, item.IsCompleted, item.CompletedAtUtc)).ToArray());
 }

@@ -9,6 +9,7 @@ import { useAuthenticationSession } from './authentication/context/Authenticatio
 import { useKnowledgeStore } from './hooks/useKnowledgeStore';
 import { IconButton } from './components/IconButton';
 import { KnowledgeGraph } from './components/KnowledgeGraph';
+import { UnclassifiedNoteModal } from './components/modals/UnclassifiedNoteModal';
 import { getSubjectParentOptions } from './knowledge/utils/subjectHierarchy';
 
 const StudyDashboard = lazy(() => import('./components/dashboard/StudyDashboard'));
@@ -173,7 +174,7 @@ export default function App() {
   const { accessToken, user, logout, refreshAccessToken } = useAuthenticationSession();
   const {
     subjects, notes, connections, goals, topics, metricDefinitions, goalActivity, subjectsById, notesBySubject, directNotesBySubject, goalsBySubject, status: knowledgeStatus, error: knowledgeError,
-    addSubject, updateSubject, removeSubject, addNote, updateNote, removeNote, createMetricDefinition, createTopic, removeTopic, saveSubjectLayout, connectSubjects, removeConnection, addSubjectGoal, updateSubjectGoal, removeSubjectGoal, completeSubjectGoal, prioritizeSubjectGoal, setSubGoalCompletion, loadGoalActivity,
+    addSubject, updateSubject, removeSubject, addNote, addUnclassifiedNote, updateNote, removeNote, createMetricDefinition, createTopic, removeTopic, saveSubjectLayout, connectSubjects, removeConnection, addSubjectGoal, updateSubjectGoal, removeSubjectGoal, completeSubjectGoal, prioritizeSubjectGoal, setSubGoalCompletion, loadGoalActivity,
   } = useKnowledgeStore(accessToken, refreshAccessToken);
   const [activeNav, setActiveNav] = useState('Overview');
   const [activeSubject, setActiveSubject] = useState('all');
@@ -182,6 +183,7 @@ export default function App() {
   const [query, setQuery] = useState('');
   const [copied, setCopied] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+  const [noteModalOpen, setNoteModalOpen] = useState(false);
   const [newSubjectName, setNewSubjectName] = useState('');
   const [newSubjectParentId, setNewSubjectParentId] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
@@ -224,6 +226,8 @@ export default function App() {
   }, []);
 
   const openModal = useCallback(() => setModalOpen(true), []);
+  const openNoteModal = useCallback(() => setNoteModalOpen(true), []);
+  const closeNoteModal = useCallback(() => setNoteModalOpen(false), []);
   const openMenu = useCallback(() => setMenuOpen(true), []);
   const closeMenu = useCallback(() => setMenuOpen(false), []);
   const expandCanvas = useCallback(() => setCanvasExpanded(true), []);
@@ -275,6 +279,16 @@ export default function App() {
     closeModal();
   }, [addSubject, closeModal, newSubjectName, newSubjectParentId]);
 
+  const handleCreateUnclassifiedNote = useCallback(async (...noteDetails) => {
+    const note = await addUnclassifiedNote(...noteDetails);
+    if (!note) return null;
+    setActiveNav('My notes');
+    setActiveSubject('all');
+    setActiveTopic('all');
+    setView('list');
+    return note;
+  }, [addUnclassifiedNote]);
+
   return (
     <div className="app-shell">
       <Sidebar
@@ -296,7 +310,10 @@ export default function App() {
         <main>
           <section className="page-intro">
             <div><span className="eyebrow"><Sparkles size={14}/> YOUR KNOWLEDGE SPACE</span><h1>Good morning, {user.login}.</h1><p>{selectedSubject ? `Exploring ${selectedSubject.name}.` : 'Gather your ideas, find the patterns, and keep learning.'}</p></div>
-            <button className={`share-button ${copied ? 'success' : ''}`} onClick={handleShare}>{copied ? <Check size={17}/> : <Share2 size={17}/>} {copied ? 'Link copied' : 'Share space'}</button>
+            <div className="page-intro-actions">
+              <button type="button" className="primary-button" onClick={openNoteModal}><Plus size={17}/> Add unclassified note</button>
+              <button className={`share-button ${copied ? 'success' : ''}`} onClick={handleShare}>{copied ? <Check size={17}/> : <Share2 size={17}/>} {copied ? 'Link copied' : 'Share space'}</button>
+            </div>
           </section>
           <section className="stats-grid">
             <StatCard Icon={FileText} color="teal" label="Total notes" value={notes.length} detail="Saved to your space"/>
@@ -352,7 +369,7 @@ export default function App() {
           <section className="bottom-grid">
             <article className="activity-card">
               <div className="card-title"><div><span>RECENT ACTIVITY</span><h3>Keep the thread going</h3></div><button onClick={() => setView('list')}>View all <ArrowRight size={14}/></button></div>
-              {recentNotes.map(note => { const subject = subjectsById.get(note.subjectId); return <div className="activity-row" key={note.id}><span className={`file-box ${subject?.color ?? 'purple'}`}><FileText size={17}/></span><div><strong>{note.title}</strong><small>{subject?.name} Â· {note.date}</small></div><ArrowRight size={16}/></div>; })}
+              {recentNotes.map(note => { const subject = subjectsById.get(note.subjectId); return <div className="activity-row" key={note.id}><span className={`file-box ${subject?.color ?? 'purple'}`}><FileText size={17}/></span><div><strong>{note.title}</strong><small>{subject?.name ?? 'Unclassified'} · {note.date}</small></div><ArrowRight size={16}/></div>; })}
             </article>
             <article className="focus-card"><span className="nudge"><Sparkles size={13}/> A LITTLE NUDGE</span><h3>Connect the dots.</h3><p>A few of your newest notes are still floating alone. Link them to a subject or connect related themes.</p><button>Explore suggestions <ArrowRight size={15}/></button></article>
           </section>
@@ -390,7 +407,9 @@ export default function App() {
           onCompleteGoal: completeSubjectGoal,
           onSetSubGoalCompletion: setSubGoalCompletion,
         }}
-      />      <SubjectModal open={modalOpen} name={newSubjectName} parentSubjectId={newSubjectParentId} parentOptions={parentOptions} onNameChange={setNewSubjectName} onParentChange={setNewSubjectParentId} onClose={closeModal} onCreate={handleCreateSubject}/>
+      />
+      <UnclassifiedNoteModal open={noteModalOpen} onClose={closeNoteModal} onCreate={handleCreateUnclassifiedNote}/>
+      <SubjectModal open={modalOpen} name={newSubjectName} parentSubjectId={newSubjectParentId} parentOptions={parentOptions} onNameChange={setNewSubjectName} onParentChange={setNewSubjectParentId} onClose={closeModal} onCreate={handleCreateSubject}/>
     </div>
   );
 }

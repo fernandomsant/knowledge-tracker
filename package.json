@@ -4,6 +4,8 @@
   "scripts": {
     "dev": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/dev.ps1",
     "dev:stop": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/stop-dev.ps1",
+    "classification:worker": "dotnet run --project ./src/KnowledgeTracker/KnowledgeTracker.ClassificationWorker",
+    "classification:python": "python -m uvicorn app:app --app-dir ./src/classification-service --host 127.0.0.1 --port 8021",
     "migrate": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/migrate.ps1",
     "seed": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/seed.ps1"
   }

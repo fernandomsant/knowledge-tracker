@@ -1,5 +1,6 @@
 ﻿<Solution>
   <Project Path="KnowledgeTracker.Application/KnowledgeTracker.Application.csproj" />
+  <Project Path="KnowledgeTracker.ClassificationWorker/KnowledgeTracker.ClassificationWorker.csproj" />
   <Project Path="KnowledgeTracker.Tests/KnowledgeTracker.Tests.csproj" />
   <Project Path="KnowledgeTracker.Data/KnowledgeTracker.Data.csproj" />
   <Project Path="KnowledgeTracker.Domain/KnowledgeTracker.Domain.csproj" />

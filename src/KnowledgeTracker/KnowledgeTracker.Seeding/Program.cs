@@ -160,6 +160,35 @@ file static class StudentWorkspaceSeed
                 ("@metricValue", metric.Value));
 
         await SeedGoalsAsync(connection, transaction);
+
+        await ExecuteAsync(connection, transaction, """
+            INSERT INTO dbo.StudyNoteSubjectRelations (NoteId, SubjectId, RelationSource, Score, ClassificationRunId)
+            SELECT note.Id, note.SubjectId, 0, NULL, NULL
+            FROM dbo.StudyNotes AS note
+            WHERE NOT EXISTS
+            (
+                SELECT 1
+                FROM dbo.StudyNoteSubjectRelations AS relation
+                WHERE relation.NoteId = note.Id
+                  AND relation.SubjectId = note.SubjectId
+                  AND relation.RelationSource = 0
+            );
+
+            INSERT INTO dbo.ClassificationJobs
+                (Id, NoteId, NoteVersion, TaxonomyVersion, Status, Attempts, AvailableAtUtc)
+            SELECT NEWID(), note.Id, note.NoteVersion, taxonomy.TaxonomyVersion, 0, 0, SYSUTCDATETIME()
+            FROM dbo.StudyNotes AS note
+            CROSS JOIN dbo.ClassificationTaxonomyState AS taxonomy
+            WHERE taxonomy.Id = 1
+              AND NOT EXISTS
+              (
+                  SELECT 1
+                  FROM dbo.ClassificationJobs AS job
+                  WHERE job.NoteId = note.Id
+                    AND job.NoteVersion = note.NoteVersion
+                    AND job.TaxonomyVersion = taxonomy.TaxonomyVersion
+              );
+            """);
     }
 
     private static async Task ExecuteAsync(SqlConnection connection, SqlTransaction transaction, string sql, params (string Name, object Value)[] parameters)

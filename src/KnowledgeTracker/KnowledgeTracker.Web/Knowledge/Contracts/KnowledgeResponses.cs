@@ -15,13 +15,31 @@ public sealed record SubjectLayoutPositionResponse(Guid SubjectId, decimal Norma
 
 public sealed record StudyNoteResponse(
     Guid Id,
-    Guid SubjectId,
-    Guid TopicId,
+    Guid? SubjectId,
+    Guid? TopicId,
     string Title,
     string Content,
     TimeSpan StudyDuration,
     DateTimeOffset StudyStartedAtUtc,
-    IReadOnlyCollection<StudyNoteMetricResponse> Metrics
+    IReadOnlyCollection<StudyNoteMetricResponse> Metrics,
+    long Version,
+    NoteClassificationResponse Classification
+);
+
+public sealed record NoteClassificationResponse(
+    string Status,
+    string? Model,
+    string? ModelVersion,
+    string? FailureReason,
+    IReadOnlyCollection<NoteClassificationScoreResponse> Scores
+);
+
+public sealed record NoteClassificationScoreResponse(Guid SubjectId, string SubjectName, double Score);
+
+public sealed record ClassificationUpdateResponse(
+    DateTimeOffset CompletedAtUtc,
+    Guid JobId,
+    StudyNoteResponse Note
 );
 
 public sealed record StudyMetricDefinitionResponse(Guid Id, string Name, KnowledgeTracker.Domain.Knowledge.MetricNumberKind NumberKind);
@@ -32,4 +50,4 @@ public sealed record SubjectConnectionResponse(Guid Id, Guid SubjectId, Guid Con
 
 public sealed record SubjectSubGoalResponse(Guid Id, string Title, bool IsCompleted, DateTimeOffset? CompletedAtUtc);
 public sealed record TopicResponse(Guid Id, Guid SubjectId, string Name);
-public sealed record SubjectGoalResponse(Guid Id, Guid SubjectId, Guid TopicId, string Title, KnowledgeTracker.Domain.Knowledge.GoalKind Kind, StudyMetricDefinitionResponse? MetricDefinition, decimal? TargetValue, decimal? CurrentValue, DateOnly? TargetDate, KnowledgeTracker.Domain.Knowledge.GoalPeriod Period, DateOnly? PeriodStartDate, DateOnly? PeriodEndDate, long PriorityPosition, bool IsCompleted, DateTimeOffset? CompletedAtUtc, DateTimeOffset CreatedAtUtc, IReadOnlyCollection<SubjectSubGoalResponse> SubGoals);
+public sealed record SubjectGoalResponse(Guid Id, Guid SubjectId, Guid TopicId, string Title, KnowledgeTracker.Domain.Knowledge.GoalKind Kind, StudyMetricDefinitionResponse? MetricDefinition, decimal? TargetValue, decimal? CurrentValue, DateOnly? TargetDate, KnowledgeTracker.Domain.Knowledge.GoalPeriod Period, DateOnly? PeriodStartDate, DateOnly? PeriodEndDate, long PriorityPosition, bool IsCompleted, DateTimeOffset? CompletedAtUtc, DateTimeOffset CreatedAtUtc, DateTimeOffset? CurrentOccurrenceCompletedAtUtc, IReadOnlyCollection<SubjectSubGoalResponse> SubGoals);

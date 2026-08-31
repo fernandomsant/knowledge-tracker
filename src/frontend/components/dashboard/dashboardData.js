@@ -93,6 +93,66 @@ export function buildGoalActivitySeries(goalActivity, range, now = new Date()) {
   return series;
 }
 
+function studyDurationMinutes(duration) {
+  const parts = String(duration ?? '').split(':').map(Number);
+  if (parts.length < 2 || parts.some(part => !Number.isFinite(part) || part < 0)) return 0;
+  const [hours, minutes, seconds = 0] = parts;
+  return hours * 60 + minutes + seconds / 60;
+}
+
+function buildSubjectTimeHierarchy(subjects, notes) {
+  const subjectsById = new Map(subjects.map(subject => [subject.id, subject]));
+  const directActivity = new Map();
+  const childrenByParentId = new Map();
+  subjects.forEach(subject => directActivity.set(subject.id, { minutes: 0, notes: 0 }));
+
+  notes.forEach(note => {
+    const activity = directActivity.get(note.subjectId);
+    if (!activity) return;
+    activity.minutes += studyDurationMinutes(note.studyDuration);
+    activity.notes += 1;
+  });
+
+  subjects.forEach(subject => {
+    if (!subject.parentSubjectId || !subjectsById.has(subject.parentSubjectId) || subject.parentSubjectId === subject.id) return;
+    const children = childrenByParentId.get(subject.parentSubjectId) ?? [];
+    children.push(subject);
+    childrenByParentId.set(subject.parentSubjectId, children);
+  });
+
+  const visited = new Set();
+  /** @param {any} subject @param {number} depth @returns {any} */
+  const buildBranch = (subject, depth) => {
+    if (visited.has(subject.id)) return null;
+    visited.add(subject.id);
+    const direct = directActivity.get(subject.id) ?? { minutes: 0, notes: 0 };
+    const children = (childrenByParentId.get(subject.id) ?? [])
+      .map(child => buildBranch(child, depth + 1))
+      .filter(Boolean)
+      .toSorted((left, right) => right.studyMinutes - left.studyMinutes || left.name.localeCompare(right.name));
+    const studyMinutes = direct.minutes + children.reduce((sum, child) => sum + child.studyMinutes, 0);
+    const noteCount = direct.notes + children.reduce((sum, child) => sum + child.noteCount, 0);
+    const descendantCount = children.reduce((sum, child) => sum + child.descendantCount + 1, 0);
+    return { ...subject, depth, studyMinutes, directStudyMinutes: direct.minutes, noteCount, directNoteCount: direct.notes, descendantCount, isAggregate: children.length > 0, children };
+  };
+
+  const roots = subjects.filter(subject => !subject.parentSubjectId || !subjectsById.has(subject.parentSubjectId) || subject.parentSubjectId === subject.id);
+  const branches = roots.map(subject => buildBranch(subject, 0)).filter(Boolean);
+  subjects.forEach(subject => {
+    if (!visited.has(subject.id)) branches.push(buildBranch(subject, 0));
+  });
+  branches.sort((left, right) => right.studyMinutes - left.studyMinutes || left.name.localeCompare(right.name));
+
+  const totalStudyMinutes = [...directActivity.values()].reduce((sum, activity) => sum + activity.minutes, 0);
+  const subjectActivity = new Array();
+  const flatten = branch => {
+    subjectActivity.push({ ...branch, percentage: totalStudyMinutes ? branch.studyMinutes / totalStudyMinutes * 100 : 0 });
+    branch.children.forEach(flatten);
+  };
+  branches.forEach(flatten);
+  return { subjectActivity, totalStudyMinutes };
+}
+
 export function buildStudyBehaviorData({ subjects, notes, goals, topics, goalActivity = [], range, now = new Date() }) {
   const { from } = dashboardRangeDates(range, now);
   const fromDate = parseDate(from);
@@ -100,10 +160,7 @@ export function buildStudyBehaviorData({ subjects, notes, goals, topics, goalAct
   const topicsById = new Map(topics.map(topic => [topic.id, topic]));
   const visibleNotes = notes.filter(note => new Date(note.studyStartedAtUtc) >= fromDate);
   const totalNotes = visibleNotes.length;
-  const subjectActivity = subjects.map(subject => {
-    const count = visibleNotes.filter(note => note.subjectId === subject.id).length;
-    return { ...subject, count, percentage: totalNotes ? count / totalNotes * 100 : 0 };
-  }).toSorted((left, right) => right.count - left.count || left.name.localeCompare(right.name));
+  const { subjectActivity, totalStudyMinutes } = buildSubjectTimeHierarchy(subjects, visibleNotes);
   const activityByGoal = new Map();
   goalActivity.forEach(row => { const rows = activityByGoal.get(row.goalId) ?? []; rows.push(row); activityByGoal.set(row.goalId, rows); });
   const periodicGoals = goals.filter(goal => !goal.isCompleted && goal.period >= 1 && goal.period <= 3).map(goal => {
@@ -115,5 +172,5 @@ export function buildStudyBehaviorData({ subjects, notes, goals, topics, goalAct
     const trend = trendFor(occurrences);
     return { ...goal, subject: subjectsById.get(goal.subjectId), topic: topicsById.get(goal.topicId), periodLabel: PERIOD_LABELS[goal.period], completed, expected, missed, consistency, streak: currentStreak(occurrences), trend, hasOccurrenceHistory: true, ...recurringGoalPriority({ consistency, missed, expected, trend }) };
   }).toSorted((left, right) => (left.priorityOrder ?? Number.MAX_SAFE_INTEGER) - (right.priorityOrder ?? Number.MAX_SAFE_INTEGER) || left.priorityRank - right.priorityRank || left.consistency - right.consistency || right.expected - left.expected);
-  return { subjectActivity, totalNotes, periodicGoals, goalActivitySeries: buildGoalActivitySeries(goalActivity, range, now) };
+  return { subjectActivity, totalNotes, totalStudyMinutes, periodicGoals, goalActivitySeries: buildGoalActivitySeries(goalActivity, range, now) };
 }

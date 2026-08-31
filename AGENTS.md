@@ -86,6 +86,56 @@ For non-trivial changes:
 
 Avoid exhaustive repository exploration when either tool can answer the question more directly. The objective is to gather enough context to make a correct change while minimizing unnecessary file reads and token usage.
 
+### `/progress`
+
+Use `/progress` only when an implementation is large enough to span multiple context windows.
+
+Create:
+
+```text id="g60zsv"
+/progress/<task-name>.md
+```
+
+Keep it short and abstract. Its purpose is only to prevent the agent from losing implementation state.
+
+Use:
+
+```markdown id="ht74qo"
+### Task
+
+#### Goal
+Brief target state.
+
+#### Completed
+- Major completed capabilities.
+
+#### Current
+Brief current implementation state.
+
+#### Remaining
+- Major remaining work.
+
+#### Decisions
+- Important decisions that must not be accidentally reversed.
+
+#### Blockers
+- Relevant unresolved issues.
+```
+
+Do not record:
+
+* individual file edits;
+* commands executed;
+* detailed reasoning;
+* implementation diary entries.
+
+Update the file only after meaningful milestones or before context exhaustion.
+
+When resuming a long task, read its `/progress` file first.
+
+Source code and permanent architecture documentation always take precedence over `/progress`.
+
+Delete the progress file after the implementation is complete unless it still serves an explicit project purpose.
 
 # Basic Instructions
 

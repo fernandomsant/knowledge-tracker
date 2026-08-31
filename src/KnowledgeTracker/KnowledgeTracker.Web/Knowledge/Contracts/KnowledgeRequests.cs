@@ -58,9 +58,25 @@ public sealed record CreateStudyNoteRequest
     public IReadOnlyCollection<StudyNoteMetricRequest> Metrics { get; init; } = [];
 }
 
+public sealed record CreateUnclassifiedStudyNoteRequest
+{
+    [Required]
+    [StringLength(512)]
+    public required string Title { get; init; }
+
+    [Required]
+    public required string Content { get; init; }
+
+    public TimeSpan StudyDuration { get; init; }
+
+    public DateTimeOffset StudyStartedAtUtc { get; init; }
+
+    public IReadOnlyCollection<StudyNoteMetricRequest> Metrics { get; init; } = [];
+}
+
 public sealed record UpdateStudyNoteRequest
 {
-    public Guid TopicId { get; init; }
+    public Guid? TopicId { get; init; }
     [Required]
     [StringLength(512)]
     public required string Title { get; init; }

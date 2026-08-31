@@ -7,6 +7,54 @@ namespace KnowledgeTracker.Tests.Knowledge;
 public sealed class SubjectGoalHierarchyTests
 {
     [Fact]
+    public async Task Completing_a_goal_twice_for_the_same_occurrence_registers_one_completion()
+    {
+        var subject = new Subject("Subject");
+        var topic = new Topic(Guid.NewGuid(), subject.Id, "Topic");
+        var otherTopic = new Topic(Guid.NewGuid(), subject.Id, "Other topic");
+        var goal = new SubjectGoal(Guid.NewGuid(), subject.Id, topic.Id, "Finish task", GoalKind.TargetDate, null, null, null, GoalPeriod.Daily, null, null, long.MaxValue, false, null, DateTimeOffset.UtcNow);
+        var completions = new FakeCompletionRepository();
+        var definition = StudyTimeDefinition();
+        var service = CreateGoalService(new FakeSubjectRepository(subject), new FakeStudyNoteRepository([subject]), definition, topic, otherTopic, goal, completions);
+
+        Assert.True(await service.CompleteAsync(goal.Id, CancellationToken.None));
+        Assert.True(await service.CompleteAsync(goal.Id, CancellationToken.None));
+
+        Assert.Single(completions.Registered);
+    }
+
+    [Fact]
+    public async Task Recurring_goal_exposes_current_occurrence_completion()
+    {
+        var subject = new Subject("Subject");
+        var topic = new Topic(Guid.NewGuid(), subject.Id, "Topic");
+        var otherTopic = new Topic(Guid.NewGuid(), subject.Id, "Other topic");
+        var goal = new SubjectGoal(Guid.NewGuid(), subject.Id, topic.Id, "Finish task", GoalKind.TargetDate, null, null, null, GoalPeriod.Daily, null, null, long.MaxValue, false, null, DateTimeOffset.UtcNow);
+        var completion = new SubjectGoalCompletion(Guid.NewGuid(), goal.Id, DateOnly.FromDateTime(DateTime.UtcNow), DateOnly.FromDateTime(DateTime.UtcNow), DateTimeOffset.UtcNow, GoalCompletionSource.Manual);
+        var completions = new FakeCompletionRepository();
+        completions.Registered.Add(completion);
+        var service = CreateGoalService(new FakeSubjectRepository(subject), new FakeStudyNoteRepository([subject]), StudyTimeDefinition(), topic, otherTopic, goal, completions);
+
+        var details = await service.ListBySubjectAsync(subject.Id, CancellationToken.None);
+
+        Assert.Equal(completion.CompletedAtUtc, Assert.Single(details).CurrentOccurrenceCompletedAtUtc);
+    }
+
+    [Fact]
+    public async Task Recurring_goal_without_current_occurrence_completion_remains_open()
+    {
+        var subject = new Subject("Subject");
+        var topic = new Topic(Guid.NewGuid(), subject.Id, "Topic");
+        var otherTopic = new Topic(Guid.NewGuid(), subject.Id, "Other topic");
+        var goal = new SubjectGoal(Guid.NewGuid(), subject.Id, topic.Id, "Finish task", GoalKind.TargetDate, null, null, null, GoalPeriod.Daily, null, null, long.MaxValue, false, null, DateTimeOffset.UtcNow);
+        var service = CreateGoalService(new FakeSubjectRepository(subject), new FakeStudyNoteRepository([subject]), StudyTimeDefinition(), topic, otherTopic, goal);
+
+        var details = await service.ListBySubjectAsync(subject.Id, CancellationToken.None);
+
+        Assert.Null(Assert.Single(details).CurrentOccurrenceCompletedAtUtc);
+    }
+
+    [Fact]
     public async Task Parent_goal_progress_includes_notes_from_all_descendants()
     {
         var root = new Subject("Root");
@@ -93,10 +141,11 @@ public sealed class SubjectGoalHierarchyTests
         StudyMetricDefinition definition,
         Topic firstTopic,
         Topic secondTopic,
-        SubjectGoal goal) =>
+        SubjectGoal goal,
+        FakeCompletionRepository? completions = null) =>
         new(
             new FakeGoalRepository(goal),
-            new FakeCompletionRepository(),
+            completions ?? new FakeCompletionRepository(),
             new FakeGoalActivityService(),
             subjects,
             new FakeTopicRepository(firstTopic, secondTopic),
@@ -163,6 +212,7 @@ public sealed class SubjectGoalHierarchyTests
     {
         private readonly List<StudyNote> items = [.. initial];
         public Task<StudyNote?> FindAsync(Guid id, CancellationToken ct) => Task.FromResult(items.SingleOrDefault(note => note.Id == id));
+        public Task<IReadOnlyCollection<StudyNote>> ListAsync(CancellationToken ct) => Task.FromResult<IReadOnlyCollection<StudyNote>>(items.ToArray());
         public Task<IReadOnlyCollection<StudyNote>> ListBySubjectAsync(Guid subjectId, CancellationToken ct) =>
             Task.FromResult<IReadOnlyCollection<StudyNote>>(items.Where(note => note.SubjectId == subjectId).ToArray());
         public Task<IReadOnlyCollection<StudyNote>> ListBySubjectTreeAsync(Guid subjectId, CancellationToken ct)
@@ -171,7 +221,7 @@ public sealed class SubjectGoalHierarchyTests
             while (subjects.Where(subject => subject.ParentSubjectId is not null && subjectIds.Contains(subject.ParentSubjectId.Value)).Select(subject => subject.Id).Where(subjectIds.Add).Any())
             {
             }
-            return Task.FromResult<IReadOnlyCollection<StudyNote>>(items.Where(note => subjectIds.Contains(note.SubjectId)).ToArray());
+            return Task.FromResult<IReadOnlyCollection<StudyNote>>(items.Where(note => note.SubjectId is Guid ownerId && subjectIds.Contains(ownerId)).ToArray());
         }
         public Task AddAsync(StudyNote studyNote, CancellationToken ct) { items.Add(studyNote); return Task.CompletedTask; }
         public Task UpdateAsync(StudyNote studyNote, CancellationToken ct) => Task.CompletedTask;

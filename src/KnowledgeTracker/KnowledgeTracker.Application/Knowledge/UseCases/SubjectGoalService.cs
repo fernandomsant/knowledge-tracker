@@ -17,7 +17,18 @@ public sealed class SubjectGoalService(
         var (studyNotes, includeDescendantNotes) = await GetGoalNotesAsync(subjectId, ct);
         var definitionMap = (await definitions.ListAsync(ct)).ToDictionary(definition => definition.Id);
         var subGoals = await goals.ListSubGoalsAsync(subjectGoals.Select(goal => goal.Id).ToArray(), ct);
-        return subjectGoals.Select(goal => ToDetails(goal, studyNotes, definitionMap, includeDescendantNotes, subGoals.Where(item => item.SubjectGoalId == goal.Id))).ToArray();
+        var recurringGoalIds = subjectGoals
+            .Where(goal => goal.Period is GoalPeriod.Daily or GoalPeriod.Weekly or GoalPeriod.Monthly)
+            .Select(goal => goal.Id)
+            .ToArray();
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var currentCompletions = recurringGoalIds.Length == 0
+            ? []
+            : await completions.ListAsync(recurringGoalIds, today, today, ct);
+        var currentCompletionByGoal = currentCompletions
+            .GroupBy(completion => completion.SubjectGoalId)
+            .ToDictionary(group => group.Key, group => (DateTimeOffset?)group.MinBy(completion => completion.CompletedAtUtc)!.CompletedAtUtc);
+        return subjectGoals.Select(goal => ToDetails(goal, studyNotes, definitionMap, includeDescendantNotes, subGoals.Where(item => item.SubjectGoalId == goal.Id), currentCompletionByGoal.GetValueOrDefault(goal.Id))).ToArray();
     }
 
     public async Task<SubjectGoalDetails?> CreateAsync(Guid subjectId, CreateSubjectGoalRequest request, CancellationToken ct)
@@ -78,6 +89,9 @@ public sealed class SubjectGoalService(
         if (goal is null || goal.Kind == GoalKind.MetricTarget) return false;
         var occurrence = CurrentOccurrence(goal);
         if (occurrence is null) return false;
+        var existingCompletion = await completions.ListAsync([goal.Id], occurrence.StartDate, occurrence.EndDate, ct);
+        if (existingCompletion.Any(completion => completion.SubjectGoalId == goal.Id && completion.OccurrenceStartDate == occurrence.StartDate && completion.OccurrenceEndDate == occurrence.EndDate))
+            return true;
         if (goal.Period is GoalPeriod.AllTime or GoalPeriod.Custom)
             await goals.CompleteAsync(id, DateTimeOffset.UtcNow, ct);
         await completions.RegisterAsync(new SubjectGoalCompletion(Guid.NewGuid(), goal.Id, occurrence.StartDate, occurrence.EndDate, DateTimeOffset.UtcNow, GoalCompletionSource.Manual), ct);
@@ -140,7 +154,8 @@ public sealed class SubjectGoalService(
         IReadOnlyCollection<StudyNote> notes,
         IReadOnlyDictionary<Guid, StudyMetricDefinition> definitions,
         bool includeDescendantNotes,
-        IEnumerable<SubjectSubGoal> subGoals)
+        IEnumerable<SubjectSubGoal> subGoals,
+        DateTimeOffset? currentOccurrenceCompletedAtUtc = null)
     {
         definitions.TryGetValue(goal.MetricDefinitionId ?? Guid.Empty, out var definition);
         var (periodStartDate, periodEndDate) = ResolvePeriod(goal, DateOnly.FromDateTime(DateTime.UtcNow));
@@ -153,7 +168,7 @@ public sealed class SubjectGoalService(
                 ? scopedNotes.Sum(note => note.StudyDuration.Ticks / (decimal)TimeSpan.TicksPerHour)
                 : scopedNotes.SelectMany(note => note.Metrics).Where(metric => metric.Definition.Id == goal.MetricDefinitionId).Sum(metric => metric.Value)
             : null;
-        return new(goal.Id, goal.SubjectId, goal.TopicId, goal.Title, goal.Kind, definition is null ? null : new(definition.Id, definition.Name, definition.NumberKind), goal.TargetValue, currentValue, goal.TargetDate, goal.Period, periodStartDate, periodEndDate, goal.PriorityPosition, goal.IsCompleted, goal.CompletedAtUtc, goal.CreatedAtUtc, subGoals.Select(item => new SubjectSubGoalDetails(item.Id, item.Title, item.IsCompleted, item.CompletedAtUtc)).ToArray());
+        return new(goal.Id, goal.SubjectId, goal.TopicId, goal.Title, goal.Kind, definition is null ? null : new(definition.Id, definition.Name, definition.NumberKind), goal.TargetValue, currentValue, goal.TargetDate, goal.Period, periodStartDate, periodEndDate, goal.PriorityPosition, goal.IsCompleted, goal.CompletedAtUtc, goal.CreatedAtUtc, currentOccurrenceCompletedAtUtc ?? (goal.IsCompleted ? goal.CompletedAtUtc : null), subGoals.Select(item => new SubjectSubGoalDetails(item.Id, item.Title, item.IsCompleted, item.CompletedAtUtc)).ToArray());
     }
 
     private static bool IsWithinPeriod(StudyNote note, DateOnly? startDate, DateOnly? endDate)

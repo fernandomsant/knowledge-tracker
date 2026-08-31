@@ -2,6 +2,14 @@
 
 Knowledge Tracker is a study-management application with a React frontend and an ASP.NET Core API. It lets authenticated users create subjects, connect related topics, and save study notes.
 
+## Application Screens
+
+The demonstration below shows the main user flow currently available in the application: authentication, creation and tracking of study goals, navigation through knowledge nodes, and registration of notes associated with the corresponding study structure.
+
+As the tool makes painfully obvious, I have not been particularly consistent with my studies lately 😝
+
+![Knowledge Tracker Demo](images/demo.gif)
+
 ## Prerequisites
 
 - .NET SDK 10

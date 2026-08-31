@@ -117,6 +117,15 @@ function Initialize-ClassifierEnvironment {
     }
 
     if ($installedHash -ne $requirementsHash) {
+        & $classifierPython -m pip --version *> $null
+        if ($LASTEXITCODE -ne 0) {
+            Write-Output 'Bootstrapping the Python package installer...'
+            & $classifierPython -m ensurepip --upgrade
+            if ($LASTEXITCODE -ne 0) {
+                throw 'The Python package installer could not be bootstrapped.'
+            }
+        }
+
         Write-Output 'Updating the Python package installer...'
         & $classifierPython -m pip install --disable-pip-version-check 'pip==26.2.1'
         if ($LASTEXITCODE -ne 0) {

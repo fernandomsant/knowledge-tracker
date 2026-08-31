@@ -15,6 +15,7 @@ internal sealed class MigrationRunner(string connectionString)
     {
         var migrations = DiscoverMigrations();
 
+        await EnsureLocalDatabaseExistsAsync(cancellationToken);
         await using var connection = new SqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
@@ -39,6 +40,32 @@ internal sealed class MigrationRunner(string connectionString)
             await ApplyMigrationAsync(connection, migration, cancellationToken);
             Console.WriteLine($"Applied {migration.Id}.");
         }
+    }
+
+    private async Task EnsureLocalDatabaseExistsAsync(CancellationToken cancellationToken)
+    {
+        var target = new SqlConnectionStringBuilder(_connectionString);
+        if (string.IsNullOrWhiteSpace(target.InitialCatalog)
+            || !target.DataSource.Contains("(localdb)", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var databaseName = target.InitialCatalog;
+        target.InitialCatalog = "master";
+
+        await using var connection = new SqlConnection(target.ConnectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            IF DB_ID(@DatabaseName) IS NULL
+            BEGIN
+                DECLARE @Statement nvarchar(max) = N'CREATE DATABASE ' + QUOTENAME(@DatabaseName);
+                EXEC sys.sp_executesql @Statement;
+            END;
+            """;
+        command.Parameters.AddWithValue("@DatabaseName", databaseName);
+        await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
     private static IReadOnlyList<SqlMigration> DiscoverMigrations()

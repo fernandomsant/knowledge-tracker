@@ -77,114 +77,6 @@ function Initialize-FrontendDependencies {
     Set-Content -LiteralPath $stampFile -Value $lockHash -Encoding ascii
 }
 
-function Initialize-ClassifierEnvironment {
-    $environmentDirectory = Join-Path $runtimeDirectory 'classifier-venv'
-    $classifierPython = Join-Path $environmentDirectory 'Scripts/python.exe'
-    $requirementsFile = Join-Path $workspaceRoot 'src/classification-service/requirements.txt'
-    $stampFile = Join-Path $environmentDirectory 'requirements.sha256'
-
-    if (-not (Test-Path -LiteralPath $classifierPython)) {
-        Write-Output 'Creating the Python classifier environment...'
-        $environmentCreated = $false
-        $pythonLauncher = Get-Command 'py.exe' -ErrorAction SilentlyContinue
-        if ($null -ne $pythonLauncher) {
-            & $pythonLauncher.Source -3 -m venv $environmentDirectory
-            $environmentCreated = $LASTEXITCODE -eq 0 -and (Test-Path -LiteralPath $classifierPython)
-        }
-
-        if (-not $environmentCreated) {
-            $python = Get-Command 'python.exe' -ErrorAction SilentlyContinue
-            if ($null -eq $python) {
-                throw 'Python 3 is required to run the note classifier.'
-            }
-
-            & $python.Source -m venv $environmentDirectory
-            $environmentCreated = $LASTEXITCODE -eq 0 -and (Test-Path -LiteralPath $classifierPython)
-        }
-
-        if (-not $environmentCreated) {
-            throw 'The Python classifier environment could not be created.'
-        }
-    }
-
-    $requirementsHash = Get-FileSha256 -Path $requirementsFile
-    $installedHash = if (Test-Path -LiteralPath $stampFile) {
-        $stampContent = Get-Content -Raw -LiteralPath $stampFile
-        if ([string]::IsNullOrWhiteSpace($stampContent)) { $null } else { $stampContent.Trim() }
-    }
-    else {
-        $null
-    }
-
-    if ($installedHash -ne $requirementsHash) {
-        & $classifierPython -m pip --version *> $null
-        if ($LASTEXITCODE -ne 0) {
-            Write-Output 'Bootstrapping the Python package installer...'
-            & $classifierPython -m ensurepip --upgrade
-            if ($LASTEXITCODE -ne 0) {
-                throw 'The Python package installer could not be bootstrapped.'
-            }
-        }
-
-        Write-Output 'Updating the Python package installer...'
-        & $classifierPython -m pip install --disable-pip-version-check 'pip==26.2.1'
-        if ($LASTEXITCODE -ne 0) {
-            throw 'The Python package installer could not be updated.'
-        }
-
-        Write-Output 'Installing Python classifier dependencies...'
-        & $classifierPython -m pip install --disable-pip-version-check --prefer-binary --requirement $requirementsFile
-        if ($LASTEXITCODE -ne 0) {
-            throw 'Python classifier dependency installation failed.'
-        }
-
-        Set-Content -LiteralPath $stampFile -Value $requirementsHash -Encoding ascii
-    }
-
-}
-
-function Wait-ClassifierReady {
-    param(
-        [Parameter(Mandatory = $true)]
-        [System.Diagnostics.Process] $ClassifierProcess,
-
-        [Parameter(Mandatory = $true)]
-        [array] $Services
-    )
-
-    $deadline = [DateTime]::UtcNow.AddMinutes(20)
-    Write-Output 'Loading the classification model (the first run may take several minutes)...'
-
-    while ([DateTime]::UtcNow -lt $deadline) {
-        foreach ($service in $Services) {
-            $service.Process.Refresh()
-            if ($service.Process.HasExited) {
-                throw "The $($service.Name) service exited before startup completed."
-            }
-        }
-
-        try {
-            $health = Invoke-RestMethod -Uri 'http://127.0.0.1:8021/health' -TimeoutSec 2
-            if ($health.status -eq 'ready') {
-                Write-Output 'Classifier: ready'
-                return
-            }
-        }
-        catch {
-            # The HTTP endpoint is unavailable while the model is loading.
-        }
-
-        Start-Sleep -Seconds 2
-    }
-
-    $ClassifierProcess.Refresh()
-    if ($ClassifierProcess.HasExited) {
-        throw 'The classifier exited before becoming ready.'
-    }
-
-    throw 'The classifier did not become ready within 20 minutes.'
-}
-
 if (Test-Path -LiteralPath $processFile) {
     $processes = Get-Content -Raw -LiteralPath $processFile | ConvertFrom-Json
     $running = @($processes | Where-Object { Get-Process -Id $_.Id -ErrorAction SilentlyContinue })
@@ -202,8 +94,6 @@ New-Item -ItemType Directory -Force -Path $runtimeDirectory | Out-Null
 
 Stop-KnowledgeTrackerBackend
 Initialize-FrontendDependencies
-Initialize-ClassifierEnvironment
-$classifierPython = Join-Path $runtimeDirectory 'classifier-venv/Scripts/python.exe'
 
 Write-Output 'Building the .NET solution...'
 & dotnet build 'src/KnowledgeTracker/KnowledgeTracker.slnx' --no-restore -m:1 --verbosity minimal
@@ -233,28 +123,11 @@ try {
         -PassThru
     $services += [pscustomobject]@{ Name = 'frontend'; Process = $frontend }
 
-    $classifier = Start-Process -FilePath $classifierPython `
-        -ArgumentList @('-m', 'uvicorn', 'app:app', '--app-dir', 'src/classification-service', '--host', '127.0.0.1', '--port', '8021') `
-        -WorkingDirectory $workspaceRoot `
-        -NoNewWindow `
-        -PassThru
-    $services += [pscustomobject]@{ Name = 'classifier'; Process = $classifier }
     Save-TrackedProcesses -Services $services
 
-    Wait-ClassifierReady -ClassifierProcess $classifier -Services $services
-
-    $classificationWorker = Start-Process -FilePath 'dotnet' `
-        -ArgumentList @('run', '--no-build', '--no-restore', '--project', 'src/KnowledgeTracker/KnowledgeTracker.ClassificationWorker') `
-        -WorkingDirectory $workspaceRoot `
-        -NoNewWindow `
-        -PassThru
-    $services += [pscustomobject]@{ Name = 'classification worker'; Process = $classificationWorker }
-    Save-TrackedProcesses -Services $services
-
-    Write-Output 'Backend:            http://localhost:5015'
-    Write-Output 'Frontend:           http://localhost:5173'
-    Write-Output 'Classifier health:  http://localhost:8021/health'
-    Write-Output 'Press Ctrl+C to stop all services.'
+    Write-Output 'Backend:  http://localhost:5015'
+    Write-Output 'Frontend: http://localhost:5173'
+    Write-Output 'Press Ctrl+C to stop both services.'
 
     while ($true) {
         foreach ($service in $services) {

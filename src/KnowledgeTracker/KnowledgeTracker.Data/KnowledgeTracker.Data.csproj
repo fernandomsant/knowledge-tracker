@@ -2,6 +2,7 @@
   <ItemGroup>
     <ProjectReference Include="..\KnowledgeTracker.Domain\KnowledgeTracker.Domain.csproj" />
     <ProjectReference Include="..\KnowledgeTracker.Application\KnowledgeTracker.Application.csproj" />
+    <ProjectReference Include="..\KnowledgeTracker.Application.Contracts\KnowledgeTracker.Application.Contracts.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

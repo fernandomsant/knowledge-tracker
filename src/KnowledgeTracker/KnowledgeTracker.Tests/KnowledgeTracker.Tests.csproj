@@ -2,6 +2,7 @@
   <ItemGroup>
     <ProjectReference Include="..\KnowledgeTracker.Domain\KnowledgeTracker.Domain.csproj" />
     <ProjectReference Include="..\KnowledgeTracker.Application\KnowledgeTracker.Application.csproj" />
+    <ProjectReference Include="..\KnowledgeTracker.Application.Contracts\KnowledgeTracker.Application.Contracts.csproj" />
     <ProjectReference Include="..\KnowledgeTracker.Infrastructure\KnowledgeTracker.Infrastructure.csproj" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="xunit" Version="2.9.3" />

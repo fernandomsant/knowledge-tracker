@@ -22,17 +22,7 @@ internal static class KnowledgeContractMapper
             studyNote.Metrics.Select(metric => new StudyNoteMetricDetails(
                 new StudyMetricDefinitionDetails(metric.Definition.Id, metric.Definition.Name, metric.Definition.NumberKind),
                 metric.Value
-            )).ToArray(),
-            studyNote.Version,
-            new NoteClassificationDetails(
-                studyNote.Classification.Status,
-                studyNote.Classification.Model,
-                studyNote.Classification.ModelVersion,
-                studyNote.Classification.FailureReason,
-                studyNote.Classification.Scores.Select(score => new NoteClassificationScoreDetails(
-                    score.SubjectId, score.SubjectName, score.Score
-                )).ToArray()
-            )
+            )).ToArray()
         );
 
     public static SubjectConnectionDetails ToDetails(SubjectConnection connection) =>

@@ -23,62 +23,17 @@ async function request(accessToken, path, { method = 'GET', body, keepalive = fa
   return response.status === 204 ? null : response.json();
 }
 
-async function streamClassificationUpdates(accessToken, checkpoint, onUpdate, signal) {
-  const url = new URL(`${apiBaseUrl}/api/study-notes/classification-events`);
-  url.searchParams.set('sinceUtc', checkpoint.completedAtUtc);
-  url.searchParams.set('afterJobId', checkpoint.jobId);
-  const response = await fetch(url, {
-    credentials: 'include',
-    headers: {
-      Accept: 'text/event-stream',
-      Authorization: `Bearer ${accessToken}`,
-    },
-    signal,
-  });
-  if (!response.ok) {
-    const problem = await response.json().catch(() => null);
-    throw new KnowledgeApiError(problem?.detail ?? 'Live classification updates are unavailable.', response.status);
-  }
-  if (!response.body)
-    throw new KnowledgeApiError('Live classification updates are unavailable.', response.status);
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-
-    let boundary = buffer.indexOf('\n\n');
-    while (boundary >= 0) {
-      const block = buffer.slice(0, boundary);
-      buffer = buffer.slice(boundary + 2);
-      const lines = block.split('\n');
-      const eventName = lines.find(line => line.startsWith('event:'))?.slice(6).trim();
-      const data = lines.filter(line => line.startsWith('data:')).map(line => line.slice(5).trimStart()).join('\n');
-      if (eventName === 'note-classification' && data)
-        onUpdate(JSON.parse(data));
-      boundary = buffer.indexOf('\n\n');
-    }
-  }
-
-  if (!signal.aborted)
-    throw new KnowledgeApiError('The live classification connection closed.', 0);
-}
-
 export const knowledgeClient = {
   async load(accessToken) {
     const summaries = await request(accessToken, '/api/subjects');
-    const [subjects, connectionGroups, goalGroups, metricDefinitions, topics, notes] = await Promise.all([
+    const [subjects, connectionGroups, goalGroups, metricDefinitions, topics] = await Promise.all([
       Promise.all(summaries.map(subject => request(accessToken, `/api/subjects/${subject.id}`))),
       Promise.all(summaries.map(subject => request(accessToken, `/api/subjects/${subject.id}/connections`))),
       Promise.all(summaries.map(subject => request(accessToken, `/api/subjects/${subject.id}/goals`))),
       request(accessToken, '/api/study-metric-definitions'),
       request(accessToken, '/api/topics'),
-      request(accessToken, '/api/study-notes'),
     ]);
-    return { subjects, metricDefinitions, topics, notes, goals: goalGroups.flat(), connections: [...new Map(connectionGroups.flat().map(item => [item.id, item])).values()] };
+    return { subjects, metricDefinitions, topics, goals: goalGroups.flat(), connections: [...new Map(connectionGroups.flat().map(item => [item.id, item])).values()] };
   },
   createSubject: (accessToken, name, parentSubjectId) => request(accessToken, '/api/subjects', { method: 'POST', body: { name, parentSubjectId: parentSubjectId || null } }),
   updateSubject: (accessToken, id, name, description, parentSubjectId) => request(accessToken, `/api/subjects/${id}`, {
@@ -89,14 +44,9 @@ export const knowledgeClient = {
   createStudyNote: (accessToken, subjectId, topicId, title, content, studyDuration, studyStartedAtUtc, metrics) => request(accessToken, `/api/subjects/${subjectId}/notes`, {
     method: 'POST', body: { topicId, title, content, metrics, studyDuration, studyStartedAtUtc },
   }),
-  createUnclassifiedStudyNote: (accessToken, title, content, studyDuration, studyStartedAtUtc, metrics) => request(accessToken, '/api/study-notes', {
-    method: 'POST', body: { title, content, metrics, studyDuration, studyStartedAtUtc },
-  }),
   updateStudyNote: (accessToken, id, topicId, title, content, studyDuration, studyStartedAtUtc, metrics) => request(accessToken, `/api/study-notes/${id}`, {
     method: 'PUT', body: { topicId, title, content, metrics, studyDuration, studyStartedAtUtc },
   }),
-  listStudyNotes: accessToken => request(accessToken, '/api/study-notes'),
-  streamClassificationUpdates,
   deleteStudyNote: (accessToken, id) => request(accessToken, `/api/study-notes/${id}`, { method: 'DELETE' }),
   createMetricDefinition: (accessToken, name, numberKind) => request(accessToken, '/api/study-metric-definitions', {
     method: 'POST', body: { name, numberKind },

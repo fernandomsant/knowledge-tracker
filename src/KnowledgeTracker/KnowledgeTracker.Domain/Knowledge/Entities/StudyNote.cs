@@ -6,42 +6,32 @@ public sealed class StudyNote
 
     public StudyNote(
         Guid id,
-        Guid? subjectId,
-        Guid? topicId,
+        Guid subjectId,
+        Guid topicId,
         string title,
         string content,
         TimeSpan studyDuration,
         DateTimeOffset studyStartedAtUtc,
-        IEnumerable<StudyNoteMetric>? metrics = null,
-        long version = 1,
-        NoteClassificationState? classification = null
+        IEnumerable<StudyNoteMetric>? metrics = null
     )
     {
         if (id == Guid.Empty)
             throw new ArgumentException("Study-note identifier is required.", nameof(id));
-        if (subjectId.HasValue != topicId.HasValue)
-            throw new ArgumentException("Subject and topic ownership must either both be present or both be absent.");
         if (subjectId == Guid.Empty)
-            throw new ArgumentException("Subject identifier cannot be empty.", nameof(subjectId));
+            throw new ArgumentException("Subject identifier is required.", nameof(subjectId));
         if (topicId == Guid.Empty)
-            throw new ArgumentException("Topic identifier cannot be empty.", nameof(topicId));
-        if (version <= 0)
-            throw new ArgumentOutOfRangeException(nameof(version), "Study-note version must be positive.");
+            throw new ArgumentException("Topic identifier is required.", nameof(topicId));
 
         Id = id;
         SubjectId = subjectId;
         TopicId = topicId;
-        Version = version;
-        Classification = classification ?? NoteClassificationState.Pending;
         Update(title, content, studyDuration, metrics);
         StudyStartedAtUtc = studyStartedAtUtc;
     }
 
     public Guid Id { get; }
-    public Guid? SubjectId { get; }
-    public Guid? TopicId { get; }
-    public long Version { get; }
-    public NoteClassificationState Classification { get; }
+    public Guid SubjectId { get; }
+    public Guid TopicId { get; }
     public string Title { get; private set; } = string.Empty;
     public string Content { get; private set; } = string.Empty;
     public TimeSpan StudyDuration { get; private set; }

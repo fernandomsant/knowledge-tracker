@@ -15,31 +15,13 @@ public sealed record SubjectLayoutPositionResponse(Guid SubjectId, decimal Norma
 
 public sealed record StudyNoteResponse(
     Guid Id,
-    Guid? SubjectId,
-    Guid? TopicId,
+    Guid SubjectId,
+    Guid TopicId,
     string Title,
     string Content,
     TimeSpan StudyDuration,
     DateTimeOffset StudyStartedAtUtc,
-    IReadOnlyCollection<StudyNoteMetricResponse> Metrics,
-    long Version,
-    NoteClassificationResponse Classification
-);
-
-public sealed record NoteClassificationResponse(
-    string Status,
-    string? Model,
-    string? ModelVersion,
-    string? FailureReason,
-    IReadOnlyCollection<NoteClassificationScoreResponse> Scores
-);
-
-public sealed record NoteClassificationScoreResponse(Guid SubjectId, string SubjectName, double Score);
-
-public sealed record ClassificationUpdateResponse(
-    DateTimeOffset CompletedAtUtc,
-    Guid JobId,
-    StudyNoteResponse Note
+    IReadOnlyCollection<StudyNoteMetricResponse> Metrics
 );
 
 public sealed record StudyMetricDefinitionResponse(Guid Id, string Name, KnowledgeTracker.Domain.Knowledge.MetricNumberKind NumberKind);

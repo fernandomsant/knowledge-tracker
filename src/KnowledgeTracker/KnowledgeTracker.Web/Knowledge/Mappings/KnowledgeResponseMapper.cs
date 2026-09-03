@@ -30,17 +30,7 @@ internal static class KnowledgeResponseMapper
             studyNote.Content,
             studyNote.StudyDuration,
             studyNote.StudyStartedAtUtc,
-            studyNote.Metrics.Select(metric => new StudyNoteMetricResponse(ToResponse(metric.Definition), metric.Value)).ToArray(),
-            studyNote.Version,
-            new NoteClassificationResponse(
-                studyNote.Classification.Status.ToString(),
-                studyNote.Classification.Model,
-                studyNote.Classification.ModelVersion,
-                studyNote.Classification.FailureReason,
-                studyNote.Classification.Scores.Select(score => new NoteClassificationScoreResponse(
-                    score.SubjectId, score.SubjectName, score.Score
-                )).ToArray()
-            )
+            studyNote.Metrics.Select(metric => new StudyNoteMetricResponse(ToResponse(metric.Definition), metric.Value)).ToArray()
         );
 
     public static StudyMetricDefinitionResponse ToResponse(StudyMetricDefinitionDetails definition) =>

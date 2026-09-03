@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useReducer } from 'react';
 import { PALETTE } from '../data/seed';
 import { knowledgeClient } from '../knowledge/api/knowledgeClient';
 
@@ -33,16 +33,6 @@ function knowledgeReducer(state, action) {
       const previous = state.notes.find(note => note.id === action.note.id);
       const goals = applyMetricDelta(applyMetricDelta(state.goals, previous?.metrics ?? [], -1), action.note.metrics, 1);
       return { ...state, notes: state.notes.map(note => note.id === action.note.id ? { ...note, ...action.note } : note), goals };
-    }
-    case 'note/classification-updated': {
-      const updated = toNote(action.note);
-      const exists = state.notes.some(note => note.id === updated.id);
-      return {
-        ...state,
-        notes: exists
-          ? state.notes.map(note => note.id === updated.id ? updated : note)
-          : [...state.notes, updated],
-      };
     }
     case 'note/remove': {
       const note = state.notes.find(candidate => candidate.id === action.id);
@@ -86,14 +76,16 @@ function toSubject(subject, index) {
 }
 
 function toNote(note) {
-  return { id: note.id, subjectId: note.subjectId, topicId: note.topicId, title: note.title, excerpt: note.content, metrics: note.metrics ?? [], studyDuration: note.studyDuration, studyStartedAtUtc: note.studyStartedAtUtc, version: note.version ?? 1, classification: note.classification ?? { status: 'Pending', scores: [] }, date: noteDateFormatter.format(new Date(note.studyStartedAtUtc)) };
+  return { id: note.id, subjectId: note.subjectId, topicId: note.topicId, title: note.title, excerpt: note.content, metrics: note.metrics ?? [], studyDuration: note.studyDuration, studyStartedAtUtc: note.studyStartedAtUtc, date: noteDateFormatter.format(new Date(note.studyStartedAtUtc)) };
 }
 
 const toConnection = connection => ({ id: connection.id, source: connection.subjectId, target: connection.connectedSubjectId });
 
 function toKnowledgeState(knowledge) {
-  const notes = knowledge.notes ?? [...new Map(
-    knowledge.subjects.flatMap(subject => subject.studyNotes).map(note => [note.id, note])
+  const notes = [...new Map(
+    knowledge.subjects
+      .flatMap(subject => subject.studyNotes)
+      .map(note => [note.id, note])
   ).values()];
   return {
     subjects: knowledge.subjects.map(toSubject),
@@ -107,10 +99,6 @@ function toKnowledgeState(knowledge) {
 
 export function useKnowledgeStore(accessToken, refreshAccessToken) {
   const [state, dispatch] = useReducer(knowledgeReducer, initialState);
-  const classificationCheckpoint = useRef({
-    completedAtUtc: new Date().toISOString(),
-    jobId: '00000000-0000-0000-0000-000000000000',
-  });
 
   const execute = useCallback(async operation => {
     try {
@@ -131,46 +119,6 @@ export function useKnowledgeStore(accessToken, refreshAccessToken) {
       .catch(reason => { if (current) dispatch({ type: 'knowledge/failed', error: errorMessage(reason) }); });
     return () => { current = false; };
   }, [execute]);
-
-  useEffect(() => {
-    if (!accessToken) return undefined;
-    const controller = new AbortController();
-
-    const waitBeforeReconnect = delay => new Promise(resolve => {
-      const timer = window.setTimeout(resolve, delay);
-      controller.signal.addEventListener('abort', () => {
-        window.clearTimeout(timer);
-        resolve();
-      }, { once: true });
-    });
-
-    const connect = async () => {
-      let reconnectDelay = 500;
-      while (!controller.signal.aborted) {
-        try {
-          await execute(token => knowledgeClient.streamClassificationUpdates(
-            token,
-            classificationCheckpoint.current,
-            update => {
-              classificationCheckpoint.current = {
-                completedAtUtc: update.completedAtUtc,
-                jobId: update.jobId,
-              };
-              dispatch({ type: 'note/classification-updated', note: update.note });
-            },
-            controller.signal,
-          ));
-          reconnectDelay = 500;
-        } catch (reason) {
-          if (controller.signal.aborted) return;
-          await waitBeforeReconnect(reconnectDelay);
-          reconnectDelay = Math.min(reconnectDelay * 2, 10000);
-        }
-      }
-    };
-    void connect();
-    return () => { controller.abort(); };
-  }, [accessToken, execute]);
 
   const subjectsById = useMemo(() => new Map(state.subjects.map(subject => [subject.id, subject])), [state.subjects]);
   const directNotesBySubject = useMemo(() => {
@@ -241,18 +189,6 @@ export function useKnowledgeStore(accessToken, refreshAccessToken) {
   const addNote = useCallback(async (subjectId, topicId, title, excerpt, studyDuration, studyStartedAtUtc, metrics) => {
     try {
       const note = await execute(token => knowledgeClient.createStudyNote(token, subjectId, topicId, title, excerpt, studyDuration, studyStartedAtUtc, metrics));
-      dispatch({ type: 'note/add', note: toNote(note) });
-      dispatch({ type: 'request/clear' });
-      return note;
-    } catch (reason) {
-      dispatch({ type: 'request/failed', error: errorMessage(reason) });
-      return null;
-    }
-  }, [execute]);
-
-  const addUnclassifiedNote = useCallback(async (title, excerpt, studyDuration, studyStartedAtUtc, metrics) => {
-    try {
-      const note = await execute(token => knowledgeClient.createUnclassifiedStudyNote(token, title, excerpt, studyDuration, studyStartedAtUtc, metrics));
       dispatch({ type: 'note/add', note: toNote(note) });
       dispatch({ type: 'request/clear' });
       return note;
@@ -437,5 +373,5 @@ export function useKnowledgeStore(accessToken, refreshAccessToken) {
     }
   }, [execute]);
 
-  return { ...state, subjectsById, directNotesBySubject, notesBySubject, goalsBySubject, addSubject, updateSubject, removeSubject, addNote, addUnclassifiedNote, updateNote, removeNote, createMetricDefinition, createTopic, removeTopic, saveSubjectLayout, connectSubjects, removeConnection, addSubjectGoal, updateSubjectGoal, removeSubjectGoal, completeSubjectGoal, prioritizeSubjectGoal, setSubGoalCompletion, loadGoalActivity };
+  return { ...state, subjectsById, directNotesBySubject, notesBySubject, goalsBySubject, addSubject, updateSubject, removeSubject, addNote, updateNote, removeNote, createMetricDefinition, createTopic, removeTopic, saveSubjectLayout, connectSubjects, removeConnection, addSubjectGoal, updateSubjectGoal, removeSubjectGoal, completeSubjectGoal, prioritizeSubjectGoal, setSubGoalCompletion, loadGoalActivity };
 }

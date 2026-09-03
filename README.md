@@ -98,6 +98,15 @@ The command builds the solution, starts both processes in the current terminal, 
 | Frontend | `http://localhost:5173` |
 | Backend API | `http://localhost:5015` |
 
+The development script does not start the MCP server. Start it separately with a SQL Server connection string:
+
+```powershell
+$env:ConnectionStrings__KnowledgeTracker = "<connection string>"
+dotnet run --project src/KnowledgeTracker/KnowledgeTracker.Mcp --urls http://localhost:3001
+```
+
+The MCP endpoint is available at `http://localhost:3001/mcp`.
+
 To stop processes started by the development script from another terminal:
 
 ```powershell
@@ -125,4 +134,5 @@ npm run migrate
 - `src/KnowledgeTracker/KnowledgeTracker.Data` — SQL repositories and migrations
 - `src/KnowledgeTracker/KnowledgeTracker.Infrastructure` — authentication and infrastructure services
 - `src/KnowledgeTracker/KnowledgeTracker.Web` — ASP.NET Core HTTP API
+- `src/KnowledgeTracker/KnowledgeTracker.Mcp` — MCP inbound adapter and HTTP server
 - `src/KnowledgeTracker/KnowledgeTracker.Migrations` — executable SQL migration runner

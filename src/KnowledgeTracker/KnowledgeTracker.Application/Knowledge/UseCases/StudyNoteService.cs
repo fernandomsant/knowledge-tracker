@@ -1,3 +1,5 @@
+using KnowledgeTracker.Application.Authentication;
+using KnowledgeTracker.Domain.Authentication;
 using KnowledgeTracker.Domain.Knowledge;
 
 namespace KnowledgeTracker.Application.Knowledge;
@@ -7,25 +9,32 @@ public sealed class StudyNoteService(
     ITopicRepository topics,
     IStudyNoteRepository studyNotes,
     IStudyMetricDefinitionRepository metricDefinitions,
-    ISubjectGoalActivityService goalActivity
+    ISubjectGoalActivityService goalActivity,
+    IActionAuthorizationService? authorization = null
 )
     : IStudyNoteService
 {
     public async Task<IReadOnlyCollection<StudyNoteDetails>> ListBySubjectAsync(
         Guid subjectId,
         CancellationToken ct
-    ) =>
-        (await studyNotes.ListBySubjectAsync(subjectId, ct))
+    )
+    {
+        authorization?.Demand(McpAccessTokenScopeCatalog.NotesRead);
+        return (await studyNotes.ListBySubjectAsync(subjectId, ct))
             .Select(KnowledgeContractMapper.ToDetails)
             .ToArray();
+    }
 
     public async Task<IReadOnlyCollection<StudyNoteDetails>> ListBySubjectTreeAsync(
         Guid subjectId,
         CancellationToken ct
-    ) =>
-        (await studyNotes.ListBySubjectTreeAsync(subjectId, ct))
+    )
+    {
+        authorization?.Demand(McpAccessTokenScopeCatalog.NotesRead);
+        return (await studyNotes.ListBySubjectTreeAsync(subjectId, ct))
             .Select(KnowledgeContractMapper.ToDetails)
             .ToArray();
+    }
 
     public async Task<StudyNoteDetails?> CreateAsync(
         Guid subjectId,
@@ -34,6 +43,7 @@ public sealed class StudyNoteService(
     )
     {
         ArgumentNullException.ThrowIfNull(request);
+        authorization?.Demand(McpAccessTokenScopeCatalog.NotesWrite);
         var subject = await subjects.FindAsync(subjectId, ct);
         if (subject is null)
             return null;
@@ -66,6 +76,7 @@ public sealed class StudyNoteService(
     )
     {
         ArgumentNullException.ThrowIfNull(request);
+        authorization?.Demand(McpAccessTokenScopeCatalog.NotesWrite);
         var studyNote = await studyNotes.FindAsync(id, ct);
         if (studyNote is null)
             return null;
@@ -92,6 +103,7 @@ public sealed class StudyNoteService(
 
     public async Task<bool> DeleteAsync(Guid id, CancellationToken ct)
     {
+        authorization?.Demand(McpAccessTokenScopeCatalog.NotesWrite);
         var studyNote = await studyNotes.FindAsync(id, ct);
         if (studyNote is null)
             return false;

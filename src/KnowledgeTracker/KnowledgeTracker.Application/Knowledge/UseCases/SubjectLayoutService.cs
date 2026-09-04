@@ -1,13 +1,16 @@
+using KnowledgeTracker.Application.Authentication;
+using KnowledgeTracker.Domain.Authentication;
 using KnowledgeTracker.Domain.Knowledge;
 
 namespace KnowledgeTracker.Application.Knowledge;
 
-public sealed class SubjectLayoutService(ISubjectRepository subjects, ISubjectLayoutRepository layouts)
+public sealed class SubjectLayoutService(ISubjectRepository subjects, ISubjectLayoutRepository layouts, IActionAuthorizationService? authorization = null)
     : ISubjectLayoutService
 {
     public async Task SaveAsync(SaveSubjectLayoutRequest request, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(request);
+        authorization?.Demand(McpAccessTokenScopeCatalog.LayoutsWrite);
         ArgumentNullException.ThrowIfNull(request.Positions);
 
         var positions = request.Positions

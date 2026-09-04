@@ -3,6 +3,7 @@
     <ProjectReference Include="..\KnowledgeTracker.Application.Contracts\KnowledgeTracker.Application.Contracts.csproj" />
     <ProjectReference Include="..\KnowledgeTracker.Application\KnowledgeTracker.Application.csproj" />
     <ProjectReference Include="..\KnowledgeTracker.Data\KnowledgeTracker.Data.csproj" />
+    <ProjectReference Include="..\KnowledgeTracker.Infrastructure\KnowledgeTracker.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>

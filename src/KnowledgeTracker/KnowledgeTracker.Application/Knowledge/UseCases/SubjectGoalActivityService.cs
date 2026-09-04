@@ -1,3 +1,5 @@
+using KnowledgeTracker.Application.Authentication;
+using KnowledgeTracker.Domain.Authentication;
 using KnowledgeTracker.Domain.Knowledge;
 
 namespace KnowledgeTracker.Application.Knowledge;
@@ -8,13 +10,15 @@ public sealed class SubjectGoalActivityService(
     ISubjectGoalRepository goals,
     ISubjectRepository subjects,
     IStudyNoteRepository notes,
-    IStudyMetricDefinitionRepository definitions) : ISubjectGoalActivityService
+    IStudyMetricDefinitionRepository definitions,
+    IActionAuthorizationService? authorization = null) : ISubjectGoalActivityService
 {
     private static readonly DateOnly MinimumDate = new(2000, 1, 1);
     private const int MaximumRangeDays = 5000;
 
     public async Task<IReadOnlyCollection<GoalActivityDetails>> GetAsync(DateOnly from, DateOnly to, CancellationToken ct)
     {
+        authorization?.Demand(McpAccessTokenScopeCatalog.GoalsRead);
         ValidateRange(from, to);
         var goalList = await activityGoals.ListForPeriodAsync(from, to, ct);
         if (goalList.Count == 0) return [];

@@ -107,6 +107,32 @@ dotnet run --project src/KnowledgeTracker/KnowledgeTracker.Mcp --urls http://loc
 
 The MCP endpoint is available at `http://localhost:3001/mcp`.
 
+### MCP authentication and authorization
+
+The MCP server requires an access token in every request:
+
+```http
+Authorization: Bearer mcp_<identifier>_<secret>
+```
+
+Create and manage tokens through the authenticated Web API. The raw token is returned only by the create response; save it immediately because it is never returned by list or revoke operations:
+
+```http
+POST http://localhost:5015/api/mcp-access-tokens
+Authorization: Bearer <normal-access-token>
+Content-Type: application/json
+
+{
+  "name": "Desktop MCP client",
+  "expiresAtUtc": "2026-12-31T23:59:59Z",
+  "scopes": ["subjects:read", "notes:read"]
+}
+```
+
+The available delegated scopes are `subjects:read`, `subjects:write`, `topics:read`, `topics:write`, `notes:read`, `notes:write`, `goals:read`, `goals:write`, `connections:read`, `connections:write`, `layouts:read`, `layouts:write`, `metrics:read`, `metrics:write`, and `tokens:manage`. The effective authority is the intersection of the owner’s permissions and the scopes selected at issuance, so a token cannot grant more access than its owner has.
+
+MCP tools declare and enforce their required scope before invoking the application use case. For example, subject listing requires `subjects:read`, note creation requires `notes:write`, and goal completion requires `goals:write`. Use the token only with the MCP endpoint, not with the normal frontend API. Revoke a token with `DELETE /api/mcp-access-tokens/{id}`; expiration and revocation invalidate it independently of normal application sessions.
+
 To stop processes started by the development script from another terminal:
 
 ```powershell

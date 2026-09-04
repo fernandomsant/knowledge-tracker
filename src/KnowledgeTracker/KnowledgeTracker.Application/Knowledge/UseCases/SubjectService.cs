@@ -1,12 +1,15 @@
+using KnowledgeTracker.Application.Authentication;
+using KnowledgeTracker.Domain.Authentication;
 using KnowledgeTracker.Domain.Knowledge;
 
 namespace KnowledgeTracker.Application.Knowledge;
 
-public sealed class SubjectService(ISubjectRepository subjects, IStudyNoteRepository studyNotes, ISubjectLayoutRepository layouts)
+public sealed class SubjectService(ISubjectRepository subjects, IStudyNoteRepository studyNotes, ISubjectLayoutRepository layouts, IActionAuthorizationService? authorization = null)
     : ISubjectService
 {
     public async Task<SubjectDetails?> GetAsync(Guid id, CancellationToken ct)
     {
+        authorization?.Demand(McpAccessTokenScopeCatalog.SubjectsRead);
         var subject = await subjects.FindAsync(id, ct);
         if (subject is null)
             return null;
@@ -25,6 +28,7 @@ public sealed class SubjectService(ISubjectRepository subjects, IStudyNoteReposi
 
     public async Task<IReadOnlyCollection<SubjectSummary>> ListAsync(CancellationToken ct)
     {
+        authorization?.Demand(McpAccessTokenScopeCatalog.SubjectsRead);
         var layoutBySubjectId = (await layouts.ListAsync(ct)).ToDictionary(position => position.SubjectId);
         return (await subjects.ListAsync(ct))
             .Select(subject => KnowledgeContractMapper.ToSummary(subject, layoutBySubjectId.GetValueOrDefault(subject.Id)))
@@ -34,6 +38,7 @@ public sealed class SubjectService(ISubjectRepository subjects, IStudyNoteReposi
     public async Task<SubjectSummary> CreateAsync(CreateSubjectRequest request, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(request);
+        authorization?.Demand(McpAccessTokenScopeCatalog.SubjectsWrite);
         await ValidateParentAsync(null, request.ParentSubjectId, ct);
         var subject = new Subject(request.Name, request.Description, request.ParentSubjectId);
         await subjects.AddAsync(subject, ct);
@@ -47,6 +52,7 @@ public sealed class SubjectService(ISubjectRepository subjects, IStudyNoteReposi
     )
     {
         ArgumentNullException.ThrowIfNull(request);
+        authorization?.Demand(McpAccessTokenScopeCatalog.SubjectsWrite);
         var subject = await subjects.FindAsync(id, ct);
         if (subject is null)
             return null;
@@ -61,6 +67,7 @@ public sealed class SubjectService(ISubjectRepository subjects, IStudyNoteReposi
 
     public async Task<bool> DeleteAsync(Guid id, CancellationToken ct)
     {
+        authorization?.Demand(McpAccessTokenScopeCatalog.SubjectsWrite);
         if (await subjects.FindAsync(id, ct) is null)
             return false;
 

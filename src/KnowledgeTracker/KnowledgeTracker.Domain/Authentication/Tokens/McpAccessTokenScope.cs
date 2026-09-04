@@ -60,6 +60,8 @@ public static class McpAccessTokenScopeCatalog
         TokensManage,
     };
 
+    public static IReadOnlyCollection<string> KnownScopes => knownScopes;
+
     public static IReadOnlyCollection<McpAccessTokenScope> Normalize(IEnumerable<string> scopes)
     {
         ArgumentNullException.ThrowIfNull(scopes);

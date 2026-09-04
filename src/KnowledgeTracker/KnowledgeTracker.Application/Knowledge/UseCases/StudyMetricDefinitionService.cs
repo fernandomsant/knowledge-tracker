@@ -1,12 +1,17 @@
+using KnowledgeTracker.Application.Authentication;
+using KnowledgeTracker.Domain.Authentication;
 using KnowledgeTracker.Domain.Knowledge;
 
 namespace KnowledgeTracker.Application.Knowledge;
 
-public sealed class StudyMetricDefinitionService(IStudyMetricDefinitionRepository definitions)
+public sealed class StudyMetricDefinitionService(IStudyMetricDefinitionRepository definitions, IActionAuthorizationService? authorization = null)
     : IStudyMetricDefinitionService
 {
-    public async Task<IReadOnlyCollection<StudyMetricDefinitionDetails>> ListAsync(CancellationToken ct) =>
-        (await definitions.ListAsync(ct)).Select(ToDetails).ToArray();
+    public async Task<IReadOnlyCollection<StudyMetricDefinitionDetails>> ListAsync(CancellationToken ct)
+    {
+        authorization?.Demand(McpAccessTokenScopeCatalog.MetricsRead);
+        return (await definitions.ListAsync(ct)).Select(ToDetails).ToArray();
+    }
 
     public async Task<StudyMetricDefinitionDetails> CreateAsync(
         CreateStudyMetricDefinitionRequest request,
@@ -14,6 +19,7 @@ public sealed class StudyMetricDefinitionService(IStudyMetricDefinitionRepositor
     )
     {
         ArgumentNullException.ThrowIfNull(request);
+        authorization?.Demand(McpAccessTokenScopeCatalog.MetricsWrite);
         var definition = new StudyMetricDefinition(Guid.NewGuid(), request.Name, request.NumberKind);
         if (await definitions.FindByNormalizedNameAsync(definition.NormalizedName, ct) is not null)
             throw new ArgumentException("A study metric with this name already exists.", nameof(request));

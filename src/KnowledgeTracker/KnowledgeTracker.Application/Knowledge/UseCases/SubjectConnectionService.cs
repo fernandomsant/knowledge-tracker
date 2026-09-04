@@ -1,19 +1,25 @@
+using KnowledgeTracker.Application.Authentication;
+using KnowledgeTracker.Domain.Authentication;
 using KnowledgeTracker.Domain.Knowledge;
 
 namespace KnowledgeTracker.Application.Knowledge;
 
 public sealed class SubjectConnectionService(
     ISubjectRepository subjects,
-    ISubjectConnectionRepository connections
+    ISubjectConnectionRepository connections,
+    IActionAuthorizationService? authorization = null
 ) : ISubjectConnectionService
 {
     public async Task<IReadOnlyCollection<SubjectConnectionDetails>> ListBySubjectAsync(
         Guid subjectId,
         CancellationToken ct
-    ) =>
-        (await connections.ListBySubjectAsync(subjectId, ct))
+    )
+    {
+        authorization?.Demand(McpAccessTokenScopeCatalog.ConnectionsRead);
+        return (await connections.ListBySubjectAsync(subjectId, ct))
             .Select(KnowledgeContractMapper.ToDetails)
             .ToArray();
+    }
 
     public async Task<SubjectConnectionDetails?> CreateAsync(
         CreateSubjectConnectionRequest request,
@@ -21,6 +27,7 @@ public sealed class SubjectConnectionService(
     )
     {
         ArgumentNullException.ThrowIfNull(request);
+        authorization?.Demand(McpAccessTokenScopeCatalog.ConnectionsWrite);
         var connection = new SubjectConnection(request.SubjectId, request.ConnectedSubjectId);
         if (
             await subjects.FindAsync(connection.SubjectId, ct) is null
@@ -37,6 +44,7 @@ public sealed class SubjectConnectionService(
 
     public async Task<bool> DeleteAsync(Guid id, CancellationToken ct)
     {
+        authorization?.Demand(McpAccessTokenScopeCatalog.ConnectionsWrite);
         if (await connections.FindAsync(id, ct) is null)
             return false;
 

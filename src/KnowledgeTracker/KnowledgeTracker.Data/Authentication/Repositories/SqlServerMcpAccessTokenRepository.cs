@@ -9,6 +9,19 @@ namespace KnowledgeTracker.Data.Authentication.Repositories;
 public sealed class SqlServerMcpAccessTokenRepository(Func<DbConnection> connectionFactory)
     : IMcpAccessTokenRepository
 {
+    public async Task<McpAccessToken?> FindByIdAsync(Guid id, CancellationToken ct)
+    {
+        if (id == Guid.Empty)
+            throw new ArgumentException("MCP access-token identifier is required.", nameof(id));
+
+        await using var connection = connectionFactory();
+        await connection.OpenAsync(ct);
+        await using var command = connection.CreateCommand();
+        command.CommandText = SelectSql + " WHERE token.Id = @Id ORDER BY scope.Scope;";
+        command.AddParameter("@Id", DbType.Guid, id);
+        return (await ReadAsync(command, ct)).SingleOrDefault();
+    }
+
     public async Task<McpAccessToken?> FindByTokenIdentifierAsync(string tokenIdentifier, CancellationToken ct)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(tokenIdentifier);
@@ -69,6 +82,26 @@ public sealed class SqlServerMcpAccessTokenRepository(Func<DbConnection> connect
         }
 
         await transaction.CommitAsync(ct);
+    }
+
+    public async Task<bool> UpdateAsync(McpAccessToken token, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(token);
+
+        await using var connection = connectionFactory();
+        await connection.OpenAsync(ct);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            UPDATE dbo.McpAccessTokens
+            SET RevokedAtUtc = @RevokedAtUtc,
+                LastUsedAtUtc = @LastUsedAtUtc
+            WHERE Id = @Id AND UserId = @UserId;
+            """;
+        command.AddParameter("@RevokedAtUtc", DbType.DateTimeOffset, (object?)token.RevokedAtUtc ?? DBNull.Value);
+        command.AddParameter("@LastUsedAtUtc", DbType.DateTimeOffset, (object?)token.LastUsedAtUtc ?? DBNull.Value);
+        command.AddParameter("@Id", DbType.Guid, token.Id);
+        command.AddParameter("@UserId", DbType.Guid, token.UserId);
+        return await command.ExecuteNonQueryAsync(ct) == 1;
     }
 
     private const string SelectSql = """

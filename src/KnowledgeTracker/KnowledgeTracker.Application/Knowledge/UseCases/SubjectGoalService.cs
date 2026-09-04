@@ -1,3 +1,5 @@
+using KnowledgeTracker.Application.Authentication;
+using KnowledgeTracker.Domain.Authentication;
 using KnowledgeTracker.Domain.Knowledge;
 
 namespace KnowledgeTracker.Application.Knowledge;
@@ -9,10 +11,12 @@ public sealed class SubjectGoalService(
     ISubjectRepository subjects,
     ITopicRepository topics,
     IStudyNoteRepository notes,
-    IStudyMetricDefinitionRepository definitions) : ISubjectGoalService
+    IStudyMetricDefinitionRepository definitions,
+    IActionAuthorizationService? authorization = null) : ISubjectGoalService
 {
     public async Task<IReadOnlyCollection<SubjectGoalDetails>> ListBySubjectAsync(Guid subjectId, CancellationToken ct)
     {
+        authorization?.Demand(McpAccessTokenScopeCatalog.GoalsRead);
         var subjectGoals = await goals.ListBySubjectAsync(subjectId, ct);
         var (studyNotes, includeDescendantNotes) = await GetGoalNotesAsync(subjectId, ct);
         var definitionMap = (await definitions.ListAsync(ct)).ToDictionary(definition => definition.Id);
@@ -33,6 +37,7 @@ public sealed class SubjectGoalService(
 
     public async Task<SubjectGoalDetails?> CreateAsync(Guid subjectId, CreateSubjectGoalRequest request, CancellationToken ct)
     {
+        authorization?.Demand(McpAccessTokenScopeCatalog.GoalsWrite);
         if (await subjects.FindAsync(subjectId, ct) is null) return null;
         if (request.TopicId == Guid.Empty)
             throw new ArgumentException("A topic must be selected.", nameof(request));
@@ -57,6 +62,7 @@ public sealed class SubjectGoalService(
 
     public async Task<SubjectGoalDetails?> UpdateAsync(Guid id, UpdateSubjectGoalRequest request, CancellationToken ct)
     {
+        authorization?.Demand(McpAccessTokenScopeCatalog.GoalsWrite);
         var existing = await goals.FindAsync(id, ct);
         if (existing is null) return null;
         if (request.TopicId == Guid.Empty) throw new ArgumentException("A topic must be selected.", nameof(request));
@@ -82,9 +88,14 @@ public sealed class SubjectGoalService(
         return ToDetails(updated, studyNotes, definitionMap, includeDescendantNotes, subGoals);
     }
 
-    public Task<bool> DeleteAsync(Guid id, CancellationToken ct) => goals.DeleteAsync(id, DateTimeOffset.UtcNow, ct);
+    public Task<bool> DeleteAsync(Guid id, CancellationToken ct)
+    {
+        authorization?.Demand(McpAccessTokenScopeCatalog.GoalsWrite);
+        return goals.DeleteAsync(id, DateTimeOffset.UtcNow, ct);
+    }
     public async Task<bool> CompleteAsync(Guid id, CancellationToken ct)
     {
+        authorization?.Demand(McpAccessTokenScopeCatalog.GoalsWrite);
         var goal = await goals.FindAsync(id, ct);
         if (goal is null || goal.Kind == GoalKind.MetricTarget) return false;
         var occurrence = CurrentOccurrence(goal);
@@ -100,6 +111,7 @@ public sealed class SubjectGoalService(
 
     public async Task<bool> SetSubGoalCompletionAsync(Guid id, bool isCompleted, CancellationToken ct)
     {
+        authorization?.Demand(McpAccessTokenScopeCatalog.GoalsWrite);
         var subGoal = await goals.FindSubGoalAsync(id, ct);
         if (subGoal is null || !await goals.SetSubGoalCompletionAsync(id, isCompleted, DateTimeOffset.UtcNow, ct)) return false;
         var goal = await goals.FindAsync(subGoal.SubjectGoalId, ct);
@@ -118,7 +130,11 @@ public sealed class SubjectGoalService(
             await completions.RemoveAsync(goal.Id, occurrence.StartDate, occurrence.EndDate, ct);
         return true;
     }
-    public Task<bool> SwapPriorityAsync(Guid id, Guid swapWithId, CancellationToken ct) => goals.SwapPriorityAsync(id, swapWithId, ct);
+    public Task<bool> SwapPriorityAsync(Guid id, Guid swapWithId, CancellationToken ct)
+    {
+        authorization?.Demand(McpAccessTokenScopeCatalog.GoalsWrite);
+        return goals.SwapPriorityAsync(id, swapWithId, ct);
+    }
 
     private async Task<(IReadOnlyCollection<StudyNote> Notes, bool IncludeDescendantNotes)> GetGoalNotesAsync(
         Guid subjectId,

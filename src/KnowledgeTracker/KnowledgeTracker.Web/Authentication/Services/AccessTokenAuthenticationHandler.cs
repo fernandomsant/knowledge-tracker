@@ -11,18 +11,38 @@ public sealed class AccessTokenAuthenticationHandler(
     IOptionsMonitor<AuthenticationSchemeOptions> options,
     ILoggerFactory logger,
     UrlEncoder encoder,
-    IAccessTokenService accessTokens
+    IAccessTokenService accessTokens,
+    IMcpAccessTokenValidator mcpAccessTokens
 ) : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
 {
     public const string AuthenticationScheme = "AccessToken";
 
-    protected override Task<AuthenticateResult> HandleAuthenticateAsync()
+    protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
         var authorization = Request.Headers.Authorization.ToString();
         if (!authorization.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
-            return Task.FromResult(AuthenticateResult.NoResult());
+            return AuthenticateResult.NoResult();
 
         var value = authorization["Bearer ".Length..].Trim();
+        if (value.StartsWith("mcp_", StringComparison.Ordinal))
+        {
+            var mcpToken = await mcpAccessTokens.ValidateAsync(value, Context.RequestAborted);
+            if (mcpToken is null)
+                return AuthenticateResult.Fail("The MCP access token is invalid.");
+
+            var mcpClaims = new List<Claim>
+            {
+                new(ClaimTypes.NameIdentifier, mcpToken.UserId.ToString()),
+                new("authentication_method", "mcp_access_token"),
+                new("mcp_access_token_id", mcpToken.TokenId.ToString()),
+            };
+            mcpClaims.AddRange(mcpToken.DelegatedScopes.Select(scope => new Claim("mcp_delegated_scope", scope)));
+            mcpClaims.AddRange(mcpToken.Scopes.Select(scope => new Claim("mcp_scope", scope)));
+            return AuthenticateResult.Success(new AuthenticationTicket(
+                new ClaimsPrincipal(new ClaimsIdentity(mcpClaims, AuthenticationScheme)),
+                AuthenticationScheme));
+        }
+
         AccessToken? token;
         try
         {
@@ -30,11 +50,11 @@ public sealed class AccessTokenAuthenticationHandler(
         }
         catch (ArgumentException)
         {
-            return Task.FromResult(AuthenticateResult.Fail("The access token is malformed."));
+            return AuthenticateResult.Fail("The access token is malformed.");
         }
 
         if (token is null)
-            return Task.FromResult(AuthenticateResult.Fail("The access token is invalid."));
+            return AuthenticateResult.Fail("The access token is invalid.");
 
         var identity = new ClaimsIdentity(
             [
@@ -45,8 +65,6 @@ public sealed class AccessTokenAuthenticationHandler(
             AuthenticationScheme
         );
         var principal = new ClaimsPrincipal(identity);
-        return Task.FromResult(
-            AuthenticateResult.Success(new AuthenticationTicket(principal, AuthenticationScheme))
-        );
+        return AuthenticateResult.Success(new AuthenticationTicket(principal, AuthenticationScheme));
     }
 }

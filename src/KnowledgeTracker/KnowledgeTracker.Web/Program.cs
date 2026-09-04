@@ -5,6 +5,8 @@ using KnowledgeTracker.Application.Knowledge;
 using KnowledgeTracker.Data.Authentication.Repositories;
 using KnowledgeTracker.Data.Knowledge.Repositories;
 using KnowledgeTracker.Infrastructure.Authentication;
+using KnowledgeTracker.Infrastructure.Authentication.Services;
+using KnowledgeTracker.Infrastructure.Authentication.Services.AccessTokens;
 using KnowledgeTracker.Web.Authentication.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Data.SqlClient;
@@ -19,6 +21,7 @@ var accessTokenKey = ReadSecret(builder.Configuration, "Authentication:AccessTok
 var refreshTokenPepper = ReadSecret(builder.Configuration, "Authentication:RefreshTokenPepper");
 
 builder.Services.AddControllers();
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddCors(options =>
     options.AddPolicy(
         "frontend",
@@ -33,6 +36,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddSingleton(authenticationOptions);
 builder.Services.AddSingleton<Func<DbConnection>>(_ => () => new SqlConnection(connectionString));
 builder.Services.AddScoped<IUserRepository, SqlServerUserRepository>();
+builder.Services.AddScoped<IMcpAccessTokenRepository, SqlServerMcpAccessTokenRepository>();
 builder.Services.AddScoped<ISessionRepository, SqlServerSessionRepository>();
 builder.Services.AddScoped<ISubjectRepository, SqlServerSubjectRepository>();
 builder.Services.AddScoped<ISubjectLayoutRepository, SqlServerSubjectLayoutRepository>();
@@ -44,6 +48,12 @@ builder.Services.AddScoped<ISubjectGoalRepository, SqlServerSubjectGoalRepositor
 builder.Services.AddScoped<ISubjectGoalActivityRepository>(sp => (SqlServerSubjectGoalRepository)sp.GetRequiredService<ISubjectGoalRepository>());
 builder.Services.AddScoped<ISubjectGoalCompletionRepository, SqlServerSubjectGoalCompletionRepository>();
 builder.Services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
+builder.Services.AddSingleton<IClock, KnowledgeTracker.Infrastructure.Authentication.SystemClock>();
+builder.Services.AddSingleton<IMcpAccessTokenGenerator, OpaqueMcpAccessTokenGenerator>();
+builder.Services.AddScoped<IUserPermissionService, DefaultUserPermissionService>();
+builder.Services.AddScoped<IMcpAccessTokenValidator, McpAccessTokenValidator>();
+builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
+builder.Services.AddScoped<IActionAuthorizationService, McpAwareActionAuthorizationService>();
 builder.Services.AddSingleton<IAccessTokenService>(_ =>
     new HmacAccessTokenService(accessTokenKey, authenticationOptions)
 );
@@ -52,6 +62,7 @@ builder.Services.AddSingleton<IRefreshTokenService>(_ =>
 );
 builder.Services.AddScoped<KnowledgeTracker.Application.Authentication.IAuthenticationService, KnowledgeTracker.Application.Authentication.AuthenticationService>();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+builder.Services.AddScoped<IMcpAccessTokenService, McpAccessTokenService>();
 builder.Services.AddScoped<ISubjectService, SubjectService>();
 builder.Services.AddScoped<ISubjectLayoutService, SubjectLayoutService>();
 builder.Services.AddScoped<ITopicService, TopicService>();

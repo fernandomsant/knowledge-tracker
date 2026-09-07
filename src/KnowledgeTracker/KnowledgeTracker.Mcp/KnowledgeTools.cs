@@ -1,24 +1,18 @@
 using System.ComponentModel;
-using KnowledgeTracker.Application.Authentication;
 using KnowledgeTracker.Application.Knowledge;
+using KnowledgeTracker.Mcp.ApplicationApi;
 using ModelContextProtocol.Server;
 
 namespace KnowledgeTracker.Mcp;
 
 [McpServerToolType]
 public sealed class KnowledgeTools(
-    ISubjectService subjects,
-    ITopicService topics,
-    IStudyNoteService notes,
-    ISubjectGoalService goals,
-    ISubjectGoalActivityService goalActivity,
-    IActionAuthorizationService authorization)
+    IApplicationApiClient application)
 {
     [McpServerTool, Description("Lists all subjects in the knowledge tracker. Requires subjects:read.")]
     public Task<IReadOnlyCollection<SubjectSummary>> ListSubjectsAsync(CancellationToken cancellationToken)
     {
-        authorization.Demand(McpActionScopes.SubjectsRead);
-        return subjects.ListAsync(cancellationToken);
+        return application.ListSubjectsAsync(cancellationToken);
     }
 
     [McpServerTool, Description("Gets one subject, including its notes and layout position. Requires subjects:read.")]
@@ -26,8 +20,7 @@ public sealed class KnowledgeTools(
         [Description("The subject identifier.")] Guid subjectId,
         CancellationToken cancellationToken)
     {
-        authorization.Demand(McpActionScopes.SubjectsRead);
-        return await subjects.GetAsync(subjectId, cancellationToken)
+        return await application.GetSubjectAsync(subjectId, cancellationToken)
             ?? throw new KeyNotFoundException($"Subject '{subjectId}' was not found.");
     }
 
@@ -38,15 +31,13 @@ public sealed class KnowledgeTools(
         [Description("The optional parent subject identifier.")] Guid? parentSubjectId,
         CancellationToken cancellationToken)
     {
-        authorization.Demand(McpActionScopes.SubjectsWrite);
-        return subjects.CreateAsync(new CreateSubjectRequest(name, description, parentSubjectId), cancellationToken);
+        return application.CreateSubjectAsync(new CreateSubjectRequest(name, description, parentSubjectId), cancellationToken);
     }
 
     [McpServerTool, Description("Lists topics that can be used by notes and goals. Requires topics:read.")]
     public Task<IReadOnlyCollection<TopicDetails>> ListTopicsAsync(CancellationToken cancellationToken)
     {
-        authorization.Demand(McpActionScopes.TopicsRead);
-        return topics.ListAsync(cancellationToken);
+        return application.ListTopicsAsync(cancellationToken);
     }
 
     [McpServerTool, Description("Creates a topic under a subject. Requires topics:write.")]
@@ -55,8 +46,7 @@ public sealed class KnowledgeTools(
         [Description("The topic name.")] string name,
         CancellationToken cancellationToken)
     {
-        authorization.Demand(McpActionScopes.TopicsWrite);
-        return topics.CreateAsync(new CreateTopicRequest(subjectId, name), cancellationToken);
+        return application.CreateTopicAsync(subjectId, name, cancellationToken);
     }
 
     [McpServerTool, Description("Lists notes directly owned by a subject or, optionally, its descendants. Requires notes:read.")]
@@ -65,10 +55,7 @@ public sealed class KnowledgeTools(
         [Description("When true, include notes owned by descendant subjects.")] bool includeDescendants,
         CancellationToken cancellationToken)
     {
-        authorization.Demand(McpActionScopes.NotesRead);
-        return includeDescendants
-            ? notes.ListBySubjectTreeAsync(subjectId, cancellationToken)
-            : notes.ListBySubjectAsync(subjectId, cancellationToken);
+        return application.ListNotesAsync(subjectId, includeDescendants, cancellationToken);
     }
 
     [McpServerTool, Description("Creates a study note by invoking the application note use case. Requires notes:write.")]
@@ -77,8 +64,7 @@ public sealed class KnowledgeTools(
         CreateStudyNoteRequest request,
         CancellationToken cancellationToken)
     {
-        authorization.Demand(McpActionScopes.NotesWrite);
-        return await notes.CreateAsync(subjectId, request, cancellationToken)
+        return await application.CreateNoteAsync(subjectId, request, cancellationToken)
             ?? throw new KeyNotFoundException($"Subject '{subjectId}' was not found.");
     }
 
@@ -87,8 +73,7 @@ public sealed class KnowledgeTools(
         [Description("The subject identifier.")] Guid subjectId,
         CancellationToken cancellationToken)
     {
-        authorization.Demand(McpActionScopes.GoalsRead);
-        return goals.ListBySubjectAsync(subjectId, cancellationToken);
+        return application.ListGoalsAsync(subjectId, cancellationToken);
     }
 
     [McpServerTool, Description("Creates a goal by invoking the application goal use case. Requires goals:write.")]
@@ -97,8 +82,7 @@ public sealed class KnowledgeTools(
         CreateSubjectGoalRequest request,
         CancellationToken cancellationToken)
     {
-        authorization.Demand(McpActionScopes.GoalsWrite);
-        return await goals.CreateAsync(subjectId, request, cancellationToken)
+        return await application.CreateGoalAsync(subjectId, request, cancellationToken)
             ?? throw new KeyNotFoundException($"Subject '{subjectId}' was not found.");
     }
 
@@ -107,8 +91,7 @@ public sealed class KnowledgeTools(
         [Description("The goal identifier.")] Guid goalId,
         CancellationToken cancellationToken)
     {
-        authorization.Demand(McpActionScopes.GoalsWrite);
-        return goals.CompleteAsync(goalId, cancellationToken);
+        return application.CompleteGoalAsync(goalId, cancellationToken);
     }
 
     [McpServerTool, Description("Returns goal activity for an inclusive date range. Requires goals:read.")]
@@ -117,7 +100,6 @@ public sealed class KnowledgeTools(
         [Description("The last date in ISO-8601 format.")] DateOnly to,
         CancellationToken cancellationToken)
     {
-        authorization.Demand(McpActionScopes.GoalsRead);
-        return goalActivity.GetAsync(from, to, cancellationToken);
+        return application.ListGoalActivityAsync(from, to, cancellationToken);
     }
 }

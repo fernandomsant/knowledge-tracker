@@ -483,3 +483,4 @@ $RECYCLE.BIN/
 .dev/
 
 **/appsettings.Development.json
+**/appsettings.mcp.local.json

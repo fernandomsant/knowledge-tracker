@@ -6,7 +6,7 @@ using KnowledgeTracker.Domain.Knowledge;
 
 namespace KnowledgeTracker.Data.Knowledge.Repositories;
 
-public sealed class SqlServerStudyNoteRepository(Func<DbConnection> connectionFactory) : IStudyNoteRepository
+public sealed class SqlServerStudyNoteRepository(Func<DbConnection> connectionFactory, CurrentUserDataScope dataScope) : IStudyNoteRepository
 {
     public async Task<StudyNote?> FindAsync(Guid id, CancellationToken ct)
     {
@@ -17,11 +17,13 @@ public sealed class SqlServerStudyNoteRepository(Func<DbConnection> connectionFa
             SELECT note.Id, note.SubjectId, note.TopicId, note.Title, note.Content, note.StudyDurationTicks, note.StudyStartedAtUtc,
                    definition.Id, definition.Name, definition.NumberKind, metric.MetricValue
             FROM dbo.StudyNotes AS note
+            INNER JOIN dbo.Subjects AS subject ON subject.Id = note.SubjectId
             LEFT JOIN dbo.StudyNoteMetrics AS metric ON metric.StudyNoteId = note.Id
             LEFT JOIN dbo.StudyMetricDefinitions AS definition ON definition.Id = metric.MetricDefinitionId
-            WHERE note.Id = @Id;
+            WHERE note.Id = @Id AND subject.UserId = @UserId;
             """;
         command.AddParameter("@Id", DbType.Guid, id);
+        command.AddParameter("@UserId", DbType.Guid, dataScope.RequireUserId());
         await using var reader = await command.ExecuteReaderAsync(ct);
         return (await ReadStudyNotesAsync(reader, ct)).SingleOrDefault();
     }
@@ -38,12 +40,14 @@ public sealed class SqlServerStudyNoteRepository(Func<DbConnection> connectionFa
             SELECT note.Id, note.SubjectId, note.TopicId, note.Title, note.Content, note.StudyDurationTicks, note.StudyStartedAtUtc,
                    definition.Id, definition.Name, definition.NumberKind, metric.MetricValue
             FROM dbo.StudyNotes AS note
+            INNER JOIN dbo.Subjects AS subject ON subject.Id = note.SubjectId
             LEFT JOIN dbo.StudyNoteMetrics AS metric ON metric.StudyNoteId = note.Id
             LEFT JOIN dbo.StudyMetricDefinitions AS definition ON definition.Id = metric.MetricDefinitionId
-            WHERE note.SubjectId = @SubjectId
+            WHERE note.SubjectId = @SubjectId AND subject.UserId = @UserId
             ORDER BY note.StudyStartedAtUtc DESC, note.Id, definition.NormalizedName;
             """;
         command.AddParameter("@SubjectId", DbType.Guid, subjectId);
+        command.AddParameter("@UserId", DbType.Guid, dataScope.RequireUserId());
         await using var reader = await command.ExecuteReaderAsync(ct);
 
         return await ReadStudyNotesAsync(reader, ct);
@@ -62,7 +66,7 @@ public sealed class SqlServerStudyNoteRepository(Func<DbConnection> connectionFa
             (
                 SELECT Id
                 FROM dbo.Subjects
-                WHERE Id = @SubjectId
+                WHERE Id = @SubjectId AND UserId = @UserId
 
                 UNION ALL
 
@@ -80,6 +84,7 @@ public sealed class SqlServerStudyNoteRepository(Func<DbConnection> connectionFa
             OPTION (MAXRECURSION 4);
             """;
         command.AddParameter("@SubjectId", DbType.Guid, subjectId);
+        command.AddParameter("@UserId", DbType.Guid, dataScope.RequireUserId());
         await using var reader = await command.ExecuteReaderAsync(ct);
 
         return await ReadStudyNotesAsync(reader, ct);
@@ -95,10 +100,11 @@ public sealed class SqlServerStudyNoteRepository(Func<DbConnection> connectionFa
         command.CommandText = """
             INSERT INTO dbo.StudyNotes
                 (Id, SubjectId, TopicId, Title, Content, StudyDurationTicks, StudyStartedAtUtc)
-            VALUES
-                (@Id, @SubjectId, @TopicId, @Title, @Content, @StudyDurationTicks, @StudyStartedAtUtc);
+            SELECT @Id, @SubjectId, @TopicId, @Title, @Content, @StudyDurationTicks, @StudyStartedAtUtc
+            WHERE EXISTS (SELECT 1 FROM dbo.Subjects WHERE Id = @SubjectId AND UserId = @UserId);
             """;
         AddStudyNoteParameters(command, studyNote);
+        command.AddParameter("@UserId", DbType.Guid, dataScope.RequireUserId());
         await command.ExecuteNonQueryAsync(ct);
         await InsertMetricsAsync(connection, transaction, studyNote, ct);
         await transaction.CommitAsync(ct);
@@ -112,19 +118,23 @@ public sealed class SqlServerStudyNoteRepository(Func<DbConnection> connectionFa
         await using var command = connection.CreateCommand();
         command.Transaction = transaction;
         command.CommandText = """
-            UPDATE dbo.StudyNotes
+            UPDATE note
             SET Title = @Title,
                 TopicId = @TopicId,
                 Content = @Content,
                 StudyDurationTicks = @StudyDurationTicks,
                 StudyStartedAtUtc = @StudyStartedAtUtc
-            WHERE Id = @Id;
+            FROM dbo.StudyNotes AS note
+            INNER JOIN dbo.Subjects AS subject ON subject.Id = note.SubjectId
+            WHERE note.Id = @Id AND subject.UserId = @UserId;
             """;
         AddStudyNoteParameters(command, studyNote);
+        command.AddParameter("@UserId", DbType.Guid, dataScope.RequireUserId());
         await command.ExecuteNonQueryAsync(ct);
         command.Parameters.Clear();
-        command.CommandText = "DELETE FROM dbo.StudyNoteMetrics WHERE StudyNoteId = @Id;";
+        command.CommandText = "DELETE metric FROM dbo.StudyNoteMetrics AS metric INNER JOIN dbo.StudyNotes AS note ON note.Id = metric.StudyNoteId INNER JOIN dbo.Subjects AS subject ON subject.Id = note.SubjectId WHERE note.Id = @Id AND subject.UserId = @UserId;";
         command.AddParameter("@Id", DbType.Guid, studyNote.Id);
+        command.AddParameter("@UserId", DbType.Guid, dataScope.RequireUserId());
         await command.ExecuteNonQueryAsync(ct);
         await InsertMetricsAsync(connection, transaction, studyNote, ct);
         await transaction.CommitAsync(ct);
@@ -135,8 +145,9 @@ public sealed class SqlServerStudyNoteRepository(Func<DbConnection> connectionFa
         await using var connection = connectionFactory();
         await connection.OpenAsync(ct);
         await using var command = connection.CreateCommand();
-        command.CommandText = "DELETE FROM dbo.StudyNotes WHERE Id = @Id;";
+        command.CommandText = "DELETE note FROM dbo.StudyNotes AS note INNER JOIN dbo.Subjects AS subject ON subject.Id = note.SubjectId WHERE note.Id = @Id AND subject.UserId = @UserId;";
         command.AddParameter("@Id", DbType.Guid, id);
+        command.AddParameter("@UserId", DbType.Guid, dataScope.RequireUserId());
         await command.ExecuteNonQueryAsync(ct);
     }
 

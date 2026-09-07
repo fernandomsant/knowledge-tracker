@@ -11,8 +11,7 @@ public sealed class AccessTokenAuthenticationHandler(
     IOptionsMonitor<AuthenticationSchemeOptions> options,
     ILoggerFactory logger,
     UrlEncoder encoder,
-    IAccessTokenService accessTokens,
-    IMcpAccessTokenValidator mcpAccessTokens
+    IAccessTokenService accessTokens
 ) : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
 {
     public const string AuthenticationScheme = "AccessToken";
@@ -24,25 +23,6 @@ public sealed class AccessTokenAuthenticationHandler(
             return AuthenticateResult.NoResult();
 
         var value = authorization["Bearer ".Length..].Trim();
-        if (value.StartsWith("mcp_", StringComparison.Ordinal))
-        {
-            var mcpToken = await mcpAccessTokens.ValidateAsync(value, Context.RequestAborted);
-            if (mcpToken is null)
-                return AuthenticateResult.Fail("The MCP access token is invalid.");
-
-            var mcpClaims = new List<Claim>
-            {
-                new(ClaimTypes.NameIdentifier, mcpToken.UserId.ToString()),
-                new("authentication_method", "mcp_access_token"),
-                new("mcp_access_token_id", mcpToken.TokenId.ToString()),
-            };
-            mcpClaims.AddRange(mcpToken.DelegatedScopes.Select(scope => new Claim("mcp_delegated_scope", scope)));
-            mcpClaims.AddRange(mcpToken.Scopes.Select(scope => new Claim("mcp_scope", scope)));
-            return AuthenticateResult.Success(new AuthenticationTicket(
-                new ClaimsPrincipal(new ClaimsIdentity(mcpClaims, AuthenticationScheme)),
-                AuthenticationScheme));
-        }
-
         AccessToken? token;
         try
         {

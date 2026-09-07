@@ -8,6 +8,7 @@ using KnowledgeTracker.Infrastructure.Authentication;
 using KnowledgeTracker.Infrastructure.Authentication.Services;
 using KnowledgeTracker.Infrastructure.Authentication.Services.AccessTokens;
 using KnowledgeTracker.Web.Authentication.Services;
+using KnowledgeTracker.Web.Knowledge.Filters;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Data.SqlClient;
 
@@ -21,6 +22,7 @@ var accessTokenKey = ReadSecret(builder.Configuration, "Authentication:AccessTok
 var refreshTokenPepper = ReadSecret(builder.Configuration, "Authentication:RefreshTokenPepper");
 
 builder.Services.AddControllers();
+builder.Services.AddScoped<McpExceptionFilter>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddCors(options =>
     options.AddPolicy(
@@ -50,7 +52,6 @@ builder.Services.AddScoped<ISubjectGoalCompletionRepository, SqlServerSubjectGoa
 builder.Services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
 builder.Services.AddSingleton<IClock, KnowledgeTracker.Infrastructure.Authentication.SystemClock>();
 builder.Services.AddSingleton<IMcpAccessTokenGenerator, OpaqueMcpAccessTokenGenerator>();
-builder.Services.AddScoped<IUserPermissionService, DefaultUserPermissionService>();
 builder.Services.AddScoped<IMcpAccessTokenValidator, McpAccessTokenValidator>();
 builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
 builder.Services.AddScoped<IActionAuthorizationService, McpAwareActionAuthorizationService>();
@@ -75,6 +76,10 @@ builder.Services
     .AddAuthentication(AccessTokenAuthenticationHandler.AuthenticationScheme)
     .AddScheme<AuthenticationSchemeOptions, AccessTokenAuthenticationHandler>(
         AccessTokenAuthenticationHandler.AuthenticationScheme,
+        _ => { }
+    )
+    .AddScheme<AuthenticationSchemeOptions, McpAccessTokenAuthenticationHandler>(
+        McpAccessTokenAuthenticationHandler.AuthenticationScheme,
         _ => { }
     );
 builder.Services.AddAuthorization();

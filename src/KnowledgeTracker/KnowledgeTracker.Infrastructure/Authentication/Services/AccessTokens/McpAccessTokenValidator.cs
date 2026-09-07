@@ -7,7 +7,6 @@ public sealed class McpAccessTokenValidator(
     IMcpAccessTokenRepository tokens,
     IUserRepository users,
     IPasswordHasher passwordHasher,
-    IUserPermissionService permissions,
     IClock clock
 ) : IMcpAccessTokenValidator
 {
@@ -24,14 +23,10 @@ public sealed class McpAccessTokenValidator(
         if (user is null)
             return null;
 
-        var ownerPermissions = await permissions.GetPermissionsAsync(user.Id, ct);
         var delegatedScopes = token.Scopes.Select(scope => scope.Value).ToArray();
-        var effectiveScopes = delegatedScopes
-            .Where(scope => ownerPermissions.Contains(scope, StringComparer.Ordinal))
-            .ToArray();
         token.MarkUsed(clock.UtcNow);
         await tokens.UpdateAsync(token, ct);
-        return new McpAccessTokenValidationResult(user.Id, token.Id, delegatedScopes, effectiveScopes);
+        return new McpAccessTokenValidationResult(user.Id, token.Id, delegatedScopes);
     }
 
     private static class McpAccessTokenParser

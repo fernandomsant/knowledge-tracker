@@ -98,18 +98,22 @@ The command builds the solution, starts both processes in the current terminal, 
 | Frontend | `http://localhost:5173` |
 | Backend API | `http://localhost:5015` |
 
-The development script does not start the MCP server. Start it separately with a SQL Server connection string:
+The development script does not start the MCP server. Start the MCP process separately after configuring its listener, application URL, and MCP access token. It does not need a SQL Server connection string because it does not access the database directly:
 
 ```powershell
-$env:ConnectionStrings__KnowledgeTracker = "<connection string>"
-dotnet run --project src/KnowledgeTracker/KnowledgeTracker.Mcp --urls http://localhost:3001
+$env:McpServer__ListenAddress = "127.0.0.1"
+$env:McpServer__Port = "3001"
+$env:McpServer__McpEndpointPath = "/mcp"
+$env:McpServer__ApplicationBaseUrl = "http://localhost:5015"
+$env:McpServer__AccessToken = "mcp_<identifier>_<secret>"
+dotnet run --project src/KnowledgeTracker/KnowledgeTracker.Mcp
 ```
 
-The MCP endpoint is available at `http://localhost:3001/mcp`.
+The MCP server uses the official Streamable HTTP transport and is available at `http://127.0.0.1:3001/mcp` with the configuration above. Configure your MCP client to connect to that URL. You can also place the same values in the ignored `src/KnowledgeTracker/KnowledgeTracker.Mcp/appsettings.mcp.local.json` file; see `appsettings.mcp.example.json` for the shape.
 
 ### MCP authentication and authorization
 
-The MCP server requires an access token in every request:
+The MCP server sends this MCP access token when calling the dedicated MCP routes in the Web application:
 
 ```http
 Authorization: Bearer mcp_<identifier>_<secret>
@@ -129,9 +133,9 @@ Content-Type: application/json
 }
 ```
 
-The available delegated scopes are `subjects:read`, `subjects:write`, `topics:read`, `topics:write`, `notes:read`, `notes:write`, `goals:read`, `goals:write`, `connections:read`, `connections:write`, `layouts:read`, `layouts:write`, `metrics:read`, `metrics:write`, and `tokens:manage`. The effective authority is the intersection of the owner’s permissions and the scopes selected at issuance, so a token cannot grant more access than its owner has.
+The available MCP client scopes are `subjects:read`, `subjects:write`, `topics:read`, `topics:write`, `notes:read`, `notes:write`, `goals:read`, `goals:write`, `connections:read`, `connections:write`, `layouts:read`, `layouts:write`, `metrics:read`, `metrics:write`, and `tokens:manage`. These scopes define which operations that MCP client may perform; there is no separate user-scope intersection. The token is still bound to its owning user, so all data operations execute in that user’s data space.
 
-MCP tools declare and enforce their required scope before invoking the application use case. For example, subject listing requires `subjects:read`, note creation requires `notes:write`, and goal completion requires `goals:write`. Use the token only with the MCP endpoint, not with the normal frontend API. Revoke a token with `DELETE /api/mcp-access-tokens/{id}`; expiration and revocation invalidate it independently of normal application sessions.
+MCP operations use dedicated `/mcp-api/...` routes and a dedicated `McpAccessToken` authentication scheme. Normal `/api/...` routes and normal user access tokens are not used for MCP tool operations. The application services remain responsible for enforcing the MCP client scopes, while the MCP process only translates tool calls into those routes. Revoke a token with `DELETE /api/mcp-access-tokens/{id}` using a normal user access token; expiration and revocation invalidate it independently of normal application sessions.
 
 To stop processes started by the development script from another terminal:
 
@@ -156,9 +160,10 @@ npm run migrate
 
 - `src/frontend` — React and Vite frontend
 - `src/KnowledgeTracker/KnowledgeTracker.Domain` — domain model
-- `src/KnowledgeTracker/KnowledgeTracker.Application` — use cases and contracts
+- `src/KnowledgeTracker/KnowledgeTracker.Application.Contracts` — application use-case interfaces and DTOs
+- `src/KnowledgeTracker/KnowledgeTracker.Application` — use-case orchestration and implementations
 - `src/KnowledgeTracker/KnowledgeTracker.Data` — SQL repositories and migrations
 - `src/KnowledgeTracker/KnowledgeTracker.Infrastructure` — authentication and infrastructure services
 - `src/KnowledgeTracker/KnowledgeTracker.Web` — ASP.NET Core HTTP API
-- `src/KnowledgeTracker/KnowledgeTracker.Mcp` — MCP inbound adapter and HTTP server
+- `src/KnowledgeTracker/KnowledgeTracker.Mcp` — separate MCP Streamable HTTP inbound adapter that calls dedicated application routes
 - `src/KnowledgeTracker/KnowledgeTracker.Migrations` — executable SQL migration runner

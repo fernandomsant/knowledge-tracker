@@ -8,6 +8,5 @@ public interface IMcpAccessTokenValidator
 public sealed record McpAccessTokenValidationResult(
     Guid UserId,
     Guid TokenId,
-    IReadOnlyCollection<string> DelegatedScopes,
     IReadOnlyCollection<string> Scopes
 );

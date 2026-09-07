@@ -4,9 +4,15 @@
     <ProjectReference Include="..\KnowledgeTracker.Application\KnowledgeTracker.Application.csproj" />
     <ProjectReference Include="..\KnowledgeTracker.Application.Contracts\KnowledgeTracker.Application.Contracts.csproj" />
     <ProjectReference Include="..\KnowledgeTracker.Infrastructure\KnowledgeTracker.Infrastructure.csproj" />
+    <ProjectReference Include="..\KnowledgeTracker.Web\KnowledgeTracker.Web.csproj" />
+    <ProjectReference Include="..\KnowledgeTracker.Mcp\KnowledgeTracker.Mcp.csproj" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
   <PropertyGroup>

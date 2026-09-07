@@ -1,0 +1,13 @@
+using System.Net.Http.Headers;
+using KnowledgeTracker.Mcp.Configuration;
+
+namespace KnowledgeTracker.Mcp.ApplicationApi.Authentication;
+
+public sealed class McpAccessTokenHandler(McpServerOptions options) : DelegatingHandler
+{
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", options.AccessToken);
+        return base.SendAsync(request, cancellationToken);
+    }
+}

@@ -4,7 +4,7 @@ using KnowledgeTracker.Application.Authentication;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Options;
 
-namespace KnowledgeTracker.Mcp.Authentication.Services;
+namespace KnowledgeTracker.Web.Authentication.Services;
 
 public sealed class McpAccessTokenAuthenticationHandler(
     IOptionsMonitor<AuthenticationSchemeOptions> options,
@@ -22,6 +22,9 @@ public sealed class McpAccessTokenAuthenticationHandler(
             return AuthenticateResult.NoResult();
 
         var value = authorization["Bearer ".Length..].Trim();
+        if (!value.StartsWith("mcp_", StringComparison.Ordinal))
+            return AuthenticateResult.Fail("The MCP access token is invalid.");
+
         var token = await tokens.ValidateAsync(value, Context.RequestAborted);
         if (token is null)
             return AuthenticateResult.Fail("The MCP access token is invalid.");
@@ -32,8 +35,8 @@ public sealed class McpAccessTokenAuthenticationHandler(
             new("authentication_method", "mcp_access_token"),
             new("mcp_access_token_id", token.TokenId.ToString()),
         };
-        claims.AddRange(token.DelegatedScopes.Select(scope => new Claim("mcp_delegated_scope", scope)));
         claims.AddRange(token.Scopes.Select(scope => new Claim("mcp_scope", scope)));
+
         return AuthenticateResult.Success(new AuthenticationTicket(
             new ClaimsPrincipal(new ClaimsIdentity(claims, AuthenticationScheme)),
             AuthenticationScheme));

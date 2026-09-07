@@ -1,69 +1,47 @@
-using System.Data.Common;
-using KnowledgeTracker.Application.Authentication;
-using KnowledgeTracker.Application.Knowledge;
-using KnowledgeTracker.Data.Authentication.Repositories;
-using KnowledgeTracker.Infrastructure.Authentication;
-using KnowledgeTracker.Infrastructure.Authentication.Services;
-using KnowledgeTracker.Infrastructure.Authentication.Services.AccessTokens;
-using KnowledgeTracker.Data.Knowledge.Repositories;
-using KnowledgeTracker.Mcp;
-using KnowledgeTracker.Mcp.Authentication.Services;
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.Data.SqlClient;
+using KnowledgeTracker.Mcp.ApplicationApi;
+using KnowledgeTracker.Mcp.ApplicationApi.Authentication;
+using KnowledgeTracker.Mcp.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using ModelContextProtocol.AspNetCore;
+using ModelContextProtocol.Server;
+using McpServerConfiguration = KnowledgeTracker.Mcp.Configuration.McpServerOptions;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddHttpContextAccessor();
+builder.Configuration.AddJsonFile(
+    "appsettings.mcp.local.json",
+    optional: true,
+    reloadOnChange: false);
 
-var connectionString = builder.Configuration.GetConnectionString("KnowledgeTracker")
-    ?? builder.Configuration.GetConnectionString("KnowledgeTracker_01")
-    ?? throw new InvalidOperationException("A KnowledgeTracker connection string is required.");
+var options = McpServerConfiguration.Load(builder.Configuration);
 
-builder.Services.AddSingleton<Func<DbConnection>>(_ => () => new SqlConnection(connectionString));
-builder.Services.AddScoped<IUserRepository, SqlServerUserRepository>();
-builder.Services.AddScoped<IMcpAccessTokenRepository, SqlServerMcpAccessTokenRepository>();
-builder.Services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
-builder.Services.AddSingleton<IClock, KnowledgeTracker.Infrastructure.Authentication.SystemClock>();
-builder.Services.AddSingleton<IMcpAccessTokenGenerator, OpaqueMcpAccessTokenGenerator>();
-builder.Services.AddScoped<IUserPermissionService, DefaultUserPermissionService>();
-builder.Services.AddScoped<IMcpAccessTokenValidator, McpAccessTokenValidator>();
-builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
-builder.Services.AddScoped<IActionAuthorizationService, McpAwareActionAuthorizationService>();
-builder.Services.AddScoped<IMcpAccessTokenService, McpAccessTokenService>();
-builder.Services.AddScoped<ISubjectRepository, SqlServerSubjectRepository>();
-builder.Services.AddScoped<ISubjectLayoutRepository, SqlServerSubjectLayoutRepository>();
-builder.Services.AddScoped<ITopicRepository, SqlServerTopicRepository>();
-builder.Services.AddScoped<IStudyNoteRepository, SqlServerStudyNoteRepository>();
-builder.Services.AddScoped<IStudyMetricDefinitionRepository, SqlServerStudyMetricDefinitionRepository>();
-builder.Services.AddScoped<ISubjectConnectionRepository, SqlServerSubjectConnectionRepository>();
-builder.Services.AddScoped<ISubjectGoalRepository, SqlServerSubjectGoalRepository>();
-builder.Services.AddScoped<ISubjectGoalActivityRepository>(sp =>
-    (SqlServerSubjectGoalRepository)sp.GetRequiredService<ISubjectGoalRepository>());
-builder.Services.AddScoped<ISubjectGoalCompletionRepository, SqlServerSubjectGoalCompletionRepository>();
+builder.WebHost.ConfigureKestrel(serverOptions =>
+{
+    serverOptions.Listen(options.ListenIpAddress, options.Port);
+});
 
-builder.Services.AddScoped<ISubjectService, SubjectService>();
-builder.Services.AddScoped<ITopicService, TopicService>();
-builder.Services.AddScoped<IStudyNoteService, StudyNoteService>();
-builder.Services.AddScoped<IStudyMetricDefinitionService, StudyMetricDefinitionService>();
-builder.Services.AddScoped<ISubjectConnectionService, SubjectConnectionService>();
-builder.Services.AddScoped<ISubjectGoalService, SubjectGoalService>();
-builder.Services.AddScoped<ISubjectGoalActivityService, SubjectGoalActivityService>();
-
+builder.Services.AddSingleton(options);
+builder.Services.Configure<HostOptions>(hostOptions =>
+{
+    hostOptions.ShutdownTimeout = TimeSpan.FromSeconds(10);
+});
+builder.Services.AddTransient<McpAccessTokenHandler>();
 builder.Services
-    .AddAuthentication(McpAccessTokenAuthenticationHandler.AuthenticationScheme)
-    .AddScheme<AuthenticationSchemeOptions, McpAccessTokenAuthenticationHandler>(
-        McpAccessTokenAuthenticationHandler.AuthenticationScheme,
-        _ => { }
-    );
-builder.Services.AddAuthorization();
+    .AddHttpClient<IApplicationApiClient, ApplicationApiClient>(client =>
+    {
+        client.BaseAddress = new Uri(options.ApplicationBaseUrl);
+        client.Timeout = TimeSpan.FromSeconds(30);
+    })
+    .AddHttpMessageHandler<McpAccessTokenHandler>();
+
 builder.Services
     .AddMcpServer()
-    .WithHttpTransport(options => options.SessionMode = HttpServerSessionMode.Stateless)
-    .WithTools<KnowledgeTools>();
+    .WithHttpTransport(transportOptions =>
+    {
+        transportOptions.SessionMode = HttpServerSessionMode.Stateless;
+    });
 
 var app = builder.Build();
-app.UseAuthentication();
-app.UseAuthorization();
-app.MapMcp("/mcp").RequireAuthorization();
-app.Run();
+app.MapMcp(options.McpEndpointPath);
+await app.RunAsync();

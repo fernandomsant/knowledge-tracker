@@ -53,26 +53,6 @@ public sealed class McpAccessTokenServiceTests
     }
 
     [Fact]
-    public async Task CreateAsync_RejectsScopeOwnerCannotDelegate()
-    {
-        var generator = new FakeTokenGenerator(new("identifier", "raw-secret", "token"));
-        var repository = new FakeTokenRepository();
-        var service = CreateService(
-            repository: repository,
-            generator: generator,
-            permissions: new FakeUserPermissionService(McpAccessTokenScopeCatalog.NotesRead)
-        );
-
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.CreateAsync(
-            new("client", Now.AddDays(30), [McpAccessTokenScopeCatalog.SubjectsWrite]),
-            CancellationToken.None
-        ));
-
-        Assert.Empty(repository.Added);
-        Assert.Equal(0, generator.CreateCount);
-    }
-
-    [Fact]
     public async Task CreateAsync_RejectsExpiredToken()
     {
         var generator = new FakeTokenGenerator(new("identifier", "raw-secret", "token"));
@@ -84,6 +64,19 @@ public sealed class McpAccessTokenServiceTests
         ));
 
         Assert.Equal(0, generator.CreateCount);
+    }
+
+    [Fact]
+    public async Task CreateAsync_RejectsEmptyScopes()
+    {
+        var repository = new FakeTokenRepository();
+        var service = CreateService(repository: repository);
+
+        await Assert.ThrowsAsync<ArgumentException>(() => service.CreateAsync(
+            new("client", Now.AddDays(30), []),
+            CancellationToken.None));
+
+        Assert.Empty(repository.Added);
     }
 
     [Fact]
@@ -161,21 +154,29 @@ public sealed class McpAccessTokenServiceTests
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.RevokeAsync(Guid.NewGuid(), CancellationToken.None));
     }
 
+    [Fact]
+    public async Task TokenManagement_RequiresExplicitScopeForMcpCaller()
+    {
+        var currentUser = new FakeCurrentUserContext(UserId, true, McpAccessTokenScopeCatalog.NotesRead);
+        var service = CreateService(
+            currentUser: currentUser,
+            authorization: new McpAwareActionAuthorizationService(currentUser));
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.ListAsync(CancellationToken.None));
+    }
+
     private static McpAccessTokenService CreateService(
         FakeTokenRepository? repository = null,
         FakeTokenGenerator? generator = null,
         FakeCurrentUserContext? currentUser = null,
-        FakeUserPermissionService? permissions = null
+        IActionAuthorizationService? authorization = null
     ) => new(
         repository ?? new FakeTokenRepository(),
         generator ?? new FakeTokenGenerator(new("identifier", "raw-secret", "token")),
         new FakePasswordHasher(),
         currentUser ?? new FakeCurrentUserContext(UserId),
-        permissions ?? new FakeUserPermissionService(
-            McpAccessTokenScopeCatalog.NotesRead,
-            McpAccessTokenScopeCatalog.SubjectsWrite
-        ),
-        new FakeClock(Now)
+        new FakeClock(Now),
+        authorization
     );
 
     private static McpAccessToken CreateToken(Guid userId) => new(
@@ -189,17 +190,11 @@ public sealed class McpAccessTokenServiceTests
         [new(McpAccessTokenScopeCatalog.NotesRead)]
     );
 
-    private sealed class FakeCurrentUserContext(Guid? userId) : ICurrentUserContext
+    private sealed class FakeCurrentUserContext(Guid? userId, bool isMcpAccessToken = false, params string[] scopes) : ICurrentUserContext
     {
         public Guid? UserId { get; } = userId;
-    }
-
-    private sealed class FakeUserPermissionService(params string[] permissions) : IUserPermissionService
-    {
-        private readonly IReadOnlySet<string> permissions = permissions.ToHashSet(StringComparer.Ordinal);
-
-        public Task<IReadOnlySet<string>> GetPermissionsAsync(Guid userId, CancellationToken ct) =>
-            Task.FromResult(permissions);
+        public bool IsMcpAccessToken { get; } = isMcpAccessToken;
+        public IReadOnlySet<string> Scopes { get; } = scopes.ToHashSet(StringComparer.Ordinal);
     }
 
     private sealed class FakeTokenGenerator(McpAccessTokenMaterial material) : IMcpAccessTokenGenerator

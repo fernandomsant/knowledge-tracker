@@ -22,6 +22,8 @@ catch
 
 file static class StudentWorkspaceSeed
 {
+    private static readonly Guid StudentUserId = new("8D11C893-63C2-4C72-93C8-E9329D9A8EE8");
+
     public static async Task RunAsync(SqlConnection connection, SqlTransaction transaction)
     {
         await ExecuteAsync(connection, transaction, """
@@ -51,24 +53,25 @@ file static class StudentWorkspaceSeed
         foreach (var subject in subjects)
             await ExecuteAsync(connection, transaction, """
                 IF NOT EXISTS (SELECT 1 FROM dbo.Subjects WHERE Id = @id)
-                INSERT INTO dbo.Subjects (Id, Name, Description, ParentSubjectId)
-                VALUES (@id, @name, @description, @parentSubjectId);
+                INSERT INTO dbo.Subjects (Id, UserId, Name, Description, ParentSubjectId)
+                VALUES (@id, @userId, @name, @description, @parentSubjectId);
                 """,
                 ("@id", Guid.Parse(subject.Id)),
+                ("@userId", StudentUserId),
                 ("@name", subject.Name),
                 ("@description", subject.Description),
                 ("@parentSubjectId", subject.ParentSubjectId is null ? DBNull.Value : Guid.Parse(subject.ParentSubjectId)));
 
-        foreach (var topic in subjects.Select(subject => new TopicSeed(subject.Id, subject.Name)).Concat([
-            new TopicSeed(SeedId("topic-linux"), "Linux"),
-            new TopicSeed(SeedId("topic-network-security"), "Network Security"),
-            new TopicSeed(SeedId("topic-german-grammar"), "German Grammar"),
-            new TopicSeed(SeedId("topic-data-structures"), "Data Structures")
+        foreach (var topic in subjects.Select(subject => new TopicSeed(subject.Id, subject.Id, subject.Name)).Concat([
+            new TopicSeed(SeedId("topic-linux"), SeedId("subject-networking"), "Linux"),
+            new TopicSeed(SeedId("topic-network-security"), SeedId("subject-networking"), "Network Security"),
+            new TopicSeed(SeedId("topic-german-grammar"), SeedId("subject-german"), "German Grammar"),
+            new TopicSeed(SeedId("topic-data-structures"), SeedId("subject-algorithms"), "Data Structures")
         ]))
             await ExecuteAsync(connection, transaction, """
                 IF NOT EXISTS (SELECT 1 FROM dbo.Topics WHERE Id = @id)
-                INSERT INTO dbo.Topics (Id, Name) VALUES (@id, @name);
-                """, ("@id", Guid.Parse(topic.Id)), ("@name", topic.Name));
+                INSERT INTO dbo.Topics (Id, SubjectId, Name) VALUES (@id, @subjectId, @name);
+                """, ("@id", Guid.Parse(topic.Id)), ("@subjectId", Guid.Parse(topic.SubjectId)), ("@name", topic.Name));
 
         var notes = new[]
         {
@@ -172,7 +175,7 @@ file static class StudentWorkspaceSeed
     }
 
     private sealed record SubjectSeed(string Id, string Name, string Description, string? ParentSubjectId);
-    private sealed record TopicSeed(string Id, string Name);
+    private sealed record TopicSeed(string Id, string SubjectId, string Name);
     private sealed record NoteSeed(string Id, string SubjectId, string Title, string Content, long StudyDurationTicks, string StudyStartedAtUtc);
     private sealed record ConnectionSeed(string Id, string SubjectId, string ConnectedSubjectId);
     private sealed record MetricSeed(string StudyNoteId, string MetricDefinitionId, decimal Value);

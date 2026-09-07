@@ -7,7 +7,6 @@ public sealed class McpAccessTokenService(
     IMcpAccessTokenGenerator tokenGenerator,
     IPasswordHasher passwordHasher,
     ICurrentUserContext currentUser,
-    IUserPermissionService permissions,
     IClock clock,
     IActionAuthorizationService? authorization = null
 ) : IMcpAccessTokenService
@@ -22,14 +21,6 @@ public sealed class McpAccessTokenService(
         var userId = RequireUserId();
         var now = RequireUtc(clock.UtcNow, nameof(clock.UtcNow));
         var requestedScopes = McpAccessTokenScopeCatalog.Normalize(request.Scopes);
-        var ownerPermissions = await permissions.GetPermissionsAsync(userId, ct);
-        ArgumentNullException.ThrowIfNull(ownerPermissions);
-
-        var unauthorizedScope = requestedScopes
-            .Select(scope => scope.Value)
-            .FirstOrDefault(scope => !ownerPermissions.Contains(scope, StringComparer.Ordinal));
-        if (unauthorizedScope is not null)
-            throw new UnauthorizedAccessException($"The current user is not allowed to delegate MCP scope '{unauthorizedScope}'.");
 
         if (request.ExpiresAtUtc <= now)
             throw new ArgumentOutOfRangeException(nameof(request.ExpiresAtUtc), "MCP access-token expiration must be in the future.");

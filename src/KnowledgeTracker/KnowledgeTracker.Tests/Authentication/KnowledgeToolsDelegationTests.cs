@@ -1,6 +1,7 @@
 using KnowledgeTracker.Application.Knowledge;
 using KnowledgeTracker.Mcp;
 using KnowledgeTracker.Mcp.ApplicationApi;
+using ModelContextProtocol;
 using Xunit;
 
 namespace KnowledgeTracker.Tests.Authentication;
@@ -31,6 +32,27 @@ public sealed class KnowledgeToolsDelegationTests
         Assert.True(client.ListSubjectsCalled);
     }
 
+    [Theory]
+    [InlineData(401, "authentication failure", "MCP application authentication failed.")]
+    [InlineData(403, "authorization failure", "The MCP access token is not authorized for this operation.")]
+    public async Task ListSubjectsAsync_MapsApplicationAuthFailuresWithoutExposingToken(
+        int statusCode,
+        string category,
+        string expectedMessage)
+    {
+        var client = new RecordingApplicationApiClient
+        {
+            Failure = new ApplicationApiException(statusCode, category),
+        };
+        var tools = new KnowledgeTools(client);
+
+        var exception = await Assert.ThrowsAsync<McpException>(() =>
+            tools.ListSubjectsAsync(CancellationToken.None));
+
+        Assert.Equal(expectedMessage, exception.Message);
+        Assert.DoesNotContain("mcp_", exception.Message, StringComparison.Ordinal);
+    }
+
     private sealed class RecordingApplicationApiClient : IApplicationApiClient
     {
         public SubjectSummary CreatedSubject { get; } = new(Guid.NewGuid(), "C#", "Language notes", null, null);
@@ -38,10 +60,14 @@ public sealed class KnowledgeToolsDelegationTests
             [new SubjectSummary(Guid.NewGuid(), "C#", null, null, null)];
         public CreateSubjectRequest? CreateSubjectRequest { get; private set; }
         public bool ListSubjectsCalled { get; private set; }
+        public Exception? Failure { get; init; }
 
         public Task<IReadOnlyCollection<SubjectSummary>> ListSubjectsAsync(CancellationToken ct)
         {
             ListSubjectsCalled = true;
+            if (Failure is not null)
+                return Task.FromException<IReadOnlyCollection<SubjectSummary>>(Failure);
+
             return Task.FromResult(Subjects);
         }
 

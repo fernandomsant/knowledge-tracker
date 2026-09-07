@@ -47,6 +47,25 @@ public sealed class McpServerConfigurationTests
         Assert.DoesNotContain(value, exception.Message, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("ListenAddress")]
+    [InlineData("McpEndpointPath")]
+    [InlineData("ApplicationBaseUrl")]
+    [InlineData("AccessToken")]
+    public void Load_RejectsMissingRequiredConfiguration(string key)
+    {
+        var values = CreateValues();
+        values[$"McpServer:{key}"] = null;
+        var invalidConfiguration = new ConfigurationBuilder()
+            .AddInMemoryCollection(values)
+            .Build();
+
+        var exception = Assert.Throws<InvalidOperationException>(() =>
+            McpServerOptions.Load(invalidConfiguration));
+
+        Assert.Contains(key, exception.Message, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Load_RejectsMissingSecretWithoutDisclosingConfigurationValues()
     {

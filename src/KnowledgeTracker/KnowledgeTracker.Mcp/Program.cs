@@ -1,6 +1,7 @@
 using KnowledgeTracker.Mcp.ApplicationApi;
 using KnowledgeTracker.Mcp.ApplicationApi.Authentication;
 using KnowledgeTracker.Mcp.Configuration;
+using KnowledgeTracker.Mcp;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using ModelContextProtocol.AspNetCore;
@@ -40,7 +41,8 @@ builder.Services
     .WithHttpTransport(transportOptions =>
     {
         transportOptions.SessionMode = HttpServerSessionMode.Stateless;
-    });
+    })
+    .WithTools<KnowledgeTools>();
 
 var app = builder.Build();
 app.MapMcp(options.McpEndpointPath);

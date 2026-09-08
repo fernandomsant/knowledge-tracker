@@ -149,3 +149,9 @@ The GitNexus configuration defined above applies to both projects under `src/`:
 Each project contains its own `AGENTS.md` file with project-specific instructions.
 
 Before modifying files in either project, the agent must read and follow the corresponding `AGENTS.md`. If changes affect both projects, both `AGENTS.md` files must be read.
+
+## Code Comments
+
+- Briefly comment simple classes to state their purpose and relationship to nearby components.
+- Add more context when it materially improves code comprehension, especially for ownership, invariants, boundaries, or non-obvious interactions.
+- Keep comments focused on why the code exists and how it fits the design; do not narrate obvious syntax or implementation steps.

@@ -97,24 +97,24 @@ function toKnowledgeState(knowledge) {
   };
 }
 
-export function useKnowledgeStore(accessToken, refreshAccessToken) {
+export function useKnowledgeStore(accessToken, refreshAccessToken, workspaceId) {
   const [state, dispatch] = useReducer(knowledgeReducer, initialState);
 
   const execute = useCallback(async operation => {
     try {
-      return await operation(accessToken);
+      return await operation(accessToken, workspaceId);
     } catch (reason) {
       if (reason?.status !== 401) throw reason;
       const refreshedSession = await refreshAccessToken();
       if (!refreshedSession) throw reason;
-      return operation(refreshedSession.accessToken);
+      return operation(refreshedSession.accessToken, workspaceId);
     }
-  }, [accessToken, refreshAccessToken]);
+  }, [accessToken, refreshAccessToken, workspaceId]);
 
   useEffect(() => {
     let current = true;
     dispatch({ type: 'knowledge/loading' });
-    void execute(token => knowledgeClient.load(token))
+    void execute((token, selectedWorkspaceId) => knowledgeClient.load(token, selectedWorkspaceId))
       .then(knowledge => { if (current) dispatch({ type: 'knowledge/loaded', knowledge: toKnowledgeState(knowledge) }); })
       .catch(reason => { if (current) dispatch({ type: 'knowledge/failed', error: errorMessage(reason) }); });
     return () => { current = false; };
@@ -151,7 +151,7 @@ export function useKnowledgeStore(accessToken, refreshAccessToken) {
 
   const addSubject = useCallback(async (name, parentSubjectId) => {
     try {
-      const subject = await execute(token => knowledgeClient.createSubject(token, name, parentSubjectId));
+      const subject = await execute((token, selectedWorkspaceId) => knowledgeClient.createSubject(token, name, parentSubjectId, selectedWorkspaceId));
       dispatch({ type: 'subject/add', subject: toSubject(subject, state.subjects.length) });
       dispatch({ type: 'request/clear' });
       return subject;
@@ -163,7 +163,7 @@ export function useKnowledgeStore(accessToken, refreshAccessToken) {
 
   const updateSubject = useCallback(async (id, name, description, parentSubjectId) => {
     try {
-      const subject = await execute(token => knowledgeClient.updateSubject(token, id, name, description, parentSubjectId));
+      const subject = await execute((token, selectedWorkspaceId) => knowledgeClient.updateSubject(token, id, name, description, parentSubjectId, selectedWorkspaceId));
       dispatch({ type: 'subject/update', subject: { id, name: subject.name, description: subject.description, parentSubjectId: subject.parentSubjectId } });
       dispatch({ type: 'request/clear' });
       return subject;
@@ -175,7 +175,7 @@ export function useKnowledgeStore(accessToken, refreshAccessToken) {
 
   const removeSubject = useCallback(async id => {
     try {
-      await execute(token => knowledgeClient.deleteSubject(token, id));
+      await execute((token, selectedWorkspaceId) => knowledgeClient.deleteSubject(token, id, selectedWorkspaceId));
       dispatch({ type: 'subject/remove', id });
       dispatch({ type: 'request/clear' });
       return true;
@@ -188,7 +188,7 @@ export function useKnowledgeStore(accessToken, refreshAccessToken) {
 
   const addNote = useCallback(async (subjectId, topicId, title, excerpt, studyDuration, studyStartedAtUtc, metrics) => {
     try {
-      const note = await execute(token => knowledgeClient.createStudyNote(token, subjectId, topicId, title, excerpt, studyDuration, studyStartedAtUtc, metrics));
+      const note = await execute((token, selectedWorkspaceId) => knowledgeClient.createStudyNote(token, subjectId, topicId, title, excerpt, studyDuration, studyStartedAtUtc, metrics, selectedWorkspaceId));
       dispatch({ type: 'note/add', note: toNote(note) });
       dispatch({ type: 'request/clear' });
       return note;
@@ -200,7 +200,7 @@ export function useKnowledgeStore(accessToken, refreshAccessToken) {
 
   const updateNote = useCallback(async (id, topicId, title, excerpt, studyDuration, studyStartedAtUtc, metrics) => {
     try {
-      const note = await execute(token => knowledgeClient.updateStudyNote(token, id, topicId, title, excerpt, studyDuration, studyStartedAtUtc, metrics));
+      const note = await execute((token, selectedWorkspaceId) => knowledgeClient.updateStudyNote(token, id, topicId, title, excerpt, studyDuration, studyStartedAtUtc, metrics, selectedWorkspaceId));
       dispatch({ type: 'note/update', note: toNote(note) });
       dispatch({ type: 'request/clear' });
       return note;
@@ -212,7 +212,7 @@ export function useKnowledgeStore(accessToken, refreshAccessToken) {
 
   const removeNote = useCallback(async id => {
     try {
-      await execute(token => knowledgeClient.deleteStudyNote(token, id));
+      await execute((token, selectedWorkspaceId) => knowledgeClient.deleteStudyNote(token, id, selectedWorkspaceId));
       dispatch({ type: 'note/remove', id });
       dispatch({ type: 'request/clear' });
       return true;
@@ -224,7 +224,7 @@ export function useKnowledgeStore(accessToken, refreshAccessToken) {
 
   const createMetricDefinition = useCallback(async (name, numberKind) => {
     try {
-      const definition = await execute(token => knowledgeClient.createMetricDefinition(token, name, numberKind));
+      const definition = await execute((token, selectedWorkspaceId) => knowledgeClient.createMetricDefinition(token, name, numberKind, selectedWorkspaceId));
       dispatch({ type: 'knowledge/loaded', knowledge: { metricDefinitions: [...state.metricDefinitions, definition] } });
       dispatch({ type: 'request/clear' });
       return definition;
@@ -236,7 +236,7 @@ export function useKnowledgeStore(accessToken, refreshAccessToken) {
 
   const createTopic = useCallback(async (subjectId, name) => {
     try {
-      const topic = await execute(token => knowledgeClient.createTopic(token, subjectId, name));
+      const topic = await execute((token, selectedWorkspaceId) => knowledgeClient.createTopic(token, subjectId, name, selectedWorkspaceId));
       dispatch({ type: 'topic/add', topic });
       dispatch({ type: 'request/clear' });
       return topic;
@@ -248,7 +248,7 @@ export function useKnowledgeStore(accessToken, refreshAccessToken) {
 
   const removeTopic = useCallback(async id => {
     try {
-      await execute(token => knowledgeClient.deleteTopic(token, id));
+      await execute((token, selectedWorkspaceId) => knowledgeClient.deleteTopic(token, id, selectedWorkspaceId));
       dispatch({ type: 'topic/remove', id });
       dispatch({ type: 'request/clear' });
       return true;
@@ -260,7 +260,7 @@ export function useKnowledgeStore(accessToken, refreshAccessToken) {
 
   const saveSubjectLayout = useCallback(async (positions, { keepalive = false } = {}) => {
     try {
-      await execute(token => knowledgeClient.saveSubjectLayout(token, positions, keepalive));
+      await execute((token, selectedWorkspaceId) => knowledgeClient.saveSubjectLayout(token, positions, keepalive, selectedWorkspaceId));
       dispatch({ type: 'request/clear' });
       return true;
     } catch (reason) {
@@ -271,7 +271,7 @@ export function useKnowledgeStore(accessToken, refreshAccessToken) {
 
   const connectSubjects = useCallback(async (source, target) => {
     try {
-      const connection = await execute(token => knowledgeClient.createConnection(token, source, target));
+      const connection = await execute((token, selectedWorkspaceId) => knowledgeClient.createConnection(token, source, target, selectedWorkspaceId));
       dispatch({ type: 'connection/add', connection: toConnection(connection) });
       dispatch({ type: 'request/clear' });
       return connection;
@@ -283,7 +283,7 @@ export function useKnowledgeStore(accessToken, refreshAccessToken) {
 
   const removeConnection = useCallback(async id => {
     try {
-      await execute(token => knowledgeClient.deleteConnection(token, id));
+      await execute((token, selectedWorkspaceId) => knowledgeClient.deleteConnection(token, id, selectedWorkspaceId));
       dispatch({ type: 'connection/remove', id });
       dispatch({ type: 'request/clear' });
       return true;
@@ -295,7 +295,7 @@ export function useKnowledgeStore(accessToken, refreshAccessToken) {
 
   const addSubjectGoal = useCallback(async (subjectId, goal) => {
     try {
-      const created = await execute(token => knowledgeClient.createSubjectGoal(token, subjectId, goal));
+      const created = await execute((token, selectedWorkspaceId) => knowledgeClient.createSubjectGoal(token, subjectId, goal, selectedWorkspaceId));
       dispatch({ type: 'goal/add', goal: created });
       dispatch({ type: 'request/clear' });
       return created;
@@ -307,7 +307,7 @@ export function useKnowledgeStore(accessToken, refreshAccessToken) {
 
   const updateSubjectGoal = useCallback(async (id, goal) => {
     try {
-      const updated = await execute(token => knowledgeClient.updateSubjectGoal(token, id, goal));
+      const updated = await execute((token, selectedWorkspaceId) => knowledgeClient.updateSubjectGoal(token, id, goal, selectedWorkspaceId));
       dispatch({ type: 'goal/update', goal: updated });
       dispatch({ type: 'request/clear' });
       return updated;
@@ -319,7 +319,7 @@ export function useKnowledgeStore(accessToken, refreshAccessToken) {
 
   const removeSubjectGoal = useCallback(async id => {
     try {
-      await execute(token => knowledgeClient.deleteSubjectGoal(token, id));
+      await execute((token, selectedWorkspaceId) => knowledgeClient.deleteSubjectGoal(token, id, selectedWorkspaceId));
       dispatch({ type: 'goal/remove', id });
       dispatch({ type: 'request/clear' });
       return true;
@@ -331,7 +331,7 @@ export function useKnowledgeStore(accessToken, refreshAccessToken) {
 
   const completeSubjectGoal = useCallback(async id => {
     try {
-      await execute(token => knowledgeClient.completeSubjectGoal(token, id));
+      await execute((token, selectedWorkspaceId) => knowledgeClient.completeSubjectGoal(token, id, selectedWorkspaceId));
       dispatch({ type: 'goal/complete', id, completedAtUtc: new Date().toISOString() });
       dispatch({ type: 'request/clear' });
       return true;
@@ -342,7 +342,7 @@ export function useKnowledgeStore(accessToken, refreshAccessToken) {
   }, [execute]);
   const prioritizeSubjectGoal = useCallback(async (id, swapWithId) => {
     try {
-      await execute(token => knowledgeClient.swapSubjectGoalPriority(token, id, swapWithId));
+      await execute((token, selectedWorkspaceId) => knowledgeClient.swapSubjectGoalPriority(token, id, swapWithId, selectedWorkspaceId));
       dispatch({ type: 'goal/prioritize', id, swapWithId });
       return true;
     } catch (reason) {
@@ -352,7 +352,7 @@ export function useKnowledgeStore(accessToken, refreshAccessToken) {
   }, [execute]);
   const setSubGoalCompletion = useCallback(async (id, isCompleted) => {
     try {
-      await execute(token => knowledgeClient.setSubGoalCompletion(token, id, isCompleted));
+      await execute((token, selectedWorkspaceId) => knowledgeClient.setSubGoalCompletion(token, id, isCompleted, selectedWorkspaceId));
       dispatch({ type: 'sub-goal/complete', id, isCompleted, completedAtUtc: new Date().toISOString() });
       dispatch({ type: 'request/clear' });
       return true;
@@ -364,7 +364,7 @@ export function useKnowledgeStore(accessToken, refreshAccessToken) {
 
   const loadGoalActivity = useCallback(async (from, to) => {
     try {
-      const activity = await execute(token => knowledgeClient.getGoalActivity(token, from, to));
+      const activity = await execute((token, selectedWorkspaceId) => knowledgeClient.getGoalActivity(token, from, to, selectedWorkspaceId));
       dispatch({ type: 'goal-activity/loaded', activity });
       return activity;
     } catch (reason) {

@@ -1,7 +1,7 @@
 ﻿import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { lazy, Suspense } from 'react';
 import {
-  ArrowRight, Bell, Brain, Check, ChevronDown, Clock3, FileText, Folder,
+  ArrowRight, Bell, Brain, Check, Clock3, FileText, Folder,
   GitBranch, Hash, HelpCircle, LayoutDashboard, Library, List, LogOut, Menu,
   Maximize2, MoreHorizontal, Network, Plus, Search, Settings, Share2, Sparkles, Trash2, X, Zap,
 } from './icons';
@@ -9,6 +9,7 @@ import { useAuthenticationSession } from './authentication/context/Authenticatio
 import { useKnowledgeStore } from './hooks/useKnowledgeStore';
 import { IconButton } from './components/IconButton';
 import { KnowledgeGraph } from './components/KnowledgeGraph';
+import { WorkspaceSwitcher } from './components/sidebar/WorkspaceSwitcher';
 import { getSubjectParentOptions } from './knowledge/utils/subjectHierarchy';
 
 const StudyDashboard = lazy(() => import('./components/dashboard/StudyDashboard'));
@@ -47,16 +48,20 @@ const initialCanvasContext = {
 
 const Sidebar = memo(function Sidebar({
   user, subjects, notesBySubject, noteCount, activeNav, activeSubject,
-  onNavigate, onSelectSubject, onCreateSubject, onLogout, open, onClose,
+  workspaces, activeWorkspaceId, onWorkspaceChange, onNavigate, onSelectSubject,
+  onCreateSubject, onLogout, open, onClose,
 }) {
   return (
     <>
       {open ? <button className="sidebar-scrim" aria-label="Close menu" onClick={onClose}/> : null}
       <aside className={`sidebar ${open ? 'is-open' : ''}`}>
         <div className="brand"><span className="brand-mark"><Brain size={20}/></span><strong>knowly</strong><span className="beta">BETA</span></div>
-        <button className="workspace-switcher">
-          <span className="avatar">{user.login.slice(0, 2).toUpperCase()}</span><span><strong>{user.login}</strong><small>Personal workspace</small></span><ChevronDown size={16}/>
-        </button>
+        <WorkspaceSwitcher
+          user={user}
+          workspaces={workspaces}
+          activeWorkspaceId={activeWorkspaceId}
+          onChange={onWorkspaceChange}
+        />
         <nav className="primary-nav" aria-label="Primary navigation">
           {NAV_ITEMS.map(({ label, Icon }) => (
             <button key={label} className={activeNav === label ? 'active' : ''} onClick={() => onNavigate(label)}>
@@ -84,10 +89,10 @@ const Sidebar = memo(function Sidebar({
   );
 });
 
-const Topbar = memo(function Topbar({ user, activeNav, query, onQueryChange, onOpenMenu }) {
+const Topbar = memo(function Topbar({ user, workspaceName, activeNav, query, onQueryChange, onOpenMenu }) {
   return (
     <header className="topbar">
-      <div className="crumbs"><IconButton label="Open menu" className="menu-button" onClick={onOpenMenu}><Menu size={20}/></IconButton><span>Workspace</span><b>/</b><strong>{activeNav}</strong></div>
+      <div className="crumbs"><IconButton label="Open menu" className="menu-button" onClick={onOpenMenu}><Menu size={20}/></IconButton><span>{workspaceName}</span><b>/</b><strong>{activeNav}</strong></div>
       <div className="top-actions">
         <label className="search"><Search size={17}/><input value={query} onChange={event => onQueryChange(event.target.value)} placeholder="Search notes..."/><kbd>âŒ˜ K</kbd></label>
         <IconButton label="Notifications" className="notification"><Bell size={18}/><i/></IconButton><span className="avatar">{user.login.slice(0, 2).toUpperCase()}</span>
@@ -171,10 +176,21 @@ const CanvasOverlay = memo(function CanvasOverlay({ open, onClose, graphProps })
 });
 export default function App() {
   const { accessToken, user, logout, refreshAccessToken } = useAuthenticationSession();
+  const workspaces = useMemo(() => user.workspaces ?? [], [user.workspaces]);
+  const workspaceStorageKey = `knowly.active-workspace.${user.id}`;
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState(() => {
+    try {
+      const storedWorkspaceId = window.localStorage.getItem(workspaceStorageKey);
+      if (workspaces.some(workspace => workspace.id === storedWorkspaceId)) return storedWorkspaceId;
+    } catch {
+      // Storage can be unavailable in private browsing; the first workspace is still a safe default.
+    }
+    return workspaces[0]?.id ?? null;
+  });
   const {
     subjects, notes, connections, goals, topics, metricDefinitions, goalActivity, subjectsById, notesBySubject, directNotesBySubject, goalsBySubject, status: knowledgeStatus, error: knowledgeError,
     addSubject, updateSubject, removeSubject, addNote, updateNote, removeNote, createMetricDefinition, createTopic, removeTopic, saveSubjectLayout, connectSubjects, removeConnection, addSubjectGoal, updateSubjectGoal, removeSubjectGoal, completeSubjectGoal, prioritizeSubjectGoal, setSubGoalCompletion, loadGoalActivity,
-  } = useKnowledgeStore(accessToken, refreshAccessToken);
+  } = useKnowledgeStore(accessToken, refreshAccessToken, activeWorkspaceId);
   const [activeNav, setActiveNav] = useState('Overview');
   const [activeSubject, setActiveSubject] = useState('all');
   const [activeTopic, setActiveTopic] = useState('all');
@@ -189,6 +205,23 @@ export default function App() {
   const [canvasContext, setCanvasContext] = useState(initialCanvasContext);
   const copiedTimerRef = useRef(null);
   const pendingLayoutRef = useRef(new Map());
+  const activeWorkspace = useMemo(
+    () => workspaces.find(workspace => workspace.id === activeWorkspaceId) ?? null,
+    [activeWorkspaceId, workspaces]
+  );
+
+  useEffect(() => {
+    if (workspaces.some(workspace => workspace.id === activeWorkspaceId)) return;
+    setActiveWorkspaceId(workspaces[0]?.id ?? null);
+  }, [activeWorkspaceId, workspaces]);
+
+  useEffect(() => {
+    try {
+      if (activeWorkspaceId) window.localStorage.setItem(workspaceStorageKey, activeWorkspaceId);
+    } catch {
+      // Workspace switching remains functional when browser storage is unavailable.
+    }
+  }, [activeWorkspaceId, workspaceStorageKey]);
 
   useEffect(() => {
     const focusSearch = event => {
@@ -245,6 +278,18 @@ export default function App() {
     return saveSubjectLayout(positions, options);
   }, [saveSubjectLayout]);
 
+  const handleWorkspaceChange = useCallback(async workspaceId => {
+    if (!workspaceId || workspaceId === activeWorkspaceId) return;
+    await flushLayoutSave();
+    setActiveWorkspaceId(workspaceId);
+    setActiveSubject('all');
+    setActiveTopic('all');
+    setQuery('');
+    setCanvasContext(initialCanvasContext);
+    closeModal();
+    setMenuOpen(false);
+  }, [activeWorkspaceId, closeModal, flushLayoutSave]);
+
   useEffect(() => {
     const flushOnPageHide = () => {
       void flushLayoutSave({ keepalive: true });
@@ -279,6 +324,9 @@ export default function App() {
     <div className="app-shell">
       <Sidebar
         user={user}
+        workspaces={workspaces}
+        activeWorkspaceId={activeWorkspaceId}
+        onWorkspaceChange={handleWorkspaceChange}
         subjects={subjects}
         notesBySubject={notesBySubject}
         noteCount={notes.length}
@@ -292,7 +340,7 @@ export default function App() {
         onClose={closeMenu}
       />
       <div className="page-wrap">
-        <Topbar user={user} activeNav={activeNav} query={query} onQueryChange={setQuery} onOpenMenu={openMenu}/>
+        <Topbar user={user} workspaceName={activeWorkspace?.name ?? 'Workspace'} activeNav={activeNav} query={query} onQueryChange={setQuery} onOpenMenu={openMenu}/>
         <main>
           <section className="page-intro">
             <div><span className="eyebrow"><Sparkles size={14}/> YOUR KNOWLEDGE SPACE</span><h1>Good morning, {user.login}.</h1><p>{selectedSubject ? `Exploring ${selectedSubject.name}.` : 'Gather your ideas, find the patterns, and keep learning.'}</p></div>

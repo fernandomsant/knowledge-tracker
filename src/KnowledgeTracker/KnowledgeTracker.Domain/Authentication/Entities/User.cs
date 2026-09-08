@@ -10,6 +10,8 @@ public sealed class User
     public string Login { get; init; } = "";
     public string PasswordHash { get; init; } = "";
     public string NormalizedLogin => Login.Trim().ToUpperInvariant();
+    // The user owns the workspace collection; the application layer persists the
+    // resulting Workspace and uses the same limit when checking stored workspaces.
     public IReadOnlyCollection<Workspace> Workspaces => workspaces.AsReadOnly();
 
     public Workspace CreateWorkspace(string name)

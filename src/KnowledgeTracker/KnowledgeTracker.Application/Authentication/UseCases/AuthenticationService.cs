@@ -8,7 +8,8 @@ public sealed class AuthenticationService(
     IPasswordHasher passwords,
     IAccessTokenService accessTokens,
     IRefreshTokenService refreshTokens,
-    AuthenticationOptions options
+    AuthenticationOptions options,
+    KnowledgeTracker.Application.Knowledge.IWorkspaceRepository? workspaces = null
 ) : IAuthenticationService
 {
     public async Task RegisterAsync(string login, string password, CancellationToken ct)
@@ -23,6 +24,10 @@ public sealed class AuthenticationService(
             throw new InvalidOperationException("Login is already registered.");
 
         await users.AddAsync(user, ct);
+        // Registration establishes the first usable knowledge-universe boundary
+        // after the user exists, which is required by the Workspace foreign key.
+        if (workspaces is not null)
+            await workspaces.AddAsync(user.CreateWorkspace("Personal"), ct);
     }
 
     public async Task<TokenPair?> AuthenticateAsync(

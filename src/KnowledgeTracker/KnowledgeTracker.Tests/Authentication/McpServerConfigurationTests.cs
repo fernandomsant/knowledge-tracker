@@ -14,13 +14,15 @@ public sealed class McpServerConfigurationTests
             port: "3001",
             endpointPath: "/mcp",
             applicationBaseUrl: "http://localhost:5015",
-            accessToken: "mcp_identifier_secret"));
+            accessToken: "mcp_identifier_secret",
+            workspaceId: "9c3d8b2e-8f36-4b0f-9d4f-0c91a65d6f7a"));
 
         Assert.Equal("127.0.0.1", options.ListenAddress);
         Assert.Equal(3001, options.Port);
         Assert.Equal("/mcp", options.McpEndpointPath);
         Assert.Equal("http://localhost:5015/", options.ApplicationBaseUrl);
         Assert.Equal("mcp_identifier_secret", options.AccessToken);
+        Assert.Equal(Guid.Parse("9c3d8b2e-8f36-4b0f-9d4f-0c91a65d6f7a"), options.WorkspaceId);
         Assert.Equal("127.0.0.1", options.ListenIpAddress.ToString());
     }
 
@@ -32,6 +34,7 @@ public sealed class McpServerConfigurationTests
     [InlineData("McpEndpointPath", "/mcp?query")]
     [InlineData("ApplicationBaseUrl", "not-a-url")]
     [InlineData("AccessToken", "normal-access-token")]
+    [InlineData("WorkspaceId", "not-a-guid")]
     public void Load_RejectsInvalidConfiguration(string key, string value)
     {
         var values = CreateValues();
@@ -84,9 +87,10 @@ public sealed class McpServerConfigurationTests
         string? port = "3001",
         string? endpointPath = "/mcp",
         string? applicationBaseUrl = "http://localhost:5015",
-        string? accessToken = "mcp_identifier_secret") =>
+        string? accessToken = "mcp_identifier_secret",
+        string? workspaceId = null) =>
         new ConfigurationBuilder()
-            .AddInMemoryCollection(CreateValues(listenAddress, port, endpointPath, applicationBaseUrl, accessToken))
+            .AddInMemoryCollection(CreateValues(listenAddress, port, endpointPath, applicationBaseUrl, accessToken, workspaceId))
             .Build();
 
     private static Dictionary<string, string?> CreateValues(
@@ -94,12 +98,14 @@ public sealed class McpServerConfigurationTests
         string? port = "3001",
         string? endpointPath = "/mcp",
         string? applicationBaseUrl = "http://localhost:5015",
-        string? accessToken = "mcp_identifier_secret") => new()
+        string? accessToken = "mcp_identifier_secret",
+        string? workspaceId = null) => new()
     {
         ["McpServer:ListenAddress"] = listenAddress,
         ["McpServer:Port"] = port,
         ["McpServer:McpEndpointPath"] = endpointPath,
         ["McpServer:ApplicationBaseUrl"] = applicationBaseUrl,
         ["McpServer:AccessToken"] = accessToken,
+        ["McpServer:WorkspaceId"] = workspaceId,
     };
 }

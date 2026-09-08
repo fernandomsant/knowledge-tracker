@@ -9,7 +9,8 @@ internal static class ConfigurationValidation
         int? port,
         string? mcpEndpointPath,
         string? applicationBaseUrl,
-        string? accessToken)
+        string? accessToken,
+        string? workspaceId)
     {
         var normalizedListenAddress = listenAddress?.Trim();
         if (string.IsNullOrWhiteSpace(normalizedListenAddress)
@@ -43,6 +44,17 @@ internal static class ConfigurationValidation
             throw new InvalidOperationException(
                 "MCP server configuration value 'McpServer:AccessToken' must be an MCP access token.");
 
+        var normalizedWorkspaceId = workspaceId?.Trim();
+        Guid? parsedWorkspaceId = null;
+        if (!string.IsNullOrWhiteSpace(normalizedWorkspaceId))
+        {
+            if (!Guid.TryParse(normalizedWorkspaceId, out var workspaceGuid) || workspaceGuid == Guid.Empty)
+                throw new InvalidOperationException(
+                    "MCP server configuration value 'McpServer:WorkspaceId' must be a valid workspace identifier.");
+
+            parsedWorkspaceId = workspaceGuid;
+        }
+
         return new McpServerOptions
         {
             ListenAddress = normalizedListenAddress,
@@ -51,6 +63,7 @@ internal static class ConfigurationValidation
             McpEndpointPath = normalizedEndpointPath!,
             ApplicationBaseUrl = baseUri.ToString().TrimEnd('/') + "/",
             AccessToken = normalizedAccessToken,
+            WorkspaceId = parsedWorkspaceId,
         };
     }
 

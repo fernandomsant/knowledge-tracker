@@ -29,6 +29,19 @@ public sealed class ApplicationApiClientTests
     }
 
     [Fact]
+    public async Task ListSubjectsAsync_ForwardsConfiguredWorkspaceSelection()
+    {
+        var workspaceId = Guid.NewGuid();
+        var transport = new RecordingHttpMessageHandler(_ =>
+            Task.FromResult(JsonResponse(HttpStatusCode.OK, Array.Empty<SubjectSummary>())));
+        var client = CreateClient(transport, workspaceId);
+
+        await client.ListSubjectsAsync(CancellationToken.None);
+
+        Assert.Equal(workspaceId.ToString(), transport.Request!.Headers.GetValues("X-Workspace-Id").Single());
+    }
+
+    [Fact]
     public async Task CreateSubjectAsync_SerializesTypedRequestAndReadsTypedResponse()
     {
         var subject = new SubjectSummary(Guid.NewGuid(), "C#", "Language notes", null, null);
@@ -152,7 +165,7 @@ public sealed class ApplicationApiClientTests
         Assert.Equal(1, calls);
     }
 
-    private static IApplicationApiClient CreateClient(HttpMessageHandler transport)
+    private static IApplicationApiClient CreateClient(HttpMessageHandler transport, Guid? workspaceId = null)
     {
         var options = new McpServerOptions
         {
@@ -162,6 +175,7 @@ public sealed class ApplicationApiClientTests
             McpEndpointPath = "/mcp",
             ApplicationBaseUrl = "http://localhost:5015/",
             AccessToken = "mcp_identifier_secret",
+            WorkspaceId = workspaceId,
         };
         var authentication = new McpAccessTokenHandler(options)
         {

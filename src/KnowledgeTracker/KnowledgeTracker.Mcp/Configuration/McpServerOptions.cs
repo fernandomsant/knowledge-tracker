@@ -10,6 +10,9 @@ public sealed class McpServerOptions
     public required string McpEndpointPath { get; init; }
     public required string ApplicationBaseUrl { get; init; }
     public required string AccessToken { get; init; }
+    // One MCP server instance operates on one configured knowledge workspace.
+    // It remains optional until the application knowledge routes require it.
+    public Guid? WorkspaceId { get; init; }
     public required IPAddress ListenIpAddress { get; init; }
 
     public static McpServerOptions Load(IConfiguration configuration)
@@ -20,6 +23,7 @@ public sealed class McpServerOptions
             section.GetValue<int?>("Port"),
             section["McpEndpointPath"],
             section["ApplicationBaseUrl"],
-            section["AccessToken"]);
+            section["AccessToken"],
+            section["WorkspaceId"]);
     }
 }

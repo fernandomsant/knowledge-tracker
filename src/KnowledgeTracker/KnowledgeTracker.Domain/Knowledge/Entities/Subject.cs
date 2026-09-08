@@ -5,22 +5,45 @@ public sealed class Subject
     private readonly List<StudyNote> studyNotes = [];
 
     public Subject(string name, string? description = null, Guid? parentSubjectId = null)
-        : this(Guid.NewGuid(), name, description, parentSubjectId)
+        : this(Guid.NewGuid(), null, null, name, description, parentSubjectId)
     {
     }
 
     public Subject(Guid id, string name, string? description = null, Guid? parentSubjectId = null)
+        : this(id, null, null, name, description, parentSubjectId)
+    {
+    }
+
+    public Subject(Guid userId, Guid workspaceId, string name, string? description = null, Guid? parentSubjectId = null)
+        : this(Guid.NewGuid(), userId, workspaceId, name, description, parentSubjectId)
+    {
+    }
+
+    public Subject(Guid id, Guid userId, Guid workspaceId, string name, string? description = null, Guid? parentSubjectId = null)
+        : this(id, (Guid?)userId, (Guid?)workspaceId, name, description, parentSubjectId)
+    {
+    }
+
+    private Subject(Guid id, Guid? userId, Guid? workspaceId, string name, string? description, Guid? parentSubjectId)
     {
         if (id == Guid.Empty)
             throw new ArgumentException("Subject identifier is required.", nameof(id));
+        if (userId is { } requiredUserId && requiredUserId == Guid.Empty)
+            throw new ArgumentException("Subject user identifier is required.", nameof(userId));
+        if (workspaceId is { } requiredWorkspaceId && requiredWorkspaceId == Guid.Empty)
+            throw new ArgumentException("Subject workspace identifier is required.", nameof(workspaceId));
 
         Id = id;
+        UserId = userId ?? Guid.Empty;
+        WorkspaceId = workspaceId ?? Guid.Empty;
         Rename(name);
         UpdateDescription(description);
         SetParent(parentSubjectId);
     }
 
     public Guid Id { get; }
+    public Guid UserId { get; }
+    public Guid WorkspaceId { get; }
     public string Name { get; private set; } = string.Empty;
     public string? Description { get; private set; }
     public Guid? ParentSubjectId { get; private set; }

@@ -36,6 +36,16 @@ file static class StudentWorkspaceSeed
             ("@normalizedLogin", "STUDENT"),
             ("@passwordHash", "600000:c3R1ZGVudC1zZWVkLXYxIQ==:iC42+OEa6bTa4+8NTTMy0qVY668LScq7d8lHVy63YoA="));
 
+        await ExecuteAsync(connection, transaction, """
+            IF NOT EXISTS (SELECT 1 FROM dbo.Workspaces WHERE UserId = @userId AND Name = @name)
+            INSERT INTO dbo.Workspaces (Id, UserId, Name, CreatedAtUtc)
+            VALUES (@id, @userId, @name, @createdAtUtc);
+            """,
+            ("@id", Guid.Parse(SeedId("workspace-student"))),
+            ("@userId", StudentUserId),
+            ("@name", "Personal"),
+            ("@createdAtUtc", DateTimeOffset.Parse("2000-01-01T00:00:00+00:00")));
+
         var subjects = new[]
         {
             new SubjectSeed("4DDC929A-5B93-4DB0-BEE0-274F5302EF75", "Computer Science", "Core concepts for software design and problem solving.", null),
@@ -53,8 +63,10 @@ file static class StudentWorkspaceSeed
         foreach (var subject in subjects)
             await ExecuteAsync(connection, transaction, """
                 IF NOT EXISTS (SELECT 1 FROM dbo.Subjects WHERE Id = @id)
-                INSERT INTO dbo.Subjects (Id, UserId, Name, Description, ParentSubjectId)
-                VALUES (@id, @userId, @name, @description, @parentSubjectId);
+                INSERT INTO dbo.Subjects (Id, UserId, WorkspaceId, Name, Description, ParentSubjectId)
+                SELECT @id, @userId, workspace.Id, @name, @description, @parentSubjectId
+                FROM dbo.Workspaces AS workspace
+                WHERE workspace.UserId = @userId AND workspace.Name = 'Personal';
                 """,
                 ("@id", Guid.Parse(subject.Id)),
                 ("@userId", StudentUserId),
@@ -144,6 +156,23 @@ file static class StudentWorkspaceSeed
                 ("@id", Guid.Parse(connectionSeed.Id)),
                 ("@subjectId", Guid.Parse(connectionSeed.SubjectId)),
                 ("@connectedSubjectId", Guid.Parse(connectionSeed.ConnectedSubjectId)));
+
+        foreach (var definition in new[]
+        {
+            (Id: "B2B182D0-8709-4328-BDA1-0A73B51D0E82", Name: "Pages read", NumberKind: (byte)1),
+            (Id: "6D584D3A-6D8E-4B7A-A9AF-2C52C90DAA5E", Name: "Exercises done", NumberKind: (byte)1),
+            (Id: "A0D2E2F1-9C18-4D4B-9D01-6B2A7CB4C520", Name: "Study time", NumberKind: (byte)2)
+        })
+            await ExecuteAsync(connection, transaction, """
+                IF NOT EXISTS (SELECT 1 FROM dbo.StudyMetricDefinitions WHERE Id = @id)
+                INSERT INTO dbo.StudyMetricDefinitions (Id, UserId, Name, NormalizedName, NumberKind)
+                VALUES (@id, @userId, @name, @normalizedName, @numberKind);
+                """,
+                ("@id", Guid.Parse(definition.Id)),
+                ("@userId", StudentUserId),
+                ("@name", definition.Name),
+                ("@normalizedName", definition.Name.ToUpperInvariant()),
+                ("@numberKind", definition.NumberKind));
 
         var metrics = new List<MetricSeed>
         {

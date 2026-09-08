@@ -7,6 +7,25 @@ Accept: application/json
 
 @accessToken = replace-with-an-access-token
 @topicId = replace-with-an-unused-topic-id
+@workspaceId = replace-with-a-workspace-id
+
+### List workspaces
+GET {{KnowledgeTracker.Web_HostAddress}}/api/workspaces
+Authorization: Bearer {{accessToken}}
+
+### Create a workspace
+POST {{KnowledgeTracker.Web_HostAddress}}/api/workspaces
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "Programming"
+}
+
+### Select a workspace for knowledge endpoints
+GET {{KnowledgeTracker.Web_HostAddress}}/api/subjects
+Authorization: Bearer {{accessToken}}
+X-Workspace-Id: {{workspaceId}}
 
 DELETE {{KnowledgeTracker.Web_HostAddress}}/api/topics/{{topicId}}
 Authorization: Bearer {{accessToken}}

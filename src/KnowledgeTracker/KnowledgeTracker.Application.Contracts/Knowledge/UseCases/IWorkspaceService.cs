@@ -5,5 +5,6 @@ namespace KnowledgeTracker.Application.Knowledge;
 public interface IWorkspaceService
 {
     Task<IReadOnlyCollection<WorkspaceDetails>> ListAsync(CancellationToken ct);
+    Task<WorkspaceDetails?> GetAsync(Guid id, CancellationToken ct);
     Task<WorkspaceDetails> CreateAsync(CreateWorkspaceRequest request, CancellationToken ct);
 }

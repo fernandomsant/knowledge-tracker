@@ -13,6 +13,12 @@ public sealed class WorkspaceService(IWorkspaceRepository workspaces, ICurrentUs
         return (await workspaces.ListAsync(userId, ct)).Select(ToDetails).ToArray();
     }
 
+    public async Task<WorkspaceDetails?> GetAsync(Guid id, CancellationToken ct)
+    {
+        var workspace = await workspaces.FindAsync(id, RequireUserId(), ct);
+        return workspace is null ? null : ToDetails(workspace);
+    }
+
     public async Task<WorkspaceDetails> CreateAsync(CreateWorkspaceRequest request, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(request);

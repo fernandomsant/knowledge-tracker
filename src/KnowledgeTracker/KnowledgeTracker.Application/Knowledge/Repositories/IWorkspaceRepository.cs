@@ -7,6 +7,7 @@ namespace KnowledgeTracker.Application.Knowledge;
 public interface IWorkspaceRepository
 {
     Task<IReadOnlyCollection<Workspace>> ListAsync(Guid userId, CancellationToken ct);
+    Task<Workspace?> FindAsync(Guid id, Guid userId, CancellationToken ct);
     Task<int> CountAsync(Guid userId, CancellationToken ct);
     Task AddAsync(Workspace workspace, CancellationToken ct);
 }

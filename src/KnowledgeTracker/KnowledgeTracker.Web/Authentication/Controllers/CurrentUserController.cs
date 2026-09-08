@@ -22,6 +22,11 @@ public sealed class CurrentUserController(ICurrentUserService currentUser) : Con
             return Unauthorized();
 
         var user = await currentUser.GetAsync(id, ct);
-        return user is null ? NotFound() : Ok(new CurrentUserResponse(user.Id, user.Login));
+        return user is null
+            ? NotFound()
+            : Ok(new CurrentUserResponse(
+                user.Id,
+                user.Login,
+                user.Workspaces.Select(workspace => new WorkspaceResponse(workspace.Id, workspace.Name, workspace.CreatedAtUtc)).ToArray()));
     }
 }

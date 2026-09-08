@@ -39,6 +39,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddSingleton(authenticationOptions);
 builder.Services.AddSingleton<Func<DbConnection>>(_ => () => new SqlConnection(connectionString));
 builder.Services.AddScoped<IUserRepository, SqlServerUserRepository>();
+builder.Services.AddScoped<IWorkspaceRepository, SqlServerWorkspaceRepository>();
 builder.Services.AddScoped<IMcpAccessTokenRepository, SqlServerMcpAccessTokenRepository>();
 builder.Services.AddScoped<ISessionRepository, SqlServerSessionRepository>();
 builder.Services.AddScoped<ISubjectRepository, SqlServerSubjectRepository>();
@@ -55,6 +56,7 @@ builder.Services.AddSingleton<IClock, KnowledgeTracker.Infrastructure.Authentica
 builder.Services.AddSingleton<IMcpAccessTokenGenerator, OpaqueMcpAccessTokenGenerator>();
 builder.Services.AddScoped<IMcpAccessTokenValidator, McpAccessTokenValidator>();
 builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
+builder.Services.AddScoped<ICurrentWorkspaceContext, CurrentWorkspaceContext>();
 builder.Services.AddScoped<CurrentUserDataScope>();
 builder.Services.AddScoped<IActionAuthorizationService, McpAwareActionAuthorizationService>();
 builder.Services.AddSingleton<IAccessTokenService>(_ =>
@@ -65,6 +67,7 @@ builder.Services.AddSingleton<IRefreshTokenService>(_ =>
 );
 builder.Services.AddScoped<KnowledgeTracker.Application.Authentication.IAuthenticationService, KnowledgeTracker.Application.Authentication.AuthenticationService>();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+builder.Services.AddScoped<IWorkspaceService, WorkspaceService>();
 builder.Services.AddScoped<IMcpAccessTokenService, McpAccessTokenService>();
 builder.Services.AddScoped<ISubjectService, SubjectService>();
 builder.Services.AddScoped<ISubjectLayoutService, SubjectLayoutService>();

@@ -28,10 +28,23 @@ public sealed class McpAccessTokenValidatorTests
         Assert.Same(token, Assert.Single(repository.Updated));
     }
 
+    [Fact]
+    public async Task ValidateAsync_AcceptsSecretContainingUnderscores()
+    {
+        var token = CreateToken();
+        var repository = new FakeTokenRepository(token);
+        var validator = CreateValidator(repository);
+
+        var result = await validator.ValidateAsync("mcp_identifier_secret_with_underscores", CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal(UserId, result.UserId);
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("mcp_identifier")]
-    [InlineData("mcp_identifier_secret_extra")]
+    [InlineData("mcp_identifier_")]
     [InlineData("other_identifier_secret")]
     public async Task ValidateAsync_RejectsMalformedToken(string value)
     {
@@ -114,7 +127,8 @@ public sealed class McpAccessTokenValidatorTests
     private sealed class FakePasswordHasher : IPasswordHasher
     {
         public string Hash(string password) => "hash";
-        public bool Verify(string password, string encoded) => password == "secret" && encoded == "hash";
+        public bool Verify(string password, string encoded) =>
+            encoded == "hash" && (password is "secret" or "secret_with_underscores");
     }
 
     private sealed class FakeClock(DateTimeOffset now) : IClock

@@ -15,7 +15,7 @@ public sealed class SqlServerSubjectConnectionRepository(Func<DbConnection> conn
         await connection.OpenAsync(ct);
         await using var command = connection.CreateCommand();
         command.CommandText = """
-            SELECT Id, SubjectId, ConnectedSubjectId
+            SELECT connection.Id, connection.SubjectId, connection.ConnectedSubjectId
             FROM dbo.SubjectConnections AS connection
             INNER JOIN dbo.Subjects AS owner ON owner.Id = connection.SubjectId
             INNER JOIN dbo.Subjects AS connected ON connected.Id = connection.ConnectedSubjectId
@@ -64,13 +64,13 @@ public sealed class SqlServerSubjectConnectionRepository(Func<DbConnection> conn
         await connection.OpenAsync(ct);
         await using var command = connection.CreateCommand();
         command.CommandText = """
-            SELECT Id, SubjectId, ConnectedSubjectId
+            SELECT connection.Id, connection.SubjectId, connection.ConnectedSubjectId
             FROM dbo.SubjectConnections AS connection
             INNER JOIN dbo.Subjects AS owner ON owner.Id = connection.SubjectId
             INNER JOIN dbo.Subjects AS connected ON connected.Id = connection.ConnectedSubjectId
             WHERE (connection.SubjectId = @SubjectId OR connection.ConnectedSubjectId = @SubjectId)
               AND owner.UserId = @UserId AND connected.UserId = @UserId
-            ORDER BY Id;
+            ORDER BY connection.Id;
             """;
         command.AddParameter("@SubjectId", DbType.Guid, subjectId);
         command.AddParameter("@UserId", DbType.Guid, dataScope.RequireUserId());

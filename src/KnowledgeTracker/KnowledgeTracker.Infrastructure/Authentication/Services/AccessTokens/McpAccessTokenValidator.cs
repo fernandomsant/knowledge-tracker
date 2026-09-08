@@ -38,7 +38,7 @@ public sealed class McpAccessTokenValidator(
             if (string.IsNullOrWhiteSpace(value))
                 return false;
 
-            var parts = value.Split('_', StringSplitOptions.None);
+            var parts = value.Split('_', 3, StringSplitOptions.None);
             if (parts.Length != 3 || !string.Equals(parts[0], "mcp", StringComparison.Ordinal))
                 return false;
             if (string.IsNullOrWhiteSpace(parts[1]) || string.IsNullOrWhiteSpace(parts[2]))

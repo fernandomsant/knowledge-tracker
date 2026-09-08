@@ -3,6 +3,7 @@ using System.Diagnostics;
 using KnowledgeTracker.Application.Authentication;
 using KnowledgeTracker.Application.Knowledge;
 using KnowledgeTracker.Data.Authentication.Repositories;
+using KnowledgeTracker.Data.Database;
 using KnowledgeTracker.Data.Knowledge.Repositories;
 using KnowledgeTracker.Infrastructure.Authentication;
 using KnowledgeTracker.Infrastructure.Authentication.Services;
@@ -54,6 +55,7 @@ builder.Services.AddSingleton<IClock, KnowledgeTracker.Infrastructure.Authentica
 builder.Services.AddSingleton<IMcpAccessTokenGenerator, OpaqueMcpAccessTokenGenerator>();
 builder.Services.AddScoped<IMcpAccessTokenValidator, McpAccessTokenValidator>();
 builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
+builder.Services.AddScoped<CurrentUserDataScope>();
 builder.Services.AddScoped<IActionAuthorizationService, McpAwareActionAuthorizationService>();
 builder.Services.AddSingleton<IAccessTokenService>(_ =>
     new HmacAccessTokenService(accessTokenKey, authenticationOptions)

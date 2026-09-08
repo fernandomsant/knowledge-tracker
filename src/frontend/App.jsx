@@ -10,7 +10,9 @@ import { useKnowledgeStore } from './hooks/useKnowledgeStore';
 import { IconButton } from './components/IconButton';
 import { KnowledgeGraph } from './components/KnowledgeGraph';
 import { WorkspaceSwitcher } from './components/sidebar/WorkspaceSwitcher';
+import { WorkspaceCreateModal } from './components/sidebar/WorkspaceCreateModal';
 import { getSubjectParentOptions } from './knowledge/utils/subjectHierarchy';
+import { knowledgeClient } from './knowledge/api/knowledgeClient';
 
 const StudyDashboard = lazy(() => import('./components/dashboard/StudyDashboard'));
 
@@ -48,7 +50,7 @@ const initialCanvasContext = {
 
 const Sidebar = memo(function Sidebar({
   user, subjects, notesBySubject, noteCount, activeNav, activeSubject,
-  workspaces, activeWorkspaceId, onWorkspaceChange, onNavigate, onSelectSubject,
+  workspaces, activeWorkspaceId, onWorkspaceChange, onCreateWorkspace, onNavigate, onSelectSubject,
   onCreateSubject, onLogout, open, onClose,
 }) {
   return (
@@ -61,6 +63,7 @@ const Sidebar = memo(function Sidebar({
           workspaces={workspaces}
           activeWorkspaceId={activeWorkspaceId}
           onChange={onWorkspaceChange}
+          onCreate={onCreateWorkspace}
         />
         <nav className="primary-nav" aria-label="Primary navigation">
           {NAV_ITEMS.map(({ label, Icon }) => (
@@ -176,7 +179,7 @@ const CanvasOverlay = memo(function CanvasOverlay({ open, onClose, graphProps })
 });
 export default function App() {
   const { accessToken, user, logout, refreshAccessToken } = useAuthenticationSession();
-  const workspaces = useMemo(() => user.workspaces ?? [], [user.workspaces]);
+  const [workspaces, setWorkspaces] = useState(() => user.workspaces ?? []);
   const workspaceStorageKey = `knowly.active-workspace.${user.id}`;
   const [activeWorkspaceId, setActiveWorkspaceId] = useState(() => {
     try {
@@ -201,6 +204,10 @@ export default function App() {
   const [newSubjectName, setNewSubjectName] = useState('');
   const [newSubjectParentId, setNewSubjectParentId] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [workspaceModalOpen, setWorkspaceModalOpen] = useState(false);
+  const [newWorkspaceName, setNewWorkspaceName] = useState('');
+  const [workspaceError, setWorkspaceError] = useState(null);
+  const [workspaceCreating, setWorkspaceCreating] = useState(false);
   const [canvasExpanded, setCanvasExpanded] = useState(false);
   const [canvasContext, setCanvasContext] = useState(initialCanvasContext);
   const copiedTimerRef = useRef(null);
@@ -209,6 +216,8 @@ export default function App() {
     () => workspaces.find(workspace => workspace.id === activeWorkspaceId) ?? null,
     [activeWorkspaceId, workspaces]
   );
+
+  useEffect(() => setWorkspaces(user.workspaces ?? []), [user.workspaces]);
 
   useEffect(() => {
     if (workspaces.some(workspace => workspace.id === activeWorkspaceId)) return;
@@ -290,6 +299,54 @@ export default function App() {
     setMenuOpen(false);
   }, [activeWorkspaceId, closeModal, flushLayoutSave]);
 
+  const closeWorkspaceModal = useCallback(() => {
+    if (workspaceCreating) return;
+    setWorkspaceModalOpen(false);
+    setNewWorkspaceName('');
+    setWorkspaceError(null);
+  }, [workspaceCreating]);
+
+  const openWorkspaceModal = useCallback(() => {
+    if (workspaces.length >= 5) return;
+    setWorkspaceError(null);
+    setWorkspaceModalOpen(true);
+  }, [workspaces.length]);
+
+  const handleCreateWorkspace = useCallback(async event => {
+    event.preventDefault();
+    const name = newWorkspaceName.trim();
+    if (!name || workspaceCreating || workspaces.length >= 5) return;
+
+    setWorkspaceCreating(true);
+    setWorkspaceError(null);
+    try {
+      let workspace;
+      try {
+        workspace = await knowledgeClient.createWorkspace(accessToken, name);
+      } catch (reason) {
+        if (reason?.status !== 401) throw reason;
+        const refreshedSession = await refreshAccessToken();
+        if (!refreshedSession) throw reason;
+        workspace = await knowledgeClient.createWorkspace(refreshedSession.accessToken, name);
+      }
+
+      await flushLayoutSave();
+      setWorkspaces(current => [...current, workspace]);
+      setActiveWorkspaceId(workspace.id);
+      setActiveSubject('all');
+      setActiveTopic('all');
+      setQuery('');
+      setCanvasContext(initialCanvasContext);
+      setWorkspaceModalOpen(false);
+      setNewWorkspaceName('');
+      setMenuOpen(false);
+    } catch (reason) {
+      setWorkspaceError(reason instanceof Error ? reason.message : 'The workspace could not be created. Try again.');
+    } finally {
+      setWorkspaceCreating(false);
+    }
+  }, [accessToken, flushLayoutSave, newWorkspaceName, refreshAccessToken, workspaceCreating, workspaces.length]);
+
   useEffect(() => {
     const flushOnPageHide = () => {
       void flushLayoutSave({ keepalive: true });
@@ -327,6 +384,7 @@ export default function App() {
         workspaces={workspaces}
         activeWorkspaceId={activeWorkspaceId}
         onWorkspaceChange={handleWorkspaceChange}
+        onCreateWorkspace={openWorkspaceModal}
         subjects={subjects}
         notesBySubject={notesBySubject}
         noteCount={notes.length}
@@ -438,7 +496,9 @@ export default function App() {
           onCompleteGoal: completeSubjectGoal,
           onSetSubGoalCompletion: setSubGoalCompletion,
         }}
-      />      <SubjectModal open={modalOpen} name={newSubjectName} parentSubjectId={newSubjectParentId} parentOptions={parentOptions} onNameChange={setNewSubjectName} onParentChange={setNewSubjectParentId} onClose={closeModal} onCreate={handleCreateSubject}/>
+      />
+      <SubjectModal open={modalOpen} name={newSubjectName} parentSubjectId={newSubjectParentId} parentOptions={parentOptions} onNameChange={setNewSubjectName} onParentChange={setNewSubjectParentId} onClose={closeModal} onCreate={handleCreateSubject}/>
+      <WorkspaceCreateModal open={workspaceModalOpen} name={newWorkspaceName} error={workspaceError} isSubmitting={workspaceCreating} onNameChange={setNewWorkspaceName} onClose={closeWorkspaceModal} onCreate={handleCreateWorkspace}/>
     </div>
   );
 }

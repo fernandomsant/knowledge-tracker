@@ -28,6 +28,7 @@ async function request(accessToken, path, { method = 'GET', body, keepalive = fa
 }
 
 export const knowledgeClient = {
+  createWorkspace: (accessToken, name) => request(accessToken, '/api/workspaces', { method: 'POST', body: { name } }),
   async load(accessToken, workspaceId) {
     const requestOptions = { workspaceId };
     const summaries = await request(accessToken, '/api/subjects', requestOptions);

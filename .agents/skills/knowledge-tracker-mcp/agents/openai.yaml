@@ -1,0 +1,4 @@
+interface:
+  display_name: "Knowledge Tracker MCP"
+  short_description: "Use Knowledge Tracker MCP operations"
+  default_prompt: "Use the Knowledge Tracker MCP server to work with a workspace's subjects, topics, notes, or goals."

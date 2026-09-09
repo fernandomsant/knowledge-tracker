@@ -58,6 +58,7 @@ builder.Services.AddScoped<IMcpAccessTokenValidator, McpAccessTokenValidator>();
 builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
 builder.Services.AddScoped<ICurrentWorkspaceContext, CurrentWorkspaceContext>();
 builder.Services.AddScoped<CurrentUserDataScope>();
+builder.Services.AddScoped<CurrentWorkspaceDataScope>();
 builder.Services.AddScoped<IActionAuthorizationService, McpAwareActionAuthorizationService>();
 builder.Services.AddSingleton<IAccessTokenService>(_ =>
     new HmacAccessTokenService(accessTokenKey, authenticationOptions)

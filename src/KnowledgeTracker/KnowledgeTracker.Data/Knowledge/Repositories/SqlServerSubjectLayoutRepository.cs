@@ -7,15 +7,15 @@ using KnowledgeTracker.Domain.Knowledge;
 
 namespace KnowledgeTracker.Data.Knowledge.Repositories;
 
-public sealed class SqlServerSubjectLayoutRepository(Func<DbConnection> connectionFactory, CurrentUserDataScope dataScope) : ISubjectLayoutRepository
+public sealed class SqlServerSubjectLayoutRepository(Func<DbConnection> connectionFactory, CurrentWorkspaceDataScope dataScope) : ISubjectLayoutRepository
 {
     public async Task<IReadOnlyCollection<SubjectLayoutPosition>> ListAsync(CancellationToken ct)
     {
         await using var connection = connectionFactory();
         await connection.OpenAsync(ct);
         await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT layout.SubjectId, layout.NormalizedX, layout.NormalizedY FROM dbo.SubjectLayout AS layout INNER JOIN dbo.Subjects AS subject ON subject.Id = layout.SubjectId WHERE subject.UserId = @UserId;";
-        command.AddParameter("@UserId", DbType.Guid, dataScope.RequireUserId());
+        command.CommandText = "SELECT layout.SubjectId, layout.NormalizedX, layout.NormalizedY FROM dbo.SubjectLayout AS layout INNER JOIN dbo.Subjects AS subject ON subject.Id = layout.SubjectId WHERE subject.UserId = @UserId AND subject.WorkspaceId = @WorkspaceId;";
+        AddScope(command);
         await using var reader = await command.ExecuteReaderAsync(ct);
 
         var positions = new List<SubjectLayoutPosition>();
@@ -65,7 +65,7 @@ public sealed class SqlServerSubjectLayoutRepository(Func<DbConnection> connecti
                 UpdatedAtUtc = SYSUTCDATETIME()
             FROM dbo.SubjectLayout target
             JOIN @Source source ON source.SubjectId = target.SubjectId
-            INNER JOIN dbo.Subjects subject ON subject.Id = target.SubjectId AND subject.UserId = @UserId;
+            INNER JOIN dbo.Subjects subject ON subject.Id = target.SubjectId AND subject.UserId = @UserId AND subject.WorkspaceId = @WorkspaceId;
 
 
             INSERT INTO dbo.SubjectLayout (SubjectId, NormalizedX, NormalizedY, UpdatedAtUtc)
@@ -77,11 +77,17 @@ public sealed class SqlServerSubjectLayoutRepository(Func<DbConnection> connecti
                 FROM dbo.SubjectLayout target
                 WHERE target.SubjectId = source.SubjectId
             )
-            AND EXISTS (SELECT 1 FROM dbo.Subjects subject WHERE subject.Id = source.SubjectId AND subject.UserId = @UserId);
+            AND EXISTS (SELECT 1 FROM dbo.Subjects subject WHERE subject.Id = source.SubjectId AND subject.UserId = @UserId AND subject.WorkspaceId = @WorkspaceId);
             """;
         command.AddParameter("@Positions", DbType.String, payload);
-        command.AddParameter("@UserId", DbType.Guid, dataScope.RequireUserId());
+        AddScope(command);
         await command.ExecuteNonQueryAsync(ct);
         await transaction.CommitAsync(ct);
+    }
+
+    private void AddScope(DbCommand command)
+    {
+        command.AddParameter("@UserId", DbType.Guid, dataScope.RequireUserId());
+        command.AddParameter("@WorkspaceId", DbType.Guid, dataScope.RequireWorkspaceId());
     }
 }

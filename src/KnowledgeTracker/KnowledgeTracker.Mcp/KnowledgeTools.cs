@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using KnowledgeTracker.Application.Knowledge;
+using KnowledgeTracker.Domain.Knowledge;
 using KnowledgeTracker.Mcp.ApplicationApi;
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
@@ -75,11 +76,26 @@ public sealed class KnowledgeTools(
     public async Task<StudyNoteDetails> CreateNoteAsync(
         [Description("The workspace name where this operation must occur.")] string workspaceName,
         [Description("The owning leaf subject identifier.")] Guid subjectId,
-        CreateStudyNoteRequest request,
-        CancellationToken cancellationToken)
+        [Description("The topic identifier for this note.")] Guid topicId,
+        [Description("The note title.")] string title,
+        [Description("The note content.")] string content,
+        [Description("The study duration in whole minutes.")] int studyDurationMinutes,
+        [Description("When the study session started, in ISO-8601 format.")] DateTimeOffset studyStartedAtUtc,
+        [Description("Optional metric values, each with definitionId and value.")] IReadOnlyCollection<McpStudyNoteMetric>? metrics = null,
+        CancellationToken cancellationToken = default)
     {
         return await McpErrorMapper.ExecuteAsync(async () =>
-            await application.CreateNoteAsync(await ResolveWorkspaceIdAsync(workspaceName, cancellationToken), subjectId, request, cancellationToken))
+            await application.CreateNoteAsync(
+                await ResolveWorkspaceIdAsync(workspaceName, cancellationToken),
+                subjectId,
+                new CreateStudyNoteRequest(
+                    topicId,
+                    title,
+                    content,
+                    TimeSpan.FromMinutes(studyDurationMinutes),
+                    studyStartedAtUtc,
+                    (metrics ?? []).Select(metric => new StudyNoteMetricRequest(metric.DefinitionId, metric.Value)).ToArray()),
+                cancellationToken))
             ?? throw new KeyNotFoundException($"Subject '{subjectId}' was not found.");
     }
 
@@ -96,11 +112,34 @@ public sealed class KnowledgeTools(
     public async Task<SubjectGoalDetails> CreateGoalAsync(
         [Description("The workspace name where this operation must occur.")] string workspaceName,
         [Description("The subject identifier.")] Guid subjectId,
-        CreateSubjectGoalRequest request,
-        CancellationToken cancellationToken)
+        [Description("The topic identifier for this goal.")] Guid topicId,
+        [Description("The goal title.")] string title,
+        [Description("The goal type: MetricTarget or TargetDate.")] GoalKind kind,
+        [Description("Required for MetricTarget goals; otherwise omit.")] Guid? metricDefinitionId = null,
+        [Description("Required and positive for MetricTarget goals; otherwise omit.")] decimal? targetValue = null,
+        [Description("Optional due date for TargetDate goals, in ISO-8601 format.")] DateOnly? targetDate = null,
+        [Description("The goal period: AllTime, Daily, Weekly, Monthly, or Custom.")] GoalPeriod period = GoalPeriod.AllTime,
+        [Description("Required only when period is Custom, in ISO-8601 format.")] DateOnly? periodStartDate = null,
+        [Description("Required only when period is Custom, in ISO-8601 format.")] DateOnly? periodEndDate = null,
+        [Description("Optional checklist items for TargetDate goals.")] IReadOnlyCollection<string>? subGoals = null,
+        CancellationToken cancellationToken = default)
     {
         return await McpErrorMapper.ExecuteAsync(async () =>
-            await application.CreateGoalAsync(await ResolveWorkspaceIdAsync(workspaceName, cancellationToken), subjectId, request, cancellationToken))
+            await application.CreateGoalAsync(
+                await ResolveWorkspaceIdAsync(workspaceName, cancellationToken),
+                subjectId,
+                new CreateSubjectGoalRequest(
+                    topicId,
+                    title,
+                    kind,
+                    metricDefinitionId,
+                    targetValue,
+                    targetDate,
+                    period,
+                    periodStartDate,
+                    periodEndDate,
+                    subGoals ?? []),
+                cancellationToken))
             ?? throw new KeyNotFoundException($"Subject '{subjectId}' was not found.");
     }
 

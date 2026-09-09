@@ -1,5 +1,6 @@
 using System.Net;
 using KnowledgeTracker.Application.Knowledge;
+using KnowledgeTracker.Domain.Knowledge;
 using KnowledgeTracker.Mcp;
 using KnowledgeTracker.Mcp.ApplicationApi;
 using KnowledgeTracker.Mcp.Configuration;
@@ -24,6 +25,71 @@ public sealed class KnowledgeToolsDelegationTests
         Assert.Equal(client.CreatedSubject, result);
         Assert.Equal(new CreateSubjectRequest("C#", "Language notes", null), client.CreateSubjectRequest);
         Assert.Equal(WorkspaceId, client.LastWorkspaceId);
+    }
+
+    [Fact]
+    public async Task CreateNoteAsync_MapsFlatMcpParametersToApplicationRequest()
+    {
+        var client = new RecordingApplicationApiClient();
+        var tools = new KnowledgeTools(client, CreateOptions());
+        var subjectId = Guid.NewGuid();
+        var topicId = Guid.NewGuid();
+        var definitionId = Guid.NewGuid();
+        var startedAtUtc = DateTimeOffset.Parse("2026-09-09T12:00:00Z");
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => tools.CreateNoteAsync(
+            WorkspaceName, subjectId, topicId, "Delegates", "Flat MCP parameters", 45, startedAtUtc,
+            [new McpStudyNoteMetric(definitionId, 2.5m)], CancellationToken.None));
+
+        var request = Assert.IsType<CreateStudyNoteRequest>(client.CreateNoteRequest);
+        Assert.Equal(topicId, request.TopicId);
+        Assert.Equal("Delegates", request.Title);
+        Assert.Equal("Flat MCP parameters", request.Content);
+        Assert.Equal(TimeSpan.FromMinutes(45), request.StudyDuration);
+        Assert.Equal(startedAtUtc, request.StudyStartedAtUtc);
+        var metric = Assert.Single(request.Metrics);
+        Assert.Equal(new StudyNoteMetricRequest(definitionId, 2.5m), metric);
+        Assert.Equal(WorkspaceId, client.LastWorkspaceId);
+    }
+
+    [Fact]
+    public async Task CreateGoalAsync_MapsFlatMcpParametersToApplicationRequest()
+    {
+        var client = new RecordingApplicationApiClient();
+        var tools = new KnowledgeTools(client, CreateOptions());
+        var subjectId = Guid.NewGuid();
+        var topicId = Guid.NewGuid();
+        var targetDate = new DateOnly(2026, 10, 1);
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => tools.CreateGoalAsync(
+            WorkspaceName, subjectId, topicId, "Ship it", GoalKind.TargetDate,
+            targetDate: targetDate, subGoals: ["Draft", "Review"], cancellationToken: CancellationToken.None));
+
+        var request = Assert.IsType<CreateSubjectGoalRequest>(client.CreateGoalRequest);
+        Assert.Equal(topicId, request.TopicId);
+        Assert.Equal("Ship it", request.Title);
+        Assert.Equal(GoalKind.TargetDate, request.Kind);
+        Assert.Null(request.MetricDefinitionId);
+        Assert.Null(request.TargetValue);
+        Assert.Equal(targetDate, request.TargetDate);
+        Assert.Equal(GoalPeriod.AllTime, request.Period);
+        Assert.Null(request.PeriodStartDate);
+        Assert.Null(request.PeriodEndDate);
+        Assert.Equal(["Draft", "Review"], request.SubGoals);
+        Assert.Equal(WorkspaceId, client.LastWorkspaceId);
+    }
+
+    [Fact]
+    public void MutationTools_DoNotExposeApplicationRequestRecordsToMcpClients()
+    {
+        var parameterTypes = typeof(KnowledgeTools)
+            .GetMethods()
+            .Where(method => method.Name is nameof(KnowledgeTools.CreateNoteAsync) or nameof(KnowledgeTools.CreateGoalAsync))
+            .SelectMany(method => method.GetParameters())
+            .Select(parameter => parameter.ParameterType);
+
+        Assert.DoesNotContain(typeof(CreateStudyNoteRequest), parameterTypes);
+        Assert.DoesNotContain(typeof(CreateSubjectGoalRequest), parameterTypes);
     }
 
     [Fact]
@@ -66,6 +132,8 @@ public sealed class KnowledgeToolsDelegationTests
         public IReadOnlyCollection<SubjectSummary> Subjects { get; } =
             [new SubjectSummary(Guid.NewGuid(), "C#", null, null, null)];
         public CreateSubjectRequest? CreateSubjectRequest { get; private set; }
+        public CreateStudyNoteRequest? CreateNoteRequest { get; private set; }
+        public CreateSubjectGoalRequest? CreateGoalRequest { get; private set; }
         public bool ListSubjectsCalled { get; private set; }
         public Guid LastWorkspaceId { get; private set; }
         public Exception? Failure { get; init; }
@@ -103,14 +171,22 @@ public sealed class KnowledgeToolsDelegationTests
         public Task<IReadOnlyCollection<StudyNoteDetails>> ListNotesAsync(Guid workspaceId, Guid subjectId, bool includeDescendants, CancellationToken ct) =>
             Task.FromResult<IReadOnlyCollection<StudyNoteDetails>>([]);
 
-        public Task<StudyNoteDetails?> CreateNoteAsync(Guid workspaceId, Guid subjectId, CreateStudyNoteRequest request, CancellationToken ct) =>
-            Task.FromResult<StudyNoteDetails?>(null);
+        public Task<StudyNoteDetails?> CreateNoteAsync(Guid workspaceId, Guid subjectId, CreateStudyNoteRequest request, CancellationToken ct)
+        {
+            CreateNoteRequest = request;
+            LastWorkspaceId = workspaceId;
+            return Task.FromResult<StudyNoteDetails?>(null);
+        }
 
         public Task<IReadOnlyCollection<SubjectGoalDetails>> ListGoalsAsync(Guid workspaceId, Guid subjectId, CancellationToken ct) =>
             Task.FromResult<IReadOnlyCollection<SubjectGoalDetails>>([]);
 
-        public Task<SubjectGoalDetails?> CreateGoalAsync(Guid workspaceId, Guid subjectId, CreateSubjectGoalRequest request, CancellationToken ct) =>
-            Task.FromResult<SubjectGoalDetails?>(null);
+        public Task<SubjectGoalDetails?> CreateGoalAsync(Guid workspaceId, Guid subjectId, CreateSubjectGoalRequest request, CancellationToken ct)
+        {
+            CreateGoalRequest = request;
+            LastWorkspaceId = workspaceId;
+            return Task.FromResult<SubjectGoalDetails?>(null);
+        }
 
         public Task<bool> CompleteGoalAsync(Guid workspaceId, Guid id, CancellationToken ct) => Task.FromResult(false);
 

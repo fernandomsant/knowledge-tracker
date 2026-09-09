@@ -2,21 +2,23 @@ using KnowledgeTracker.Mcp.ApplicationApi;
 using KnowledgeTracker.Mcp.ApplicationApi.Authentication;
 using KnowledgeTracker.Mcp.Configuration;
 using KnowledgeTracker.Mcp;
+using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Configuration.Json;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.AspNetCore;
 using ModelContextProtocol.Server;
 using McpServerConfiguration = KnowledgeTracker.Mcp.Configuration.McpServerOptions;
 
+var environmentSettings = LoadEnvironmentSettings();
 var builder = WebApplication.CreateBuilder(args);
-builder.Configuration.Sources.Insert(0, new JsonConfigurationSource
+if (environmentSettings is not null)
 {
-    Path = FindEnvironmentSettingsPath(),
-    Optional = true,
-    ReloadOnChange = false,
-});
+    builder.Configuration.AddInMemoryCollection(environmentSettings
+        .Where(setting => !string.IsNullOrWhiteSpace(setting.Value) && string.IsNullOrWhiteSpace(builder.Configuration[setting.Key]))
+        .ToDictionary(setting => setting.Key, setting => setting.Value));
+}
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 
@@ -59,7 +61,7 @@ var app = builder.Build();
 app.MapMcp(options.McpEndpointPath);
 await app.RunAsync();
 
-static string FindEnvironmentSettingsPath()
+static Dictionary<string, string?>? LoadEnvironmentSettings()
 {
     for (var directory = new DirectoryInfo(Directory.GetCurrentDirectory()); directory is not null; directory = directory.Parent)
     {
@@ -68,8 +70,25 @@ static string FindEnvironmentSettingsPath()
             : new DirectoryInfo(Path.Combine(directory.FullName, "src", "KnowledgeTracker"));
         var candidate = Path.Combine(solutionDirectory.FullName, ".env.json");
         if (File.Exists(Path.Combine(solutionDirectory.FullName, "KnowledgeTracker.slnx")) && File.Exists(candidate))
-            return Path.GetRelativePath(Directory.GetCurrentDirectory(), candidate);
+        {
+            using var document = JsonDocument.Parse(File.ReadAllText(candidate));
+            var settings = new Dictionary<string, string?>();
+            AddConfigurationValues(document.RootElement, null, settings);
+            return settings;
+        }
     }
 
-    return ".env.json";
+    return null;
+}
+
+static void AddConfigurationValues(JsonElement element, string? prefix, Dictionary<string, string?> settings)
+{
+    foreach (var property in element.EnumerateObject())
+    {
+        var key = string.IsNullOrEmpty(prefix) ? property.Name : $"{prefix}:{property.Name}";
+        if (property.Value.ValueKind == JsonValueKind.Object)
+            AddConfigurationValues(property.Value, key, settings);
+        else if (property.Value.ValueKind != JsonValueKind.Null)
+            settings[key] = property.Value.ToString();
+    }
 }

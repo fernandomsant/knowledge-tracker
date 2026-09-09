@@ -10,6 +10,23 @@ namespace KnowledgeTracker.Tests.Authentication;
 
 public sealed class ApplicationApiClientTests
 {
+    private static readonly Guid WorkspaceId = Guid.NewGuid();
+
+    [Fact]
+    public async Task ListWorkspacesAsync_UsesMcpBearerTokenWithoutWorkspaceHeader()
+    {
+        var transport = new RecordingHttpMessageHandler(_ =>
+            Task.FromResult(JsonResponse(HttpStatusCode.OK, Array.Empty<WorkspaceDetails>())));
+        var client = CreateClient(transport);
+
+        var result = await client.ListWorkspacesAsync(CancellationToken.None);
+
+        Assert.Empty(result);
+        Assert.Equal("/mcp-api/workspaces", transport.Request!.RequestUri?.PathAndQuery);
+        Assert.Equal("Bearer", transport.Request.Headers.Authorization?.Scheme);
+        Assert.False(transport.Request.Headers.Contains("X-Workspace-Id"));
+    }
+
     [Fact]
     public async Task ListSubjectsAsync_UsesDedicatedRouteAndMcpBearerToken()
     {
@@ -18,7 +35,7 @@ public sealed class ApplicationApiClientTests
             Task.FromResult(JsonResponse(HttpStatusCode.OK, new[] { subject })));
         var client = CreateClient(transport);
 
-        var result = await client.ListSubjectsAsync(CancellationToken.None);
+        var result = await client.ListSubjectsAsync(WorkspaceId, CancellationToken.None);
 
         Assert.Equal(new[] { subject }, result);
         Assert.NotNull(transport.Request);
@@ -29,16 +46,15 @@ public sealed class ApplicationApiClientTests
     }
 
     [Fact]
-    public async Task ListSubjectsAsync_ForwardsConfiguredWorkspaceSelection()
+    public async Task ListSubjectsAsync_ForwardsSelectedWorkspaceHeader()
     {
-        var workspaceId = Guid.NewGuid();
         var transport = new RecordingHttpMessageHandler(_ =>
             Task.FromResult(JsonResponse(HttpStatusCode.OK, Array.Empty<SubjectSummary>())));
-        var client = CreateClient(transport, workspaceId);
+        var client = CreateClient(transport);
 
-        await client.ListSubjectsAsync(CancellationToken.None);
+        await client.ListSubjectsAsync(WorkspaceId, CancellationToken.None);
 
-        Assert.Equal(workspaceId.ToString(), transport.Request!.Headers.GetValues("X-Workspace-Id").Single());
+        Assert.Equal(WorkspaceId.ToString(), transport.Request!.Headers.GetValues("X-Workspace-Id").Single());
     }
 
     [Fact]
@@ -56,6 +72,7 @@ public sealed class ApplicationApiClientTests
         var client = CreateClient(transport);
 
         var result = await client.CreateSubjectAsync(
+            WorkspaceId,
             new CreateSubjectRequest("C#", "Language notes", null),
             CancellationToken.None);
 
@@ -68,7 +85,7 @@ public sealed class ApplicationApiClientTests
         var client = CreateClient(new RecordingHttpMessageHandler(_ =>
             Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound))));
 
-        var result = await client.GetSubjectAsync(Guid.NewGuid(), CancellationToken.None);
+        var result = await client.GetSubjectAsync(WorkspaceId, Guid.NewGuid(), CancellationToken.None);
 
         Assert.Null(result);
     }
@@ -79,7 +96,7 @@ public sealed class ApplicationApiClientTests
         var client = CreateClient(new RecordingHttpMessageHandler(_ =>
             Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound))));
 
-        var result = await client.CompleteGoalAsync(Guid.NewGuid(), CancellationToken.None);
+        var result = await client.CompleteGoalAsync(WorkspaceId, Guid.NewGuid(), CancellationToken.None);
 
         Assert.False(result);
     }
@@ -103,7 +120,7 @@ public sealed class ApplicationApiClientTests
             })));
 
         var exception = await Assert.ThrowsAsync<ApplicationApiException>(() =>
-            client.ListSubjectsAsync(CancellationToken.None));
+            client.ListSubjectsAsync(WorkspaceId, CancellationToken.None));
 
         Assert.Equal((int)statusCode, exception.StatusCode);
         Assert.Equal(category, exception.Category);
@@ -117,7 +134,7 @@ public sealed class ApplicationApiClientTests
             throw new TaskCanceledException("simulated timeout", innerException: null, CancellationToken.None)));
 
         var exception = await Assert.ThrowsAsync<ApplicationApiException>(() =>
-            client.ListSubjectsAsync(CancellationToken.None));
+            client.ListSubjectsAsync(WorkspaceId, CancellationToken.None));
 
         Assert.Equal(0, exception.StatusCode);
         Assert.Equal("timeout", exception.Category);
@@ -130,7 +147,7 @@ public sealed class ApplicationApiClientTests
             throw new HttpRequestException("simulated network failure")));
 
         var exception = await Assert.ThrowsAsync<ApplicationApiException>(() =>
-            client.ListSubjectsAsync(CancellationToken.None));
+            client.ListSubjectsAsync(WorkspaceId, CancellationToken.None));
 
         Assert.Equal(0, exception.StatusCode);
         Assert.Equal("unavailable", exception.Category);
@@ -146,7 +163,7 @@ public sealed class ApplicationApiClientTests
             throw new TaskCanceledException("caller cancelled", innerException: null, cancellation.Token)));
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            client.ListSubjectsAsync(cancellation.Token));
+            client.ListSubjectsAsync(WorkspaceId, cancellation.Token));
     }
 
     [Fact]
@@ -160,12 +177,12 @@ public sealed class ApplicationApiClientTests
         }));
 
         await Assert.ThrowsAsync<ApplicationApiException>(() =>
-            client.CreateSubjectAsync(new CreateSubjectRequest("C#", null, null), CancellationToken.None));
+            client.CreateSubjectAsync(WorkspaceId, new CreateSubjectRequest("C#", null, null), CancellationToken.None));
 
         Assert.Equal(1, calls);
     }
 
-    private static IApplicationApiClient CreateClient(HttpMessageHandler transport, Guid? workspaceId = null)
+    private static IApplicationApiClient CreateClient(HttpMessageHandler transport)
     {
         var options = new McpServerOptions
         {
@@ -175,7 +192,7 @@ public sealed class ApplicationApiClientTests
             McpEndpointPath = "/mcp",
             ApplicationBaseUrl = "http://localhost:5015/",
             AccessToken = "mcp_identifier_secret",
-            WorkspaceId = workspaceId,
+            WorkspaceNames = [],
         };
         var authentication = new McpAccessTokenHandler(options)
         {

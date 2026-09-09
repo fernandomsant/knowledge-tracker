@@ -15,8 +15,16 @@ public sealed class McpKnowledgeController(
     ApplicationKnowledge.ITopicService topics,
     ApplicationKnowledge.IStudyNoteService notes,
     ApplicationKnowledge.ISubjectGoalService goals,
-    ApplicationKnowledge.ISubjectGoalActivityService goalActivity) : ControllerBase
+    ApplicationKnowledge.ISubjectGoalActivityService goalActivity,
+    ApplicationKnowledge.IWorkspaceService workspaces) : ControllerBase
 {
+    // Workspace names are resolved through this MCP-authenticated route before
+    // knowledge operations use the existing workspace ID data scope.
+    [HttpGet("workspaces")]
+    public async Task<ActionResult<IReadOnlyCollection<ApplicationKnowledge.WorkspaceDetails>>> ListWorkspacesAsync(
+        CancellationToken ct) =>
+        Ok(await workspaces.ListAsync(ct));
+
     [HttpGet("subjects")]
     public async Task<ActionResult<IReadOnlyCollection<ApplicationKnowledge.SubjectSummary>>> ListSubjectsAsync(CancellationToken ct) =>
         Ok(await subjects.ListAsync(ct));

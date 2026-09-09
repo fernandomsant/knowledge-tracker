@@ -10,7 +10,7 @@ internal static class ConfigurationValidation
         string? mcpEndpointPath,
         string? applicationBaseUrl,
         string? accessToken,
-        string? workspaceId)
+        string? workspaceNames)
     {
         var normalizedListenAddress = listenAddress?.Trim();
         if (string.IsNullOrWhiteSpace(normalizedListenAddress)
@@ -44,16 +44,7 @@ internal static class ConfigurationValidation
             throw new InvalidOperationException(
                 "MCP server configuration value 'McpServer:AccessToken' must be an MCP access token.");
 
-        var normalizedWorkspaceId = workspaceId?.Trim();
-        Guid? parsedWorkspaceId = null;
-        if (!string.IsNullOrWhiteSpace(normalizedWorkspaceId))
-        {
-            if (!Guid.TryParse(normalizedWorkspaceId, out var workspaceGuid) || workspaceGuid == Guid.Empty)
-                throw new InvalidOperationException(
-                    "MCP server configuration value 'McpServer:WorkspaceId' must be a valid workspace identifier.");
-
-            parsedWorkspaceId = workspaceGuid;
-        }
+        var parsedWorkspaceNames = ParseWorkspaceNames(workspaceNames);
 
         return new McpServerOptions
         {
@@ -63,8 +54,26 @@ internal static class ConfigurationValidation
             McpEndpointPath = normalizedEndpointPath!,
             ApplicationBaseUrl = baseUri.ToString().TrimEnd('/') + "/",
             AccessToken = normalizedAccessToken,
-            WorkspaceId = parsedWorkspaceId,
+            WorkspaceNames = parsedWorkspaceNames,
         };
+    }
+
+    private static IReadOnlyCollection<string> ParseWorkspaceNames(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return [];
+
+        var workspaceNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in value.Split(';', StringSplitOptions.TrimEntries))
+        {
+            if (string.IsNullOrWhiteSpace(item))
+                throw new InvalidOperationException(
+                    "MCP server configuration value 'McpServer:WorkspaceId' must contain semicolon-separated workspace names.");
+
+            workspaceNames.Add(item);
+        }
+
+        return workspaceNames.ToArray();
     }
 
     private static bool IsValidEndpointPath(string? path) =>

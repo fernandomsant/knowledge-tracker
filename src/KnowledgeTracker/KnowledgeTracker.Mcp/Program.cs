@@ -4,16 +4,20 @@ using KnowledgeTracker.Mcp.Configuration;
 using KnowledgeTracker.Mcp;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using ModelContextProtocol.AspNetCore;
 using ModelContextProtocol.Server;
 using McpServerConfiguration = KnowledgeTracker.Mcp.Configuration.McpServerOptions;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
 
 builder.Configuration.AddJsonFile(
     "appsettings.mcp.local.json",
     optional: true,
     reloadOnChange: false);
+builder.Configuration.AddEnvironmentVariables();
 
 var options = McpServerConfiguration.Load(builder.Configuration);
 

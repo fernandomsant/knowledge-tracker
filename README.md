@@ -106,11 +106,11 @@ $env:McpServer__Port = "3001"
 $env:McpServer__McpEndpointPath = "/mcp"
 $env:McpServer__ApplicationBaseUrl = "http://localhost:5015"
 $env:McpServer__AccessToken = "mcp_<identifier>_<secret>"
-$env:McpServer__WorkspaceId = "<workspace-guid>"
+$env:McpServer__WorkspaceId = "Personal;Codex Plan"
 dotnet run --project src/KnowledgeTracker/KnowledgeTracker.Mcp
 ```
 
-The MCP server uses the official Streamable HTTP transport and is available at `http://127.0.0.1:3001/mcp` with the configuration above. Configure your MCP client to connect to that URL. `WorkspaceId` is optional for compatibility while knowledge repositories are being migrated; when set, the server forwards it as `X-Workspace-Id` on every application API call. You can also place the same values in the ignored `src/KnowledgeTracker/KnowledgeTracker.Mcp/appsettings.mcp.local.json` file; see `appsettings.mcp.example.json` for the shape.
+The MCP server uses the official Streamable HTTP transport and is available at `http://127.0.0.1:3001/mcp` with the configuration above. Configure your MCP client to connect to that URL. For file-based configuration, copy `src/KnowledgeTracker/KnowledgeTracker.Mcp/appsettings.mcp.example.json` to the ignored `src/KnowledgeTracker/KnowledgeTracker.Mcp/appsettings.mcp.local.json` file and edit the copy; the example file is documentation only and is never loaded. Every MCP tool call must include the `workspaceName` where it should run. `WorkspaceId` contains workspace names for the optional server-side allowlist: an empty value permits any user-owned workspace, while multiple permitted names must be separated with semicolons. The MCP server resolves the selected name for the authenticated user and forwards its ID to the Web application as one `X-Workspace-Id` header. Environment variables such as `McpServer__AccessToken` can be used instead of the local file.
 
 ### MCP authentication and authorization
 
@@ -134,7 +134,7 @@ Content-Type: application/json
 }
 ```
 
-The available MCP client scopes are `subjects:read`, `subjects:write`, `topics:read`, `topics:write`, `notes:read`, `notes:write`, `goals:read`, `goals:write`, `connections:read`, `connections:write`, `layouts:read`, `layouts:write`, `metrics:read`, `metrics:write`, and `tokens:manage`. These scopes define which operations that MCP client may perform; there is no separate user-scope intersection. The token is still bound to its owning user, and a configured `WorkspaceId` selects the workspace for data operations.
+The available MCP client scopes are `subjects:read`, `subjects:write`, `topics:read`, `topics:write`, `notes:read`, `notes:write`, `goals:read`, `goals:write`, `connections:read`, `connections:write`, `layouts:read`, `layouts:write`, `metrics:read`, `metrics:write`, and `tokens:manage`. These scopes define which operations that MCP client may perform; there is no separate user-scope intersection. The token is still bound to its owning user. The MCP client selects the workspace by name per operation, and the server's configured `WorkspaceId` names restrict that selection when non-empty.
 
 MCP operations use dedicated `/mcp-api/...` routes and a dedicated `McpAccessToken` authentication scheme. Normal `/api/...` routes and normal user access tokens are not used for MCP tool operations. The application services remain responsible for enforcing the MCP client scopes, while the MCP process only translates tool calls into those routes. Revoke a token with `DELETE /api/mcp-access-tokens/{id}` using a normal user access token; expiration and revocation invalidate it independently of normal application sessions.
 

@@ -21,6 +21,8 @@ namespace KnowledgeTracker.Tests.Mcp;
 public sealed class McpProcessHttpIntegrationTests
 {
     private const string TestToken = "mcp_phase4_identifier_secret";
+    private static readonly Guid TestWorkspaceId = Guid.Parse("8d2a8d8e-08d7-4f0c-bf26-8d4f9a6043b1");
+    private const string TestWorkspaceName = "Codex Plan";
 
     [Fact]
     public async Task IndependentProcess_RemainsAvailableAcrossClientsAndReleasesConfiguredListenerOnStop()
@@ -49,10 +51,14 @@ public sealed class McpProcessHttpIntegrationTests
                     tools.Select(tool => tool.Name).OrderBy(name => name));
 
                 var listSubjects = tools.Single(tool => tool.Name == "list_subjects");
-                var result = await listSubjects.CallAsync(new Dictionary<string, object?>());
+                var result = await listSubjects.CallAsync(new Dictionary<string, object?>
+                {
+                    ["workspaceName"] = TestWorkspaceName,
+                });
 
                 Assert.NotEqual(true, result.IsError);
                 Assert.True(fakeApplication.State.ValidMcpAuthorization);
+                Assert.True(fakeApplication.State.ValidWorkspaceSelection);
                 Assert.False(JsonSerializer.Serialize(result).Contains(TestToken, StringComparison.Ordinal));
             }
 
@@ -96,9 +102,15 @@ public sealed class McpProcessHttpIntegrationTests
         builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, 0));
 
         var server = builder.Build();
+        server.MapGet("/mcp-api/workspaces", () =>
+            Results.Json(new[]
+            {
+                new WorkspaceDetails(TestWorkspaceId, TestWorkspaceName, DateTimeOffset.UtcNow),
+            }));
         server.MapGet("/mcp-api/subjects", (HttpRequest request) =>
         {
             state.ValidMcpAuthorization = request.Headers.Authorization == $"Bearer {TestToken}";
+            state.ValidWorkspaceSelection = request.Headers["X-Workspace-Id"] == TestWorkspaceId.ToString();
             return Results.Json(new[]
             {
                 new SubjectSummary(Guid.NewGuid(), "Phase 4", null, null, null),
@@ -134,6 +146,7 @@ public sealed class McpProcessHttpIntegrationTests
         startInfo.Environment["McpServer__McpEndpointPath"] = "/mcp";
         startInfo.Environment["McpServer__ApplicationBaseUrl"] = applicationBaseAddress.ToString();
         startInfo.Environment["McpServer__AccessToken"] = TestToken;
+        startInfo.Environment["McpServer__WorkspaceId"] = TestWorkspaceName;
 
         var process = Process.Start(startInfo)!;
         _ = process.StandardOutput.ReadToEndAsync();
@@ -206,5 +219,6 @@ public sealed class McpProcessHttpIntegrationTests
     private sealed class FakeApplicationState
     {
         public bool ValidMcpAuthorization { get; set; }
+        public bool ValidWorkspaceSelection { get; set; }
     }
 }

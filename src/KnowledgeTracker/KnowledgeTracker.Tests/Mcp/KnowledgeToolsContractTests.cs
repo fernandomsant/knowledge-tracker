@@ -61,22 +61,22 @@ public sealed class KnowledgeToolsContractTests
     public void ToolParameters_PreserveRequiredAndOptionalApplicationInputs()
     {
         Assert.Equal(
-            ["name", "description", "parentSubjectId", "cancellationToken"],
+            ["workspaceName", "name", "description", "parentSubjectId", "cancellationToken"],
             ParametersOf(nameof(KnowledgeTools.CreateSubjectAsync)));
         Assert.Equal(
-            ["subjectId", "request", "cancellationToken"],
+            ["workspaceName", "subjectId", "request", "cancellationToken"],
             ParametersOf(nameof(KnowledgeTools.CreateNoteAsync)));
         Assert.Equal(
-            ["from", "to", "cancellationToken"],
+            ["workspaceName", "from", "to", "cancellationToken"],
             ParametersOf(nameof(KnowledgeTools.ListGoalActivityAsync)));
 
         var createSubjectParameters = Method(nameof(KnowledgeTools.CreateSubjectAsync)).GetParameters();
         var nullability = new NullabilityInfoContext();
         Assert.False(createSubjectParameters[0].ParameterType.IsGenericType);
         Assert.Equal(typeof(string), createSubjectParameters[0].ParameterType);
-        Assert.Equal(typeof(string), createSubjectParameters[1].ParameterType);
-        Assert.Equal(NullabilityState.Nullable, nullability.Create(createSubjectParameters[1]).ReadState);
-        Assert.Equal(typeof(Guid?), createSubjectParameters[2].ParameterType);
+        Assert.Equal(typeof(string), createSubjectParameters[2].ParameterType);
+        Assert.Equal(NullabilityState.Nullable, nullability.Create(createSubjectParameters[2]).ReadState);
+        Assert.Equal(typeof(Guid?), createSubjectParameters[3].ParameterType);
     }
 
     private static string[] ParametersOf(string methodName) =>

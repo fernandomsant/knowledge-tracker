@@ -15,14 +15,16 @@ public sealed class McpServerConfigurationTests
             endpointPath: "/mcp",
             applicationBaseUrl: "http://localhost:5015",
             accessToken: "mcp_identifier_secret",
-            workspaceId: "9c3d8b2e-8f36-4b0f-9d4f-0c91a65d6f7a"));
+            workspaceNames: "Personal; Codex Plan"));
 
         Assert.Equal("127.0.0.1", options.ListenAddress);
         Assert.Equal(3001, options.Port);
         Assert.Equal("/mcp", options.McpEndpointPath);
         Assert.Equal("http://localhost:5015/", options.ApplicationBaseUrl);
         Assert.Equal("mcp_identifier_secret", options.AccessToken);
-        Assert.Equal(Guid.Parse("9c3d8b2e-8f36-4b0f-9d4f-0c91a65d6f7a"), options.WorkspaceId);
+        Assert.Equal(
+            new[] { "Personal", "Codex Plan" },
+            options.WorkspaceNames);
         Assert.Equal("127.0.0.1", options.ListenIpAddress.ToString());
     }
 
@@ -34,7 +36,7 @@ public sealed class McpServerConfigurationTests
     [InlineData("McpEndpointPath", "/mcp?query")]
     [InlineData("ApplicationBaseUrl", "not-a-url")]
     [InlineData("AccessToken", "normal-access-token")]
-    [InlineData("WorkspaceId", "not-a-guid")]
+    [InlineData("WorkspaceId", "Personal;;Codex Plan")]
     public void Load_RejectsInvalidConfiguration(string key, string value)
     {
         var values = CreateValues();
@@ -88,9 +90,9 @@ public sealed class McpServerConfigurationTests
         string? endpointPath = "/mcp",
         string? applicationBaseUrl = "http://localhost:5015",
         string? accessToken = "mcp_identifier_secret",
-        string? workspaceId = null) =>
+        string? workspaceNames = null) =>
         new ConfigurationBuilder()
-            .AddInMemoryCollection(CreateValues(listenAddress, port, endpointPath, applicationBaseUrl, accessToken, workspaceId))
+            .AddInMemoryCollection(CreateValues(listenAddress, port, endpointPath, applicationBaseUrl, accessToken, workspaceNames))
             .Build();
 
     private static Dictionary<string, string?> CreateValues(
@@ -99,13 +101,13 @@ public sealed class McpServerConfigurationTests
         string? endpointPath = "/mcp",
         string? applicationBaseUrl = "http://localhost:5015",
         string? accessToken = "mcp_identifier_secret",
-        string? workspaceId = null) => new()
+        string? workspaceNames = null) => new()
     {
         ["McpServer:ListenAddress"] = listenAddress,
         ["McpServer:Port"] = port,
         ["McpServer:McpEndpointPath"] = endpointPath,
         ["McpServer:ApplicationBaseUrl"] = applicationBaseUrl,
         ["McpServer:AccessToken"] = accessToken,
-        ["McpServer:WorkspaceId"] = workspaceId,
+        ["McpServer:WorkspaceId"] = workspaceNames,
     };
 }

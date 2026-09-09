@@ -4,79 +4,106 @@ using KnowledgeTracker.Application.Knowledge;
 
 namespace KnowledgeTracker.Mcp.ApplicationApi;
 
+// Authenticated adapter from MCP operations to dedicated Web API routes.
 public sealed class ApplicationApiClient(HttpClient httpClient) : IApplicationApiClient
 {
-    public Task<IReadOnlyCollection<SubjectSummary>> ListSubjectsAsync(CancellationToken ct) =>
-        GetAsync<IReadOnlyCollection<SubjectSummary>>("mcp-api/subjects", ct);
+    public Task<IReadOnlyCollection<WorkspaceDetails>> ListWorkspacesAsync(CancellationToken ct) =>
+        GetAsync<IReadOnlyCollection<WorkspaceDetails>>("mcp-api/workspaces", ct);
 
-    public Task<SubjectDetails?> GetSubjectAsync(Guid id, CancellationToken ct) =>
-        GetOptionalAsync<SubjectDetails>($"mcp-api/subjects/{id}", ct);
+    public Task<IReadOnlyCollection<SubjectSummary>> ListSubjectsAsync(Guid workspaceId, CancellationToken ct) =>
+        GetAsync<IReadOnlyCollection<SubjectSummary>>("mcp-api/subjects", workspaceId, ct);
 
-    public Task<SubjectSummary> CreateSubjectAsync(CreateSubjectRequest request, CancellationToken ct) =>
-        PostAsync<CreateSubjectRequest, SubjectSummary>("mcp-api/subjects", request, ct);
+    public Task<SubjectDetails?> GetSubjectAsync(Guid workspaceId, Guid id, CancellationToken ct) =>
+        GetOptionalAsync<SubjectDetails>($"mcp-api/subjects/{id}", workspaceId, ct);
 
-    public Task<IReadOnlyCollection<TopicDetails>> ListTopicsAsync(CancellationToken ct) =>
-        GetAsync<IReadOnlyCollection<TopicDetails>>("mcp-api/topics", ct);
+    public Task<SubjectSummary> CreateSubjectAsync(Guid workspaceId, CreateSubjectRequest request, CancellationToken ct) =>
+        PostAsync<CreateSubjectRequest, SubjectSummary>("mcp-api/subjects", workspaceId, request, ct);
 
-    public Task<TopicDetails> CreateTopicAsync(Guid subjectId, string name, CancellationToken ct) =>
-        PostAsync<CreateTopicRequest, TopicDetails>($"mcp-api/subjects/{subjectId}/topics", new(subjectId, name), ct);
+    public Task<IReadOnlyCollection<TopicDetails>> ListTopicsAsync(Guid workspaceId, CancellationToken ct) =>
+        GetAsync<IReadOnlyCollection<TopicDetails>>("mcp-api/topics", workspaceId, ct);
 
-    public Task<IReadOnlyCollection<StudyNoteDetails>> ListNotesAsync(Guid subjectId, bool includeDescendants, CancellationToken ct) =>
-        GetAsync<IReadOnlyCollection<StudyNoteDetails>>($"mcp-api/subjects/{subjectId}/notes?includeDescendants={includeDescendants.ToString().ToLowerInvariant()}", ct);
+    public Task<TopicDetails> CreateTopicAsync(Guid workspaceId, Guid subjectId, string name, CancellationToken ct) =>
+        PostAsync<CreateTopicRequest, TopicDetails>($"mcp-api/subjects/{subjectId}/topics", workspaceId, new(subjectId, name), ct);
 
-    public Task<StudyNoteDetails?> CreateNoteAsync(Guid subjectId, CreateStudyNoteRequest request, CancellationToken ct) =>
-        PostOptionalAsync<CreateStudyNoteRequest, StudyNoteDetails>($"mcp-api/subjects/{subjectId}/notes", request, ct);
+    public Task<IReadOnlyCollection<StudyNoteDetails>> ListNotesAsync(Guid workspaceId, Guid subjectId, bool includeDescendants, CancellationToken ct) =>
+        GetAsync<IReadOnlyCollection<StudyNoteDetails>>($"mcp-api/subjects/{subjectId}/notes?includeDescendants={includeDescendants.ToString().ToLowerInvariant()}", workspaceId, ct);
 
-    public Task<IReadOnlyCollection<SubjectGoalDetails>> ListGoalsAsync(Guid subjectId, CancellationToken ct) =>
-        GetAsync<IReadOnlyCollection<SubjectGoalDetails>>($"mcp-api/subjects/{subjectId}/goals", ct);
+    public Task<StudyNoteDetails?> CreateNoteAsync(Guid workspaceId, Guid subjectId, CreateStudyNoteRequest request, CancellationToken ct) =>
+        PostOptionalAsync<CreateStudyNoteRequest, StudyNoteDetails>($"mcp-api/subjects/{subjectId}/notes", workspaceId, request, ct);
 
-    public Task<SubjectGoalDetails?> CreateGoalAsync(Guid subjectId, CreateSubjectGoalRequest request, CancellationToken ct) =>
-        PostOptionalAsync<CreateSubjectGoalRequest, SubjectGoalDetails>($"mcp-api/subjects/{subjectId}/goals", request, ct);
+    public Task<IReadOnlyCollection<SubjectGoalDetails>> ListGoalsAsync(Guid workspaceId, Guid subjectId, CancellationToken ct) =>
+        GetAsync<IReadOnlyCollection<SubjectGoalDetails>>($"mcp-api/subjects/{subjectId}/goals", workspaceId, ct);
 
-    public async Task<bool> CompleteGoalAsync(Guid id, CancellationToken ct)
+    public Task<SubjectGoalDetails?> CreateGoalAsync(Guid workspaceId, Guid subjectId, CreateSubjectGoalRequest request, CancellationToken ct) =>
+        PostOptionalAsync<CreateSubjectGoalRequest, SubjectGoalDetails>($"mcp-api/subjects/{subjectId}/goals", workspaceId, request, ct);
+
+    public async Task<bool> CompleteGoalAsync(Guid workspaceId, Guid id, CancellationToken ct)
     {
-        using var response = await httpClient.PostAsync($"mcp-api/subject-goals/{id}/complete", content: null, ct);
+        using var request = CreateRequest(HttpMethod.Post, $"mcp-api/subject-goals/{id}/complete", workspaceId);
+        using var response = await SendAsync(() => httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct));
         if (response.StatusCode == HttpStatusCode.NotFound)
             return false;
         await EnsureSuccessAsync(response);
         return true;
     }
 
-    public Task<IReadOnlyCollection<GoalActivityDetails>> ListGoalActivityAsync(DateOnly from, DateOnly to, CancellationToken ct) =>
-        GetAsync<IReadOnlyCollection<GoalActivityDetails>>($"mcp-api/goal-activity?from={from:yyyy-MM-dd}&to={to:yyyy-MM-dd}", ct);
+    public Task<IReadOnlyCollection<GoalActivityDetails>> ListGoalActivityAsync(Guid workspaceId, DateOnly from, DateOnly to, CancellationToken ct) =>
+        GetAsync<IReadOnlyCollection<GoalActivityDetails>>($"mcp-api/goal-activity?from={from:yyyy-MM-dd}&to={to:yyyy-MM-dd}", workspaceId, ct);
 
-    private async Task<T> GetAsync<T>(string path, CancellationToken ct)
+    private Task<T> GetAsync<T>(string path, Guid workspaceId, CancellationToken ct) =>
+        GetAsync<T>(path, ct, workspaceId);
+
+    private async Task<T> GetAsync<T>(string path, CancellationToken ct, Guid? workspaceId = null)
     {
-        using var response = await SendAsync(() => httpClient.GetAsync(path, HttpCompletionOption.ResponseHeadersRead, ct));
+        using var request = CreateRequest(HttpMethod.Get, path, workspaceId);
+        using var response = await SendAsync(() => httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct));
         await EnsureSuccessAsync(response);
         return await response.Content.ReadFromJsonAsync<T>(cancellationToken: ct)
             ?? throw new ApplicationApiException((int)response.StatusCode, "empty response");
     }
 
-    private async Task<T?> GetOptionalAsync<T>(string path, CancellationToken ct)
+    private async Task<T?> GetOptionalAsync<T>(string path, Guid workspaceId, CancellationToken ct)
     {
-        using var response = await SendAsync(() => httpClient.GetAsync(path, HttpCompletionOption.ResponseHeadersRead, ct));
+        using var request = CreateRequest(HttpMethod.Get, path, workspaceId);
+        using var response = await SendAsync(() => httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct));
         if (response.StatusCode == HttpStatusCode.NotFound)
             return default;
         await EnsureSuccessAsync(response);
         return await response.Content.ReadFromJsonAsync<T>(cancellationToken: ct);
     }
 
-    private async Task<TResponse> PostAsync<TRequest, TResponse>(string path, TRequest request, CancellationToken ct)
+    private async Task<TResponse> PostAsync<TRequest, TResponse>(string path, Guid workspaceId, TRequest body, CancellationToken ct)
     {
-        using var response = await SendAsync(() => httpClient.PostAsJsonAsync(path, request, cancellationToken: ct));
+        using var request = CreateRequest(HttpMethod.Post, path, workspaceId);
+        request.Content = JsonContent.Create(body);
+        using var response = await SendAsync(() => httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct));
         await EnsureSuccessAsync(response);
         return await response.Content.ReadFromJsonAsync<TResponse>(cancellationToken: ct)
             ?? throw new ApplicationApiException((int)response.StatusCode, "empty response");
     }
 
-    private async Task<TResponse?> PostOptionalAsync<TRequest, TResponse>(string path, TRequest request, CancellationToken ct)
+    private async Task<TResponse?> PostOptionalAsync<TRequest, TResponse>(string path, Guid workspaceId, TRequest body, CancellationToken ct)
     {
-        using var response = await SendAsync(() => httpClient.PostAsJsonAsync(path, request, cancellationToken: ct));
+        using var request = CreateRequest(HttpMethod.Post, path, workspaceId);
+        request.Content = JsonContent.Create(body);
+        using var response = await SendAsync(() => httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct));
         if (response.StatusCode == HttpStatusCode.NotFound)
             return default;
         await EnsureSuccessAsync(response);
         return await response.Content.ReadFromJsonAsync<TResponse>(cancellationToken: ct);
+    }
+
+    private static HttpRequestMessage CreateRequest(HttpMethod method, string path, Guid? workspaceId)
+    {
+        var request = new HttpRequestMessage(method, path);
+        if (workspaceId is { } id)
+        {
+            if (id == Guid.Empty)
+                throw new ArgumentException("A workspace identifier is required.", nameof(workspaceId));
+
+            request.Headers.TryAddWithoutValidation("X-Workspace-Id", id.ToString());
+        }
+        return request;
     }
 
     private static async Task<HttpResponseMessage> SendAsync(Func<Task<HttpResponseMessage>> send)

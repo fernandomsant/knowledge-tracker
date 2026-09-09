@@ -5,14 +5,14 @@ namespace KnowledgeTracker.Mcp.Configuration;
 
 public sealed class McpServerOptions
 {
+    // Runtime settings loaded from the MCP server's local configuration or environment.
     public required string ListenAddress { get; init; }
     public required int Port { get; init; }
     public required string McpEndpointPath { get; init; }
     public required string ApplicationBaseUrl { get; init; }
     public required string AccessToken { get; init; }
-    // One MCP server instance operates on one configured knowledge workspace.
-    // It remains optional until the application knowledge routes require it.
-    public Guid? WorkspaceId { get; init; }
+    // Empty means every workspace name is allowed; values restrict MCP calls to that set.
+    public required IReadOnlyCollection<string> WorkspaceNames { get; init; }
     public required IPAddress ListenIpAddress { get; init; }
 
     public static McpServerOptions Load(IConfiguration configuration)

@@ -248,21 +248,34 @@ file static class ConnectionStringResolver
         var argumentValue = GetArgumentValue(args, "--connection-string");
         if (!string.IsNullOrWhiteSpace(argumentValue)) return argumentValue;
 
-        var environmentValue = Environment.GetEnvironmentVariable("ConnectionStrings__KnowledgeTracker")
-            ?? Environment.GetEnvironmentVariable("ConnectionStrings__KnowledgeTracker_01");
+        var environmentValue = Environment.GetEnvironmentVariable("ConnectionStrings__KnowledgeTracker");
         if (!string.IsNullOrWhiteSpace(environmentValue)) return environmentValue;
 
         var settingsPath = FindDevelopmentSettingsPath();
-        if (settingsPath is not null)
+        var connectionString = LoadConnectionString(settingsPath);
+        if (!string.IsNullOrWhiteSpace(connectionString))
         {
-            using var document = JsonDocument.Parse(File.ReadAllText(settingsPath));
-            if (document.RootElement.TryGetProperty("ConnectionStrings", out var connectionStrings))
-                foreach (var name in new[] { "KnowledgeTracker", "KnowledgeTracker_01" })
-                    if (connectionStrings.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(value.GetString()))
-                        return value.GetString()!;
+            return connectionString;
         }
 
-        throw new InvalidOperationException("Set ConnectionStrings__KnowledgeTracker, configure appsettings.Development.json, or pass --connection-string <value> to run the seed.");
+        connectionString = LoadConnectionString(FindEnvironmentSettingsPath());
+        if (!string.IsNullOrWhiteSpace(connectionString)) return connectionString;
+
+        throw new InvalidOperationException("Set ConnectionStrings__KnowledgeTracker, configure appsettings.Development.json or .env.json, or pass --connection-string <value> to run the seed.");
+    }
+
+    private static string? LoadConnectionString(string? settingsPath)
+    {
+        if (settingsPath is null) return null;
+
+        using var document = JsonDocument.Parse(File.ReadAllText(settingsPath));
+        if (!document.RootElement.TryGetProperty("ConnectionStrings", out var connectionStrings)) return null;
+
+        return connectionStrings.TryGetProperty("KnowledgeTracker", out var value)
+            && value.ValueKind == JsonValueKind.String
+            && !string.IsNullOrWhiteSpace(value.GetString())
+            ? value.GetString()
+            : null;
     }
 
     private static string? GetArgumentValue(IReadOnlyList<string> args, string argumentName)
@@ -278,6 +291,19 @@ file static class ConnectionStringResolver
         {
             var candidate = Path.Combine(directory.FullName, "src", "KnowledgeTracker", "KnowledgeTracker.Web", "appsettings.Development.json");
             if (File.Exists(candidate)) return candidate;
+        }
+        return null;
+    }
+
+    private static string? FindEnvironmentSettingsPath()
+    {
+        for (var directory = new DirectoryInfo(Directory.GetCurrentDirectory()); directory is not null; directory = directory.Parent)
+        {
+            var solutionDirectory = File.Exists(Path.Combine(directory.FullName, "KnowledgeTracker.slnx"))
+                ? directory
+                : new DirectoryInfo(Path.Combine(directory.FullName, "src", "KnowledgeTracker"));
+            var candidate = Path.Combine(solutionDirectory.FullName, ".env.json");
+            if (File.Exists(Path.Combine(solutionDirectory.FullName, "KnowledgeTracker.slnx")) && File.Exists(candidate)) return candidate;
         }
         return null;
     }

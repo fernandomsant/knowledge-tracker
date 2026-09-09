@@ -15,9 +15,7 @@ internal static class MigrationConnectionStringResolver
             return suppliedConnectionString;
         }
 
-        var environmentConnectionString =
-            Environment.GetEnvironmentVariable("ConnectionStrings__KnowledgeTracker")
-            ?? Environment.GetEnvironmentVariable("ConnectionStrings__KnowledgeTracker_01");
+        var environmentConnectionString = Environment.GetEnvironmentVariable("ConnectionStrings__KnowledgeTracker");
 
         if (!string.IsNullOrWhiteSpace(environmentConnectionString))
         {
@@ -31,7 +29,7 @@ internal static class MigrationConnectionStringResolver
         }
 
         throw new InvalidOperationException(
-            "Set ConnectionStrings__KnowledgeTracker, configure appsettings.Development.json, or pass --connection-string <value> to run migrations.");
+            "Set ConnectionStrings__KnowledgeTracker, configure appsettings.Development.json or .env.json, or pass --connection-string <value> to run migrations.");
     }
 
     private static string? GetArgumentValue(IReadOnlyList<string> args, string argumentName)
@@ -49,7 +47,17 @@ internal static class MigrationConnectionStringResolver
 
     private static string? LoadDevelopmentConnectionString()
     {
-        var settingsPath = FindDevelopmentSettingsPath();
+        var connectionString = LoadConnectionString(FindDevelopmentSettingsPath());
+        if (!string.IsNullOrWhiteSpace(connectionString))
+        {
+            return connectionString;
+        }
+
+        return LoadConnectionString(FindEnvironmentSettingsPath());
+    }
+
+    private static string? LoadConnectionString(string? settingsPath)
+    {
         if (settingsPath is null)
         {
             return null;
@@ -61,8 +69,7 @@ internal static class MigrationConnectionStringResolver
             return null;
         }
 
-        return GetConnectionString(connectionStrings, "KnowledgeTracker")
-            ?? GetConnectionString(connectionStrings, "KnowledgeTracker_01");
+        return GetConnectionString(connectionStrings, "KnowledgeTracker");
     }
 
     private static string? FindDevelopmentSettingsPath()
@@ -77,6 +84,23 @@ internal static class MigrationConnectionStringResolver
                 "appsettings.Development.json");
 
             if (File.Exists(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private static string? FindEnvironmentSettingsPath()
+    {
+        for (var directory = new DirectoryInfo(Directory.GetCurrentDirectory()); directory is not null; directory = directory.Parent)
+        {
+            var solutionDirectory = File.Exists(Path.Combine(directory.FullName, "KnowledgeTracker.slnx"))
+                ? directory
+                : new DirectoryInfo(Path.Combine(directory.FullName, "src", "KnowledgeTracker"));
+            var candidate = Path.Combine(solutionDirectory.FullName, ".env.json");
+            if (File.Exists(Path.Combine(solutionDirectory.FullName, "KnowledgeTracker.slnx")) && File.Exists(candidate))
             {
                 return candidate;
             }

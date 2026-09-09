@@ -3,6 +3,7 @@ using KnowledgeTracker.Mcp.ApplicationApi.Authentication;
 using KnowledgeTracker.Mcp.Configuration;
 using KnowledgeTracker.Mcp;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Configuration.Json;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.AspNetCore;
@@ -10,6 +11,12 @@ using ModelContextProtocol.Server;
 using McpServerConfiguration = KnowledgeTracker.Mcp.Configuration.McpServerOptions;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Configuration.Sources.Insert(0, new JsonConfigurationSource
+{
+    Path = FindEnvironmentSettingsPath(),
+    Optional = true,
+    ReloadOnChange = false,
+});
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 
@@ -51,3 +58,18 @@ builder.Services
 var app = builder.Build();
 app.MapMcp(options.McpEndpointPath);
 await app.RunAsync();
+
+static string FindEnvironmentSettingsPath()
+{
+    for (var directory = new DirectoryInfo(Directory.GetCurrentDirectory()); directory is not null; directory = directory.Parent)
+    {
+        var solutionDirectory = File.Exists(Path.Combine(directory.FullName, "KnowledgeTracker.slnx"))
+            ? directory
+            : new DirectoryInfo(Path.Combine(directory.FullName, "src", "KnowledgeTracker"));
+        var candidate = Path.Combine(solutionDirectory.FullName, ".env.json");
+        if (File.Exists(Path.Combine(solutionDirectory.FullName, "KnowledgeTracker.slnx")) && File.Exists(candidate))
+            return Path.GetRelativePath(Directory.GetCurrentDirectory(), candidate);
+    }
+
+    return ".env.json";
+}

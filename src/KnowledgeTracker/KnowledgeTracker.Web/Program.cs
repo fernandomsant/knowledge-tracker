@@ -12,11 +12,17 @@ using KnowledgeTracker.Web.Authentication.Services;
 using KnowledgeTracker.Web.Knowledge.Filters;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Configuration.Json;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Configuration.Sources.Insert(0, new JsonConfigurationSource
+{
+    Path = FindEnvironmentSettingsPath(),
+    Optional = true,
+    ReloadOnChange = false,
+});
 
 var connectionString = builder.Configuration.GetConnectionString("KnowledgeTracker")
-    ?? builder.Configuration.GetConnectionString("KnowledgeTracker_01")
     ?? throw new InvalidOperationException("A KnowledgeTracker connection string is required.");
 var authenticationOptions = KnowledgeTracker.Application.Authentication.AuthenticationOptions.Default;
 var accessTokenKey = ReadSecret(builder.Configuration, "Authentication:AccessTokenSigningKey");
@@ -119,6 +125,21 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 app.Run();
+
+static string FindEnvironmentSettingsPath()
+{
+    for (var directory = new DirectoryInfo(Directory.GetCurrentDirectory()); directory is not null; directory = directory.Parent)
+    {
+        var solutionDirectory = File.Exists(Path.Combine(directory.FullName, "KnowledgeTracker.slnx"))
+            ? directory
+            : new DirectoryInfo(Path.Combine(directory.FullName, "src", "KnowledgeTracker"));
+        var candidate = Path.Combine(solutionDirectory.FullName, ".env.json");
+        if (File.Exists(Path.Combine(solutionDirectory.FullName, "KnowledgeTracker.slnx")) && File.Exists(candidate))
+            return Path.GetRelativePath(Directory.GetCurrentDirectory(), candidate);
+    }
+
+    return ".env.json";
+}
 
 static byte[] ReadSecret(IConfiguration configuration, string key)
 {

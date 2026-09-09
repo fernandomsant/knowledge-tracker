@@ -28,7 +28,7 @@ npm install --prefix src/frontend
 
 ### Configure the backend
 
-Create `src/KnowledgeTracker/KnowledgeTracker.Web/appsettings.Development.json` if it does not exist. Configure a SQL Server connection string under either `KnowledgeTracker` or `KnowledgeTracker_01`:
+Create `src/KnowledgeTracker/KnowledgeTracker.Web/appsettings.Development.json` if it does not exist. Configure the `KnowledgeTracker` SQL Server connection string:
 
 ```json
 {
@@ -55,6 +55,8 @@ $rng.GetBytes($bytes)
 ```
 
 Run the command twice—once for each secret.
+
+As an alternative for local configuration, create an untracked `src/KnowledgeTracker/.env.json` using the same JSON sections as appsettings. Values in appsettings take precedence; missing values fall back to `.env.json`, while command-line arguments and environment variables remain higher priority.
 
 ## Apply database migrations
 

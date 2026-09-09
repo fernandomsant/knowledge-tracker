@@ -1,7 +1,7 @@
 ﻿import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { lazy, Suspense } from 'react';
 import {
-  ArrowRight, Bell, Brain, Check, Clock3, FileText, Folder,
+  ArrowRight, Bell, Brain, Check, Clock3, FileText, Folder, KeyRound,
   GitBranch, Hash, HelpCircle, LayoutDashboard, Library, List, LogOut, Menu,
   Maximize2, MoreHorizontal, Network, Plus, Search, Settings, Share2, Sparkles, Trash2, X, Zap,
 } from './icons';
@@ -11,6 +11,7 @@ import { IconButton } from './components/IconButton';
 import { KnowledgeGraph } from './components/KnowledgeGraph';
 import { WorkspaceSwitcher } from './components/sidebar/WorkspaceSwitcher';
 import { WorkspaceCreateModal } from './components/sidebar/WorkspaceCreateModal';
+import { McpAccessTokenModal } from './components/authentication/McpAccessTokenModal';
 import { getSubjectParentOptions } from './knowledge/utils/subjectHierarchy';
 import { knowledgeClient } from './knowledge/api/knowledgeClient';
 
@@ -51,7 +52,7 @@ const initialCanvasContext = {
 const Sidebar = memo(function Sidebar({
   user, subjects, notesBySubject, noteCount, activeNav, activeSubject,
   workspaces, activeWorkspaceId, onWorkspaceChange, onCreateWorkspace, onNavigate, onSelectSubject,
-  onCreateSubject, onLogout, open, onClose,
+  onCreateSubject, onOpenMcpTokens, onLogout, open, onClose,
 }) {
   return (
     <>
@@ -84,7 +85,7 @@ const Sidebar = memo(function Sidebar({
           ))}
         </section>
         <div className="sidebar-bottom">
-          <button><Settings size={17}/>Settings</button><button><HelpCircle size={17}/>Help center</button><button className="logout-button" onClick={onLogout}><LogOut size={17}/>Log out</button>
+          <button type="button" onClick={onOpenMcpTokens}><KeyRound size={17}/>MCP access tokens</button><button type="button"><Settings size={17}/>Settings</button><button type="button"><HelpCircle size={17}/>Help center</button><button type="button" className="logout-button" onClick={onLogout}><LogOut size={17}/>Log out</button>
           <div className="upgrade"><span><Zap size={16}/></span><strong>Unlock more space</strong><p>Unlimited notes, exports and advanced connections.</p><button>Upgrade plan <ArrowRight size={14}/></button></div>
         </div>
       </aside>
@@ -208,6 +209,7 @@ export default function App() {
   const [newWorkspaceName, setNewWorkspaceName] = useState('');
   const [workspaceError, setWorkspaceError] = useState(null);
   const [workspaceCreating, setWorkspaceCreating] = useState(false);
+  const [mcpTokenModalOpen, setMcpTokenModalOpen] = useState(false);
   const [canvasExpanded, setCanvasExpanded] = useState(false);
   const [canvasContext, setCanvasContext] = useState(initialCanvasContext);
   const copiedTimerRef = useRef(null);
@@ -311,6 +313,8 @@ export default function App() {
     setWorkspaceError(null);
     setWorkspaceModalOpen(true);
   }, [workspaces.length]);
+  const openMcpTokenModal = useCallback(() => setMcpTokenModalOpen(true), []);
+  const closeMcpTokenModal = useCallback(() => setMcpTokenModalOpen(false), []);
 
   const handleCreateWorkspace = useCallback(async event => {
     event.preventDefault();
@@ -393,6 +397,7 @@ export default function App() {
         onNavigate={handleNavigate}
         onSelectSubject={setActiveSubject}
         onCreateSubject={openModal}
+        onOpenMcpTokens={openMcpTokenModal}
         onLogout={logout}
         open={menuOpen}
         onClose={closeMenu}
@@ -499,6 +504,7 @@ export default function App() {
       />
       <SubjectModal open={modalOpen} name={newSubjectName} parentSubjectId={newSubjectParentId} parentOptions={parentOptions} onNameChange={setNewSubjectName} onParentChange={setNewSubjectParentId} onClose={closeModal} onCreate={handleCreateSubject}/>
       <WorkspaceCreateModal open={workspaceModalOpen} name={newWorkspaceName} error={workspaceError} isSubmitting={workspaceCreating} onNameChange={setNewWorkspaceName} onClose={closeWorkspaceModal} onCreate={handleCreateWorkspace}/>
+      <McpAccessTokenModal open={mcpTokenModalOpen} accessToken={accessToken} refreshAccessToken={refreshAccessToken} onClose={closeMcpTokenModal}/>
     </div>
   );
 }

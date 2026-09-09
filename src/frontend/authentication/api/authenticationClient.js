@@ -48,19 +48,28 @@ async function authenticatedRequest(path, accessToken) {
   return response.json();
 }
 
-async function authenticatedPost(path, accessToken) {
+async function authenticatedPost(path, accessToken, body) {
   const response = await fetch(`${apiBaseUrl}${path}`, {
     method: 'POST',
     credentials: 'include',
-    headers: { Authorization: `Bearer ${accessToken}` },
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      ...(body ? { 'Content-Type': 'application/json' } : {}),
+    },
+    body: body ? JSON.stringify(body) : undefined,
   });
-  if (!response.ok) throw new AuthenticationError('Authentication is unavailable. Try again.', response.status);
+  if (!response.ok) {
+    const problem = await response.json().catch(() => null);
+    throw new AuthenticationError(problem?.detail ?? 'Authentication is unavailable. Try again.', response.status);
+  }
+  return response.status === 204 ? null : response.json();
 }
 
 export const authenticationClient = {
   login: credentials => request('/api/authentication/login', credentials, undefined),
   refresh: () => request('/api/authentication/refresh', undefined, 10_000),
   logout: accessToken => authenticatedPost('/api/authentication/logout', accessToken),
+  createMcpAccessToken: (accessToken, request) => authenticatedPost('/api/mcp-access-tokens', accessToken, request),
   currentUser: accessToken => authenticatedRequest('/api/current-user', accessToken),
   async register(credentials) {
     await request('/api/authentication/register', credentials, undefined);

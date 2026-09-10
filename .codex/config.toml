@@ -1,2 +1,8 @@
 [mcp_servers.knowledge_tracker]
 url = "http://127.0.0.1:3001/mcp"
+
+[mcp_servers.knowledge_tracker.tools.create_goal]
+approval_mode = "approve"
+
+[mcp_servers.knowledge_tracker.tools.list_goals]
+approval_mode = "approve"

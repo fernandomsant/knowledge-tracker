@@ -21,7 +21,6 @@ public sealed class CurrentWorkspaceContext(IHttpContextAccessor httpContextAcce
 
     public Guid RequireWorkspaceId()
     {
-        // TODO(api): add centralized exception-to-ProblemDetails handling so these validation failures become explicit 400/401 responses instead of unhandled 500s.
         var value = httpContextAccessor.HttpContext?.Request.Headers[WorkspaceHeader].FirstOrDefault();
         if (string.IsNullOrWhiteSpace(value))
             throw new UnauthorizedAccessException("A selected workspace is required to access knowledge data.");

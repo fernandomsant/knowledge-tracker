@@ -1,4 +1,3 @@
-// TODO(deployment): require a deployment-provided API base URL; localhost fallback points production browsers at themselves.
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5015').replace(/\/$/, '');
 
 export class KnowledgeApiError extends Error {
@@ -30,7 +29,6 @@ async function request(accessToken, path, { method = 'GET', body, keepalive = fa
 
 export const knowledgeClient = {
   createWorkspace: (accessToken, name) => request(accessToken, '/api/workspaces', { method: 'POST', body: { name } }),
-  // TODO(architecture): replace the per-subject fan-out with one workspace snapshot endpoint; this grows to hundreds of HTTP calls as subjects increase.
   async load(accessToken, workspaceId) {
     const requestOptions = { workspaceId };
     const summaries = await request(accessToken, '/api/subjects', requestOptions);

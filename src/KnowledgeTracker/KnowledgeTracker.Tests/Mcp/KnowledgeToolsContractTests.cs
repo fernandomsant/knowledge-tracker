@@ -63,7 +63,6 @@ public sealed class KnowledgeToolsContractTests
         Assert.Equal(
             ["workspaceName", "name", "description", "parentSubjectId", "cancellationToken"],
             ParametersOf(nameof(KnowledgeTools.CreateSubjectAsync)));
-        // TODO(contract): generate or share HTTP/MCP contracts so this drift test cannot lag behind flattened tool parameters.
         Assert.Equal(
             ["workspaceName", "subjectId", "request", "cancellationToken"],
             ParametersOf(nameof(KnowledgeTools.CreateNoteAsync)));

@@ -14,6 +14,7 @@ public sealed class SubjectService(ISubjectRepository subjects, IStudyNoteReposi
         if (subject is null)
             return null;
 
+        // TODO(architecture): load notes and layouts in a workspace snapshot/bulk query; this repeats recursive notes and all-layout reads for every subject.
         var notes = await studyNotes.ListBySubjectTreeAsync(id, ct);
         var layoutPosition = (await layouts.ListAsync(ct)).FirstOrDefault(position => position.SubjectId == id);
         return new SubjectDetails(

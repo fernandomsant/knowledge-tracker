@@ -284,6 +284,7 @@ export default function App() {
 
   const flushLayoutSave = useCallback(options => {
     const positions = [...pendingLayoutRef.current.values()];
+    // TODO(reliability): retain this queue until saveSubjectLayout succeeds and block workspace changes on failure.
     if (!positions.length) return Promise.resolve(true);
     pendingLayoutRef.current.clear();
     return saveSubjectLayout(positions, options);

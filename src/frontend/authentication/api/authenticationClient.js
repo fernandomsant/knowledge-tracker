@@ -1,3 +1,4 @@
+// TODO(deployment): require a deployment-provided API base URL; localhost fallback points production browsers at themselves.
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5015').replace(/\/$/, '');
 
 export class AuthenticationError extends Error {

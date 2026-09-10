@@ -112,6 +112,7 @@ export function useKnowledgeStore(accessToken, refreshAccessToken, workspaceId) 
   }, [accessToken, refreshAccessToken, workspaceId]);
 
   useEffect(() => {
+    // TODO(sync): refetch on focus/visibility or subscribe to push updates so MCP, other tabs, and other clients reconcile here.
     let current = true;
     dispatch({ type: 'knowledge/loading' });
     void execute((token, selectedWorkspaceId) => knowledgeClient.load(token, selectedWorkspaceId))

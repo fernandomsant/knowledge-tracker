@@ -64,7 +64,7 @@ public sealed class KnowledgeToolsContractTests
             ["workspaceName", "name", "description", "parentSubjectId", "cancellationToken"],
             ParametersOf(nameof(KnowledgeTools.CreateSubjectAsync)));
         Assert.Equal(
-            ["workspaceName", "subjectId", "topicId", "title", "content", "studyDurationMinutes", "studyStartedAtUtc", "metrics", "cancellationToken"],
+            ["workspaceName", "subjectId", "request", "cancellationToken"],
             ParametersOf(nameof(KnowledgeTools.CreateNoteAsync)));
         Assert.Equal(
             ["workspaceName", "from", "to", "cancellationToken"],

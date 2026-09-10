@@ -1,4 +1,4 @@
-const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://localhost:5015' : '')).replace(/\/$/, '');
+const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5015').replace(/\/$/, '');
 
 export class KnowledgeApiError extends Error {
   constructor(message, status) {
@@ -29,7 +29,18 @@ async function request(accessToken, path, { method = 'GET', body, keepalive = fa
 
 export const knowledgeClient = {
   createWorkspace: (accessToken, name) => request(accessToken, '/api/workspaces', { method: 'POST', body: { name } }),
-  load: (accessToken, workspaceId) => request(accessToken, '/api/subjects/snapshot', { workspaceId }),
+  async load(accessToken, workspaceId) {
+    const requestOptions = { workspaceId };
+    const summaries = await request(accessToken, '/api/subjects', requestOptions);
+    const [subjects, connectionGroups, goalGroups, metricDefinitions, topics] = await Promise.all([
+      Promise.all(summaries.map(subject => request(accessToken, `/api/subjects/${subject.id}`, requestOptions))),
+      Promise.all(summaries.map(subject => request(accessToken, `/api/subjects/${subject.id}/connections`, requestOptions))),
+      Promise.all(summaries.map(subject => request(accessToken, `/api/subjects/${subject.id}/goals`, requestOptions))),
+      request(accessToken, '/api/study-metric-definitions', requestOptions),
+      request(accessToken, '/api/topics', requestOptions),
+    ]);
+    return { subjects, metricDefinitions, topics, goals: goalGroups.flat(), connections: [...new Map(connectionGroups.flat().map(item => [item.id, item])).values()] };
+  },
   createSubject: (accessToken, name, parentSubjectId, workspaceId) => request(accessToken, '/api/subjects', { method: 'POST', body: { name, parentSubjectId: parentSubjectId || null }, workspaceId }),
   updateSubject: (accessToken, id, name, description, parentSubjectId, workspaceId) => request(accessToken, `/api/subjects/${id}`, {
     method: 'PUT', body: { name, description, parentSubjectId: parentSubjectId || null }, workspaceId,

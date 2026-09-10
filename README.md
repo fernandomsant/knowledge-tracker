@@ -170,3 +170,14 @@ npm run migrate
 - `src/KnowledgeTracker/KnowledgeTracker.Web` — ASP.NET Core HTTP API
 - `src/KnowledgeTracker/KnowledgeTracker.Mcp` — separate MCP Streamable HTTP inbound adapter that calls dedicated application routes
 - `src/KnowledgeTracker/KnowledgeTracker.Migrations` — executable SQL migration runner
+
+## Architecture follow-ups
+
+These are documented improvement items; they are intentionally not implemented yet.
+
+1. **Workspace loading scales badly.** `src/frontend/knowledge/api/knowledgeClient.js:34` makes several requests per subject. Each subject detail then recursively loads descendant notes and reloads all layouts again in `src/KnowledgeTracker/KnowledgeTracker.Application/Knowledge/UseCases/SubjectService.cs:17`. With 100 subjects, this can become hundreds of HTTP calls and repeated database work.
+2. **Layout changes can be silently lost.** `src/frontend/App.jsx:285` clears pending positions before the request succeeds. Workspace switching ignores the returned failure, so a failed save loses the queued layout while the UI still changes workspace.
+3. **Invalid or missing workspace headers become server errors.** `src/KnowledgeTracker/KnowledgeTracker.Web/Authentication/Services/CurrentWorkspaceContext.cs:17` throws, but the normal API has no global exception-to-ProblemDetails handler. A malformed or missing `X-Workspace-Id` can become HTTP 500 instead of a clear 400/401 response.
+4. **Deployment is localhost-dependent.** `src/frontend/knowledge/api/knowledgeClient.js:1` defaults to `http://localhost:5015`. If the frontend is deployed elsewhere without `VITE_API_BASE_URL` at build time, users' browsers call their own machine.
+5. **Browser state does not reconcile external changes.** Changes made through MCP, another tab, or another client do not appear until the frontend reloads the workspace. There is no refetch, polling, or push update mechanism.
+6. **The two API surfaces can drift.** Normal `/api/*` controllers and MCP `/mcp-api/*` controllers share services but duplicate HTTP contracts. The failing MCP parameter test in `src/KnowledgeTracker/KnowledgeTracker.Tests/Mcp/KnowledgeToolsContractTests.cs:61` is evidence of that drift.

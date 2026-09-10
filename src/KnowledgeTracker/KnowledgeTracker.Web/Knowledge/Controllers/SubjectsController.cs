@@ -11,13 +11,7 @@ namespace KnowledgeTracker.Web.Knowledge.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/subjects")]
-public sealed class SubjectsController(
-    ISubjectService subjects,
-    ISubjectLayoutService layouts,
-    IStudyMetricDefinitionService metricDefinitions,
-    ITopicService topics,
-    ISubjectConnectionService connections,
-    ISubjectGoalService goals) : ControllerBase
+public sealed class SubjectsController(ISubjectService subjects, ISubjectLayoutService layouts) : ControllerBase
 {
     private const string GetSubjectByIdRoute = "get-subject-by-id";
 
@@ -27,26 +21,6 @@ public sealed class SubjectsController(
         CancellationToken ct
     ) =>
         Ok((await subjects.ListAsync(ct)).Select(KnowledgeResponseMapper.ToResponse).ToArray());
-
-    [HttpGet("snapshot")]
-    [ProducesResponseType(typeof(KnowledgeSnapshotResponse), StatusCodes.Status200OK)]
-    public async Task<ActionResult<KnowledgeSnapshotResponse>> SnapshotAsync(CancellationToken ct)
-    {
-        var summaries = await subjects.ListAsync(ct);
-        var subjectDetailsTask = Task.WhenAll(summaries.Select(subject => subjects.GetAsync(subject.Id, ct)));
-        var connectionGroupsTask = Task.WhenAll(summaries.Select(subject => connections.ListBySubjectAsync(subject.Id, ct)));
-        var goalGroupsTask = Task.WhenAll(summaries.Select(subject => goals.ListBySubjectAsync(subject.Id, ct)));
-        var metricDefinitionsTask = metricDefinitions.ListAsync(ct);
-        var topicsTask = topics.ListAsync(ct);
-        await Task.WhenAll(subjectDetailsTask, connectionGroupsTask, goalGroupsTask, metricDefinitionsTask, topicsTask);
-
-        return Ok(new KnowledgeSnapshotResponse(
-            subjectDetailsTask.Result.Where(subject => subject is not null).Select(subject => KnowledgeResponseMapper.ToResponse(subject!)).ToArray(),
-            metricDefinitionsTask.Result.Select(KnowledgeResponseMapper.ToResponse).ToArray(),
-            topicsTask.Result.Select(topic => new TopicResponse(topic.Id, topic.SubjectId, topic.Name)).ToArray(),
-            goalGroupsTask.Result.SelectMany(group => group).Select(KnowledgeResponseMapper.ToResponse).ToArray(),
-            connectionGroupsTask.Result.SelectMany(group => group).DistinctBy(connection => connection.Id).Select(KnowledgeResponseMapper.ToResponse).ToArray()));
-    }
 
     [HttpGet("{id:guid}", Name = GetSubjectByIdRoute)]
     [ProducesResponseType(typeof(SubjectDetailsResponse), StatusCodes.Status200OK)]

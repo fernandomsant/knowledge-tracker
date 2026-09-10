@@ -11,14 +11,6 @@ public sealed record SubjectDetailsResponse(
     SubjectLayoutPositionResponse? LayoutPosition
 );
 
-public sealed record KnowledgeSnapshotResponse(
-    IReadOnlyCollection<SubjectDetailsResponse> Subjects,
-    IReadOnlyCollection<StudyMetricDefinitionResponse> MetricDefinitions,
-    IReadOnlyCollection<TopicResponse> Topics,
-    IReadOnlyCollection<SubjectGoalResponse> Goals,
-    IReadOnlyCollection<SubjectConnectionResponse> Connections
-);
-
 public sealed record SubjectLayoutPositionResponse(Guid SubjectId, decimal NormalizedX, decimal NormalizedY);
 
 public sealed record StudyNoteResponse(

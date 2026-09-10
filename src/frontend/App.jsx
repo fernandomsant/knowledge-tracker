@@ -285,20 +285,13 @@ export default function App() {
   const flushLayoutSave = useCallback(options => {
     const positions = [...pendingLayoutRef.current.values()];
     if (!positions.length) return Promise.resolve(true);
-    return saveSubjectLayout(positions, options).then(success => {
-      if (success) {
-        positions.forEach(position => {
-          if (pendingLayoutRef.current.get(position.subjectId) === position)
-            pendingLayoutRef.current.delete(position.subjectId);
-        });
-      }
-      return success;
-    });
+    pendingLayoutRef.current.clear();
+    return saveSubjectLayout(positions, options);
   }, [saveSubjectLayout]);
 
   const handleWorkspaceChange = useCallback(async workspaceId => {
     if (!workspaceId || workspaceId === activeWorkspaceId) return;
-    if (!await flushLayoutSave()) return;
+    await flushLayoutSave();
     setActiveWorkspaceId(workspaceId);
     setActiveSubject('all');
     setActiveTopic('all');
@@ -331,8 +324,6 @@ export default function App() {
     setWorkspaceCreating(true);
     setWorkspaceError(null);
     try {
-      if (!await flushLayoutSave()) return;
-
       let workspace;
       try {
         workspace = await knowledgeClient.createWorkspace(accessToken, name);
@@ -343,6 +334,7 @@ export default function App() {
         workspace = await knowledgeClient.createWorkspace(refreshedSession.accessToken, name);
       }
 
+      await flushLayoutSave();
       setWorkspaces(current => [...current, workspace]);
       setActiveWorkspaceId(workspace.id);
       setActiveSubject('all');

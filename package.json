@@ -5,6 +5,7 @@
     "dev": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/dev.ps1",
     "dev:stop": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/stop-dev.ps1",
     "migrate": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/migrate.ps1",
-    "seed": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/seed.ps1"
+    "seed": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/seed.ps1",
+    "mcp": "dotnet run --project src\\KnowledgeTracker\\KnowledgeTracker.Mcp\\"
   }
 }

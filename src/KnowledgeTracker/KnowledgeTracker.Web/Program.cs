@@ -10,6 +10,7 @@ using KnowledgeTracker.Infrastructure.Authentication.Services;
 using KnowledgeTracker.Infrastructure.Authentication.Services.AccessTokens;
 using KnowledgeTracker.Web.Authentication.Services;
 using KnowledgeTracker.Web.Knowledge.Filters;
+using KnowledgeTracker.Web.Middleware;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Data.SqlClient;
@@ -31,6 +32,8 @@ var accessTokenKey = ReadSecret(builder.Configuration, "Authentication:AccessTok
 var refreshTokenPepper = ReadSecret(builder.Configuration, "Authentication:RefreshTokenPepper");
 
 builder.Services.AddControllers();
+builder.Services.AddExceptionHandler<ApiExceptionHandler>();
+builder.Services.AddProblemDetails();
 builder.Services.AddScoped<McpExceptionFilter>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddCors(options =>
@@ -99,6 +102,7 @@ builder.Services
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
+app.UseExceptionHandler();
 if (!app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 if (app.Environment.IsDevelopment())

@@ -113,11 +113,23 @@ export function useKnowledgeStore(accessToken, refreshAccessToken, workspaceId) 
 
   useEffect(() => {
     let current = true;
-    dispatch({ type: 'knowledge/loading' });
-    void execute((token, selectedWorkspaceId) => knowledgeClient.load(token, selectedWorkspaceId))
-      .then(knowledge => { if (current) dispatch({ type: 'knowledge/loaded', knowledge: toKnowledgeState(knowledge) }); })
-      .catch(reason => { if (current) dispatch({ type: 'knowledge/failed', error: errorMessage(reason) }); });
-    return () => { current = false; };
+    let loadVersion = 0;
+    const reload = () => {
+      if (document.visibilityState === 'hidden') return;
+      const version = ++loadVersion;
+      dispatch({ type: 'knowledge/loading' });
+      void execute((token, selectedWorkspaceId) => knowledgeClient.load(token, selectedWorkspaceId))
+        .then(knowledge => { if (current && version === loadVersion) dispatch({ type: 'knowledge/loaded', knowledge: toKnowledgeState(knowledge) }); })
+        .catch(reason => { if (current && version === loadVersion) dispatch({ type: 'knowledge/failed', error: errorMessage(reason) }); });
+    };
+    reload();
+    window.addEventListener('focus', reload);
+    document.addEventListener('visibilitychange', reload);
+    return () => {
+      current = false;
+      window.removeEventListener('focus', reload);
+      document.removeEventListener('visibilitychange', reload);
+    };
   }, [execute]);
 
   const subjectsById = useMemo(() => new Map(state.subjects.map(subject => [subject.id, subject])), [state.subjects]);
